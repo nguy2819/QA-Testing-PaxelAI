@@ -10,9 +10,10 @@ const express = require('express');
 const { spawn, exec } = require('child_process');
 const path  = require('path');
 const fs    = require('fs');
+const cors = require('cors');
 
 const app        = express();
-const PORT       = 3001;
+const PORT = process.env.PORT || 3001;
 const PROJECT    = path.join(__dirname, '..');
 const RUN_DIR    = path.join(__dirname, 'run');
 const LOG_FILE   = path.join(RUN_DIR, 'current.jsonl');
@@ -25,6 +26,7 @@ fs.mkdirSync(SS_DIR, { recursive: true });
 app.use(express.json());
 app.use(express.static(__dirname));                          // serves index.html
 app.use('/screenshots', express.static(SS_DIR));            // serves screenshots
+app.use(cors());
 
 // ── Spec map ──────────────────────────────────────────────────────────────────
 const SPEC_MAP = {

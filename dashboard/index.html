@@ -572,7 +572,7 @@ function startLiveFeed() {
   img.onerror = null; // never auto-hide — file may not exist for first few frames
   liveFeedTimer = setInterval(() => {
     img.style.display = 'block'; // re-assert visibility every tick
-    img.src = `/dashboard/run/screenshots/live.jpg?t=${Date.now()}`;
+    img.src = `${API_BASE}/screenshots/live.jpg?t=${Date.now()}`;
   }, 400);
 }
 function stopLiveFeed() {
@@ -729,7 +729,11 @@ async function startRun() {
 
   // POST to server — include role so server passes ROLE env var to Playwright
   try {
-    const res = await fetch('/api/run', {
+    const API_BASE =
+    window.location.hostname.includes('localhost')
+      ? 'http://localhost:3001'
+      : 'https://qa-testing-paxelai.onrender.com';
+    const res = await fetch(`${API_BASE}/api/run`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password, page: selectedPage, role: selectedRole, env: currentEnv }),
@@ -748,7 +752,7 @@ async function startRun() {
   }
 
   // Subscribe to SSE stream
-  eventSource = new EventSource('/api/stream');
+  eventSource = new EventSource(`${API_BASE}/api/stream`);
   eventSource.onmessage = (e) => {
     try {
       const entry = JSON.parse(e.data);
@@ -767,7 +771,7 @@ async function startRun() {
 async function stopTest() {
   stopLiveFeed();
   if (eventSource) { eventSource.close(); eventSource = null; }
-  try { await fetch('/api/stop', { method: 'POST' }); } catch {}
+  try { await fetch(`${API_BASE}/api/stop`, { method: 'POST' }); } catch {}
   // Finalize any running plan step as fail (interrupted)
   if (activePlanStepId) { finalizePlanStep(activePlanStepId, 'fail'); activePlanStepId = null; }
   endRun();
