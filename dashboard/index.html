@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Paxel.AI — QA Test Runner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:          #F5F0FF;
+      --surface:     #FFFFFF;
+      --border:      #E4D9FF;
+      --purple-50:   #F9F5FF;
+      --purple-100:  #EDE9FE;
+      --purple-200:  #DDD6FE;
+      --purple-500:  #8B5CF6;
+      --purple-600:  #7C3AED;
+      --purple-700:  #6D28D9;
+      --pass:        #059669;
+      --pass-bg:     #D1FAE5;
+      --fail:        #DC2626;
+      --fail-bg:     #FEE2E2;
+      --info:        #7C3AED;
+      --info-bg:     #EDE9FE;
+      --running:     #3B82F6;
+      --running-bg:  #EFF6FF;
+      --text:        #1E1B4B;
+      --muted:       #6B7280;
+      --radius-sm:   6px;
+      --radius-md:   10px;
+      --shadow-sm:   0 1px 3px rgba(109,40,217,.08);
+      --shadow-md:   0 4px 16px rgba(109,40,217,.12);
+    }
+    html, body { height: 100%; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.5;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── Top bar ─────────────────────────────────────────────────────── */
+    .topbar {
+      background: var(--surface);
+      border-bottom: 1.5px solid var(--border);
+      padding: 0 28px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      flex-shrink: 0;
+      box-shadow: var(--shadow-sm);
+      z-index: 50;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .brand-icon {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, var(--purple-600), var(--purple-500));
+      border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-weight: 700; font-size: 16px;
+      box-shadow: 0 2px 8px rgba(124,58,237,.3);
+    }
+    .brand-name { font-weight: 700; font-size: 16px; color: var(--purple-700); }
+    .brand-sub  { font-size: 11px; color: var(--muted); font-weight: 400; margin-top: 1px; }
+    .divider-v  { width: 1px; height: 32px; background: var(--border); flex-shrink: 0; }
+
+    .cred-form { display: flex; align-items: center; gap: 10px; flex: 1; }
+    .cred-label { font-size: 12px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+    .cred-input {
+      height: 36px; padding: 0 12px;
+      border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+      font-family: inherit; font-size: 13px; color: var(--text);
+      background: var(--purple-50); outline: none; transition: border-color .15s; min-width: 0;
+    }
+    .cred-input:focus { border-color: var(--purple-500); background: #fff; }
+    .cred-input.email { width: 200px; }
+    .cred-input.pass  { width: 140px; }
+    .env-toggle { display: flex; border: 1.5px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; flex-shrink: 0; }
+    .env-btn {
+      height: 36px; padding: 0 14px; background: var(--purple-50); border: none; cursor: pointer;
+      font-family: inherit; font-size: 12px; font-weight: 600; color: var(--muted);
+      transition: background .15s, color .15s;
+    }
+    .env-btn.active { background: var(--purple-600); color: #fff; }
+
+    /* ── Page groups with role sub-buttons ──────────────────────────── */
+    .page-buttons {
+      background: var(--surface); border-bottom: 1.5px solid var(--border);
+      padding: 10px 28px; display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap;
+      flex-shrink: 0;
+    }
+    .page-buttons-label {
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+      color: var(--muted); align-self: center; white-space: nowrap;
+    }
+    .page-divider-v { width: 1px; background: var(--border); align-self: stretch; }
+
+    .page-group { display: flex; flex-direction: column; gap: 5px; flex-shrink: 0; }
+    .page-group-label {
+      font-size: 11px; font-weight: 700; color: var(--purple-700);
+      text-align: center; letter-spacing: .02em; white-space: nowrap;
+    }
+    .role-btns { display: flex; gap: 4px; }
+    .role-btn {
+      height: 30px; padding: 0 10px;
+      border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+      background: var(--purple-50); color: var(--muted);
+      font-family: inherit; font-size: 11px; font-weight: 600; cursor: pointer;
+      transition: all .15s; white-space: nowrap;
+    }
+    .role-btn:hover { background: var(--purple-100); border-color: var(--purple-500); color: var(--purple-700); transform: translateY(-1px); }
+    .role-btn.selected {
+      background: var(--purple-600); color: #fff; border-color: var(--purple-700);
+      box-shadow: 0 2px 8px rgba(124,58,237,.3);
+    }
+    .role-btn.running {
+      background: var(--purple-700); color: #fff; border-color: var(--purple-700);
+    }
+    .role-btn.running::before { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #fff; margin-right: 5px; animation: pulse 1.2s infinite; }
+    .role-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.75)} }
+
+    /* ── Main layout ─────────────────────────────────────────────────── */
+    .main {
+      display: grid;
+      grid-template-columns: 1fr 460px;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* ── Left panel — live browser feed ─────────────────────────────── */
+    .browser-panel {
+      background: #F0EBF8; border-right: 1.5px solid var(--border);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .panel-header {
+      padding: 10px 20px; display: flex; align-items: center; gap: 10px;
+      background: var(--surface); border-bottom: 1.5px solid var(--border); flex-shrink: 0;
+    }
+    .panel-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+    .live-badge {
+      font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px;
+      background: var(--pass-bg); color: var(--pass); display: none;
+    }
+    .live-badge.show { display: inline-block; animation: livepulse 2s infinite; }
+    @keyframes livepulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+    .screenshot-wrap {
+      flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; overflow: hidden;
+    }
+    .screenshot-img {
+      max-width: 100%; max-height: 100%; object-fit: contain;
+      border-radius: var(--radius-md); box-shadow: 0 8px 32px rgba(109,40,217,.18);
+      border: 1.5px solid var(--border); transition: opacity .2s;
+    }
+    .no-screenshot { text-align: center; color: var(--muted); }
+    .no-screenshot .ns-icon { font-size: 52px; margin-bottom: 12px; opacity: .4; }
+    .no-screenshot strong { display: block; font-size: 15px; color: var(--purple-600); margin-bottom: 6px; }
+    .no-screenshot p { font-size: 13px; }
+    .step-counter {
+      padding: 10px 20px; background: var(--surface); border-top: 1.5px solid var(--border);
+      display: flex; gap: 20px; flex-shrink: 0;
+    }
+    .counter-item { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; }
+    .counter-dot  { width: 8px; height: 8px; border-radius: 50%; }
+
+    /* ── Right panel ─────────────────────────────────────────────────── */
+    .right-panel {
+      display: flex; flex-direction: column; background: var(--surface); overflow: hidden;
+    }
+
+    /* ── Right panel header: title + Run/Pause/Stop ──────────────────── */
+    .right-header {
+      padding: 10px 16px; background: var(--surface);
+      border-bottom: 1.5px solid var(--border);
+      display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+    }
+    .right-header-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); flex: 1; }
+    .ctrl-btns { display: flex; gap: 6px; }
+    .ctrl-btn {
+      height: 30px; padding: 0 12px; border-radius: var(--radius-sm);
+      font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
+      display: flex; align-items: center; gap: 5px; border: 1.5px solid transparent;
+      transition: all .15s; white-space: nowrap;
+    }
+    .ctrl-btn:disabled { opacity: .4; cursor: not-allowed; }
+    .ctrl-btn.run  { background: var(--purple-600); color: #fff; border-color: var(--purple-700); }
+    .ctrl-btn.run:hover:not(:disabled)  { background: var(--purple-700); }
+    .ctrl-btn.pause { background: #FEF3C7; color: #92400E; border-color: #FDE68A; }
+    .ctrl-btn.pause:hover:not(:disabled) { background: #FDE68A; }
+    .ctrl-btn.pause.active { background: #F59E0B; color: #fff; border-color: #D97706; }
+    .ctrl-btn.stop  { background: var(--fail-bg); color: var(--fail); border-color: #FECACA; }
+    .ctrl-btn.stop:hover:not(:disabled)  { background: #FEE2E2; border-color: var(--fail); }
+
+    /* ── Test plan list ──────────────────────────────────────────────── */
+    .plan-list {
+      flex-shrink: 0;
+      overflow-y: auto;
+      max-height: 42%;
+      border-bottom: 1.5px solid var(--border);
+    }
+    .plan-list::-webkit-scrollbar { width: 4px; }
+    .plan-list::-webkit-scrollbar-thumb { background: var(--purple-200); border-radius: 3px; }
+    .plan-empty {
+      padding: 28px 20px; text-align: center; color: var(--muted); font-size: 13px;
+    }
+    .plan-empty .pe-icon { font-size: 32px; margin-bottom: 8px; opacity: .4; }
+    .plan-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 16px; border-bottom: 1px solid var(--border);
+      transition: background .1s;
+    }
+    .plan-item:last-child { border-bottom: none; }
+    .plan-item:hover { background: var(--purple-50); }
+    .plan-item.status-running { background: var(--running-bg); }
+    .plan-item.status-pass    { background: #F0FDF4; }
+    .plan-item.status-fail    { background: #FFF5F5; }
+
+    .plan-step-num {
+      flex-shrink: 0; width: 28px; height: 28px;
+      border-radius: 50%; font-size: 11px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--purple-100); color: var(--purple-700);
+    }
+    .plan-item.status-running .plan-step-num { background: var(--running-bg); color: var(--running); }
+    .plan-item.status-pass    .plan-step-num { background: var(--pass-bg);    color: var(--pass);    }
+    .plan-item.status-fail    .plan-step-num { background: var(--fail-bg);    color: var(--fail);    }
+
+    .plan-step-label {
+      flex: 1; font-size: 12px; font-weight: 500; color: var(--text); line-height: 1.4;
+    }
+    .plan-item.status-running .plan-step-label { color: var(--running); font-weight: 600; }
+    .plan-item.status-pass    .plan-step-label { color: var(--pass); }
+    .plan-item.status-fail    .plan-step-label { color: var(--fail); }
+
+    .plan-step-icon {
+      flex-shrink: 0; width: 22px; height: 22px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 700;
+    }
+
+    /* Spinner for running state */
+    .spin-sm {
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid var(--purple-200); border-top-color: var(--running);
+      border-radius: 50%; animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Log section divider ─────────────────────────────────────────── */
+    .log-divider {
+      padding: 6px 16px; background: var(--purple-50);
+      border-bottom: 1.5px solid var(--border);
+      display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+    }
+    .log-divider-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+    .log-divider-count { font-size: 10px; color: var(--muted); }
+
+    /* ── Log entries ─────────────────────────────────────────────────── */
+    .log-list { flex: 1; overflow-y: auto; padding: 8px 12px; scroll-behavior: smooth; }
+    .log-list::-webkit-scrollbar { width: 4px; }
+    .log-list::-webkit-scrollbar-thumb { background: var(--purple-200); border-radius: 3px; }
+    .log-empty { text-align: center; padding: 24px 16px; color: var(--muted); font-size: 12px; }
+    .log-empty .le-icon { font-size: 28px; margin-bottom: 8px; opacity: .4; }
+    .log-entry {
+      display: flex; align-items: flex-start; gap: 8px;
+      padding: 6px 8px; border-radius: var(--radius-sm); margin-bottom: 3px;
+      animation: slideIn .15s ease-out; cursor: default;
+    }
+    @keyframes slideIn { from { opacity:0; transform:translateX(6px); } to { opacity:1; transform:translateX(0); } }
+    .log-entry.status-pass    { background: #F0FDF4; }
+    .log-entry.status-fail    { background: #FFF5F5; }
+    .log-entry.status-running { background: #EFF6FF; }
+    .log-entry.status-info    { background: var(--purple-50); }
+    .log-entry:hover { filter: brightness(.97); }
+    .log-icon  { font-size: 12px; flex-shrink: 0; margin-top: 1px; width: 16px; text-align: center; }
+    .log-msg   { flex: 1; font-size: 12px; line-height: 1.4; color: var(--text); word-break: break-word; }
+    .log-time  { font-size: 10px; color: var(--muted); white-space: nowrap; flex-shrink: 0; margin-top: 1px; }
+
+    /* ── Summary bar ─────────────────────────────────────────────────── */
+    .summary-bar {
+      padding: 8px 14px; background: var(--purple-50); border-top: 1.5px solid var(--border);
+      display: flex; gap: 12px; align-items: center; flex-shrink: 0;
+    }
+    .stat-pill { padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+    .stat-pill.pass    { background: var(--pass-bg);    color: var(--pass); }
+    .stat-pill.fail    { background: var(--fail-bg);    color: var(--fail); }
+    .stat-pill.running { background: var(--running-bg); color: var(--running); }
+    .stat-pill.info    { background: var(--info-bg);    color: var(--info); }
+    .clear-btn {
+      margin-left: auto; background: none; border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm); padding: 3px 10px;
+      font-family: inherit; font-size: 11px; color: var(--muted); cursor: pointer; transition: all .15s;
+    }
+    .clear-btn:hover { color: var(--text); border-color: var(--purple-200); }
+
+    /* ── Test Plan nav link ───────────────────────────────────────────── */
+    .test-plan-link {
+      display: flex; align-items: center; gap: 6px;
+      height: 30px; padding: 0 14px;
+      background: var(--purple-50); color: var(--purple-700);
+      border: 1.5px solid var(--purple-200); border-radius: var(--radius-sm);
+      font-family: inherit; font-size: 12px; font-weight: 700;
+      text-decoration: none; white-space: nowrap; flex-shrink: 0;
+      transition: all .15s; align-self: flex-end;
+    }
+    .test-plan-link:hover {
+      background: var(--purple-600); color: #fff; border-color: var(--purple-700);
+      box-shadow: 0 2px 8px rgba(124,58,237,.3);
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Top bar ──────────────────────────────────────────────────────────────── -->
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-icon">P</div>
+    <div>
+      <div class="brand-name">Paxel.AI</div>
+      <div class="brand-sub">QA Test Runner</div>
+    </div>
+  </div>
+  <div class="divider-v"></div>
+  <form class="cred-form" onsubmit="return false">
+    <span class="cred-label">Admin</span>
+    <input id="emailInput"    class="cred-input email" type="email"    placeholder="admin@paxel.ai"  value="tien@paxel.ai"  autocomplete="username"/>
+    <input id="passwordInput" class="cred-input pass"  type="password" placeholder="Password"        value="Paxel123"       autocomplete="current-password"/>
+    <div class="env-toggle">
+      <button class="env-btn active" id="envDev"  onclick="setEnv('dev')">DEV</button>
+      <button class="env-btn"        id="envProd" onclick="setEnv('prod')">PROD</button>
+    </div>
+  </form>
+</header>
+
+<!-- ── Page select buttons with role sub-buttons ─────────────────────────────── -->
+<nav class="page-buttons">
+  <span class="page-buttons-label">Select →</span>
+
+  <div class="page-group" id="group-sales-summary">
+    <span class="page-group-label">Sales Summary</span>
+    <div class="role-btns">
+      <button class="role-btn" id="btn-sales-summary-salesrep"  onclick="selectPage('sales-summary','salesrep')">Sales Rep</button>
+      <button class="role-btn" id="btn-sales-summary-director"  onclick="selectPage('sales-summary','director')">Director</button>
+      <button class="role-btn" id="btn-sales-summary-executive" onclick="selectPage('sales-summary','executive')">Executive</button>
+    </div>
+  </div>
+
+  <div class="page-divider-v"></div>
+
+  <div class="page-group" id="group-accounts">
+    <span class="page-group-label">Accounts</span>
+    <div class="role-btns">
+      <button class="role-btn" id="btn-accounts-salesrep"  onclick="selectPage('accounts','salesrep')">Sales Rep</button>
+      <button class="role-btn" id="btn-accounts-director"  onclick="selectPage('accounts','director')">Director</button>
+      <button class="role-btn" id="btn-accounts-executive" onclick="selectPage('accounts','executive')">Executive</button>
+    </div>
+  </div>
+
+  <div class="page-divider-v"></div>
+
+  <div class="page-group" id="group-opportunities">
+    <span class="page-group-label">Opportunities</span>
+    <div class="role-btns">
+      <button class="role-btn" id="btn-opportunities-salesrep"  onclick="selectPage('opportunities','salesrep')">Sales Rep</button>
+      <button class="role-btn" id="btn-opportunities-director"  onclick="selectPage('opportunities','director')">Director</button>
+      <button class="role-btn" id="btn-opportunities-executive" onclick="selectPage('opportunities','executive')">Executive</button>
+    </div>
+  </div>
+
+  <div class="page-divider-v"></div>
+
+  <div class="page-group" id="group-contracts-pricing">
+    <span class="page-group-label">Contracts &amp; Pricing</span>
+    <div class="role-btns">
+      <button class="role-btn" id="btn-contracts-pricing-salesrep"  onclick="selectPage('contracts-pricing','salesrep')">Sales Rep</button>
+      <button class="role-btn" id="btn-contracts-pricing-director"  onclick="selectPage('contracts-pricing','director')">Director</button>
+      <button class="role-btn" id="btn-contracts-pricing-executive" onclick="selectPage('contracts-pricing','executive')">Executive</button>
+    </div>
+  </div>
+
+  <div class="page-divider-v"></div>
+
+  <div class="page-group" id="group-contacts">
+    <span class="page-group-label">Contacts</span>
+    <div class="role-btns">
+      <button class="role-btn" id="btn-contacts-salesrep"  onclick="selectPage('contacts','salesrep')">Sales Rep</button>
+      <button class="role-btn" id="btn-contacts-director"  onclick="selectPage('contacts','director')">Director</button>
+      <button class="role-btn" id="btn-contacts-executive" onclick="selectPage('contacts','executive')">Executive</button>
+    </div>
+  </div>
+
+  <div class="page-divider-v" style="margin-left:auto"></div>
+
+  <a href="test-plan.html" class="test-plan-link" title="Open full Test Plan in a new tab">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+    Test Plan
+  </a>
+</nav>
+
+<!-- ── Main ─────────────────────────────────────────────────────────────────── -->
+<div class="main">
+
+  <!-- Left: live browser feed -->
+  <section class="browser-panel">
+    <div class="panel-header">
+      <span class="panel-title">Browser View</span>
+      <span class="live-badge" id="liveBadge">● LIVE</span>
+      <span id="currentStepLabel" style="margin-left:auto;font-size:11px;color:var(--muted);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+    </div>
+    <div class="screenshot-wrap" id="screenshotWrap">
+      <div class="no-screenshot" id="noScreenshot">
+        <div class="ns-icon">🧪</div>
+        <strong>No test running</strong>
+        <p>Select a page &amp; role to load its test plan,<br/>then click <strong>Run Test</strong>.</p>
+      </div>
+      <img class="screenshot-img" id="screenshotImg" src="" alt="" style="display:none"/>
+    </div>
+    <div class="step-counter">
+      <div class="counter-item">
+        <div class="counter-dot" style="background:var(--pass)"></div>
+        <span>Passed: <strong id="cntPass">0</strong></span>
+      </div>
+      <div class="counter-item">
+        <div class="counter-dot" style="background:var(--fail)"></div>
+        <span>Failed: <strong id="cntFail">0</strong></span>
+      </div>
+      <div class="counter-item">
+        <div class="counter-dot" style="background:var(--running)"></div>
+        <span>Running: <strong id="cntRunning">0</strong></span>
+      </div>
+      <div class="counter-item" style="margin-left:auto;color:var(--muted)">
+        <span id="elapsedLabel">—</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Right: test plan + step log -->
+  <section class="right-panel">
+
+    <!-- Header with controls -->
+    <div class="right-header">
+      <span class="right-header-title" id="rightPanelTitle">Test Plan</span>
+      <div class="ctrl-btns">
+        <button class="ctrl-btn run"   id="runBtn"   onclick="startRun()"   disabled>▶ Run Test</button>
+        <button class="ctrl-btn pause" id="pauseBtn" onclick="togglePause()" disabled>⏸ Pause</button>
+        <button class="ctrl-btn stop"  id="stopBtn"  onclick="stopTest()"   disabled>⏹ Stop</button>
+      </div>
+    </div>
+
+    <!-- Test plan steps -->
+    <div class="plan-list" id="planList">
+      <div class="plan-empty" id="planEmpty">
+        <div class="pe-icon">📋</div>
+        Select a page &amp; role above to see its test plan.
+      </div>
+    </div>
+
+    <!-- Log section divider -->
+    <div class="log-divider">
+      <span class="log-divider-label">Step Log</span>
+      <span class="log-divider-count" id="stepCount"></span>
+    </div>
+
+    <!-- Step log -->
+    <div class="log-list" id="logList">
+      <div class="log-empty" id="logEmpty">
+        <div class="le-icon">📄</div>
+        Steps will stream here as the test runs.
+      </div>
+    </div>
+
+    <!-- Summary bar -->
+    <div class="summary-bar">
+      <span class="stat-pill pass"    id="sumPass">0 pass</span>
+      <span class="stat-pill fail"    id="sumFail">0 fail</span>
+      <span class="stat-pill info"    id="sumInfo">0 info</span>
+      <button class="clear-btn" onclick="clearLog()">Clear</button>
+    </div>
+  </section>
+
+</div>
+
+<!-- ── Script ─────────────────────────────────────────────────────────────────── -->
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// Test plan definitions — keyed by "page-role" (e.g. "sales-summary-salesrep").
+// Each step: id, num, label, markers (substrings matched against log messages).
+// ─────────────────────────────────────────────────────────────────────────────
+const SS_STEPS_COMMON = [
+  { id: 's3',   num: '3',   label: 'Notification — hover effect, open box, Overdue/Upcoming/Activity tabs, close & outside click', markers: ['step 3'] },
+  { id: 's4a',  num: '4a',  label: 'Date filter — default = yesterday, hover each preset option', markers: ['step 4a'] },
+  { id: 's4b',  num: '4b',  label: 'Date filter — click each preset, verify date text updates',   markers: ['step 4b'] },
+  { id: 's4c',  num: '4c',  label: 'Date filter — presets: KPI direction & chart logic',          markers: ['step 4c'] },
+  { id: 's4d',  num: '4d',  label: 'Date filter — custom range: multi-month, single-day, format', markers: ['step 4d'] },
+  { id: 's4e',  num: '4e',  label: 'Orders count — KPI box vs nav bar: Orders − Returns logic',   markers: ['step 4e'] },
+  { id: 's5a',  num: '5a',  label: 'Product filter — sections, selections, count, Just this',     markers: ['step 5a'] },
+  { id: 's5b',  num: '5b',  label: 'Product filter — NDC toggle & search by name',                markers: ['step 5b'] },
+  { id: 's6',   num: '6',   label: 'Customers filter — All / Current / Returning / New',          markers: ['step 6'] },
+];
+
+const PLACEHOLDER_STEPS = [
+  { id: 'p-setup', num: '⚙', label: 'Setup — Login + Impersonate',   markers: ['login as admin', 'step 1', 'step 2'] },
+  { id: 'p-load',  num: '1',  label: 'Page load & basic assertions',  markers: ['step 3', 'loaded'] },
+];
+
+const TEST_PLANS = {
+  'sales-summary-salesrep': [
+    { id: 'setup', num: '⚙', label: 'Setup — Login as admin + Impersonate David Farris (Sales Rep)', markers: ['login as admin', 'step 1', 'step 2'] },
+    ...SS_STEPS_COMMON,
+  ],
+  'sales-summary-director': [
+    { id: 'setup', num: '⚙', label: 'Setup — Login as admin + Impersonate Trenton Lovell (Director)', markers: ['login as admin', 'step 1', 'step 2'] },
+    ...SS_STEPS_COMMON,
+  ],
+  'sales-summary-executive': [
+    { id: 'setup', num: '⚙', label: 'Setup — Login as admin + Impersonate Karen Kirkland (Executive)', markers: ['login as admin', 'step 1', 'step 2'] },
+    ...SS_STEPS_COMMON,
+  ],
+  'accounts-salesrep':  [{ id: 'setup', num: '⚙', label: 'Setup — Login + Impersonate (Sales Rep)',  markers: ['login as admin', 'step 1'] }, { id: 'a1', num: '1', label: 'Accounts page loads', markers: ['accounts'] }],
+  'accounts-director':  [{ id: 'setup', num: '⚙', label: 'Setup — Login + Impersonate (Director)',   markers: ['login as admin', 'step 1'] }, { id: 'a1', num: '1', label: 'Accounts page loads', markers: ['accounts'] }],
+  'accounts-executive': [{ id: 'setup', num: '⚙', label: 'Setup — Login + Impersonate (Executive)',  markers: ['login as admin', 'step 1'] }, { id: 'a1', num: '1', label: 'Accounts page loads', markers: ['accounts'] }],
+  'opportunities-salesrep':  [{ id: 'setup', num: '⚙', label: 'Setup — Login + Impersonate (Sales Rep)',  markers: ['login as admin', 'step 1'] }, { id: 'o1', num: '1', label: 'Opportunities page loads', markers: ['opportunities'] }],
+  'opportunities-director':  [{ id: 'setup', num: '⚙', label: 'Setup — Login + Impersonate (Director)',   markers: ['login as admin', 'step 1'] }, { id: 'o1', num: '1', label: 'Opportunities page loads', markers: ['opportunities'] }],
+  'opportunities-executive': [{ id: 'setup', num: '⚙', label: 'Setup — Login + Impersonate (Executive)',  markers: ['login as admin', 'step 1'] }, { id: 'o1', num: '1', label: 'Opportunities page loads', markers: ['opportunities'] }],
+  'contracts-pricing-salesrep':  [{ id: 'setup', num: '⚙', label: 'Setup — Login + Impersonate (Sales Rep)',  markers: ['login as admin', 'step 1'] }, { id: 'c1', num: '1', label: 'Contracts & Pricing page loads', markers: ['contracts'] }],
+  'contracts-pricing-director':  [{ id: 'setup', num: '⚙', label: 'Setup — Login + Impersonate (Director)',   markers: ['login as admin', 'step 1'] }, { id: 'c1', num: '1', label: 'Contracts & Pricing page loads', markers: ['contracts'] }],
+  'contracts-pricing-executive': [{ id: 'setup', num: '⚙', label: 'Setup — Login + Impersonate (Executive)',  markers: ['login as admin', 'step 1'] }, { id: 'c1', num: '1', label: 'Contracts & Pricing page loads', markers: ['contracts'] }],
+  'contacts-salesrep':  [{ id: 'setup', num: '⚙', label: 'Setup — Login + Impersonate (Sales Rep)',  markers: ['login as admin', 'step 1'] }, { id: 'co1', num: '1', label: 'Contacts page loads', markers: ['contacts'] }],
+  'contacts-director':  [{ id: 'setup', num: '⚙', label: 'Setup — Login + Impersonate (Director)',   markers: ['login as admin', 'step 1'] }, { id: 'co1', num: '1', label: 'Contacts page loads', markers: ['contacts'] }],
+  'contacts-executive': [{ id: 'setup', num: '⚙', label: 'Setup — Login + Impersonate (Executive)',  markers: ['login as admin', 'step 1'] }, { id: 'co1', num: '1', label: 'Contacts page loads', markers: ['contacts'] }],
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────────────────────────────────────
+let currentEnv        = 'dev';
+let selectedPage      = null;
+let selectedRole      = null;
+let currentPlanKey    = null;
+let isRunning         = false;
+let isPaused          = false;
+let pauseQueue        = [];
+let eventSource       = null;
+let steps             = [];
+let counts            = { pass: 0, fail: 0, running: 0, info: 0 };
+let runStartTime      = null;
+let elapsedTimer      = null;
+let liveFeedTimer     = null;
+
+// Plan tracking
+let planState         = {};  // id → 'pending'|'running'|'pass'|'fail'
+let activePlanStepId  = null;
+let activePlanFailed  = false;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Live feed
+// ─────────────────────────────────────────────────────────────────────────────
+function startLiveFeed() {
+  stopLiveFeed();
+  const img  = document.getElementById('screenshotImg');
+  const noSS = document.getElementById('noScreenshot');
+  noSS.style.display = 'none';
+  img.onerror = null; // never auto-hide — file may not exist for first few frames
+  liveFeedTimer = setInterval(() => {
+    img.style.display = 'block'; // re-assert visibility every tick
+    img.src = `/screenshots/live.jpg?t=${Date.now()}`;
+  }, 400);
+}
+function stopLiveFeed() {
+  if (liveFeedTimer) { clearInterval(liveFeedTimer); liveFeedTimer = null; }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Env toggle
+// ─────────────────────────────────────────────────────────────────────────────
+function setEnv(env) {
+  currentEnv = env;
+  document.getElementById('envDev').classList.toggle('active',  env === 'dev');
+  document.getElementById('envProd').classList.toggle('active', env === 'prod');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Select a page + role — show plan but do NOT start the test
+// ─────────────────────────────────────────────────────────────────────────────
+function selectPage(pageKey, role) {
+  if (isRunning) return; // don't switch while running
+  selectedPage   = pageKey;
+  selectedRole   = role;
+  currentPlanKey = `${pageKey}-${role}`;
+
+  // Highlight selected role button, clear others
+  document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('selected', 'running'));
+  const btn = document.getElementById(`btn-${pageKey}-${role}`);
+  if (btn) btn.classList.add('selected');
+
+  // Render plan
+  renderPlan(currentPlanKey);
+
+  // Enable Run button, update title
+  document.getElementById('runBtn').disabled   = false;
+  document.getElementById('pauseBtn').disabled = true;
+  document.getElementById('stopBtn').disabled  = true;
+  document.getElementById('rightPanelTitle').textContent = `Test Plan — ${pageName(pageKey)} / ${roleName(role)}`;
+}
+
+function pageName(key) {
+  return {
+    'sales-summary': 'Sales Summary', 'accounts': 'Accounts',
+    'opportunities': 'Opportunities', 'contracts-pricing': 'Contracts & Pricing',
+    'contacts': 'Contacts',
+  }[key] || key;
+}
+
+function roleName(role) {
+  return { salesrep: 'Sales Rep', director: 'Director', executive: 'Executive' }[role] || role;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Render the test plan steps in the plan panel
+// ─────────────────────────────────────────────────────────────────────────────
+function renderPlan(planKey) {
+  const planList = document.getElementById('planList');
+  const plan     = TEST_PLANS[planKey] || [];
+
+  // Reset state
+  planState        = {};
+  activePlanStepId = null;
+  activePlanFailed = false;
+
+  if (plan.length === 0) {
+    planList.innerHTML = '<div class="plan-empty"><div class="pe-icon">📋</div>No plan defined for this combination.</div>';
+    return;
+  }
+
+  planList.innerHTML = '';
+  for (const step of plan) {
+    planState[step.id] = 'pending';
+    const el = document.createElement('div');
+    el.className  = 'plan-item status-pending';
+    el.id         = `plan-${step.id}`;
+    el.innerHTML  = `
+      <div class="plan-step-num">${escHtml(step.num)}</div>
+      <div class="plan-step-label">${escHtml(step.label)}</div>
+      <div class="plan-step-icon" id="icon-${step.id}">○</div>
+    `;
+    planList.appendChild(el);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Update a single plan step's visual state
+// ─────────────────────────────────────────────────────────────────────────────
+function setPlanStepStatus(stepId, status) {
+  // Never go backwards: pass/fail are final
+  const current = planState[stepId];
+  if ((current === 'pass' || current === 'fail') && status === 'running') return;
+  if (current === 'fail' && status === 'pass') return;
+
+  planState[stepId] = status;
+
+  const el   = document.getElementById(`plan-${stepId}`);
+  const icon = document.getElementById(`icon-${stepId}`);
+  if (!el || !icon) return;
+
+  el.className = `plan-item status-${status}`;
+
+  const icons = {
+    pending: '○',
+    running: '<span class="spin-sm"></span>',
+    pass:    '✓',
+    fail:    '✗',
+  };
+  icon.innerHTML = icons[status] || '○';
+}
+
+function finalizePlanStep(stepId, result) {
+  if (!stepId) return;
+  setPlanStepStatus(stepId, result);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Start the test run
+// ─────────────────────────────────────────────────────────────────────────────
+async function startRun() {
+  if (!selectedPage || !selectedRole || isRunning) return;
+
+  const email    = document.getElementById('emailInput').value.trim();
+  const password = document.getElementById('passwordInput').value.trim();
+  if (!email || !password) {
+    alert('Please enter admin credentials before running a test.');
+    return;
+  }
+
+  // Close any old stream
+  if (eventSource) { eventSource.close(); eventSource = null; }
+
+  // Reset log + counts (but keep plan structure visible — reset statuses to pending)
+  clearLogOnly();
+  resetPlanStatuses();
+
+  // Mark running state
+  isRunning = true;
+  isPaused  = false;
+  pauseQueue = [];
+  setControlState('running');
+
+  // Mark selected role button as running
+  document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('selected', 'running'));
+  document.getElementById(`btn-${selectedPage}-${selectedRole}`)?.classList.add('running');
+
+  // Live feed + timer
+  startLiveFeed();
+  document.getElementById('liveBadge').classList.add('show');
+  runStartTime = Date.now();
+  clearInterval(elapsedTimer);
+  elapsedTimer = setInterval(() => {
+    const s = Math.floor((Date.now() - runStartTime) / 1000);
+    document.getElementById('elapsedLabel').textContent = `Elapsed: ${fmtTime(s)}`;
+  }, 1000);
+
+  // POST to server — include role so server passes ROLE env var to Playwright
+  try {
+    const res = await fetch('/api/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, page: selectedPage, role: selectedRole, env: currentEnv }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      appendLog(`Server error: ${err.error}`, 'fail', null);
+      endRun();
+      return;
+    }
+  } catch (e) {
+    appendLog(`Could not reach server: ${e.message}`, 'fail', null);
+    endRun();
+    return;
+  }
+
+  // Subscribe to SSE stream
+  eventSource = new EventSource('/api/stream');
+  eventSource.onmessage = (e) => {
+    try {
+      const entry = JSON.parse(e.data);
+      if (isPaused) { pauseQueue.push(entry); return; }
+      processStep(entry);
+    } catch {}
+  };
+  eventSource.onerror = () => {
+    eventSource.close(); eventSource = null;
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stop test
+// ─────────────────────────────────────────────────────────────────────────────
+async function stopTest() {
+  stopLiveFeed();
+  if (eventSource) { eventSource.close(); eventSource = null; }
+  try { await fetch('/api/stop', { method: 'POST' }); } catch {}
+  // Finalize any running plan step as fail (interrupted)
+  if (activePlanStepId) { finalizePlanStep(activePlanStepId, 'fail'); activePlanStepId = null; }
+  endRun();
+  appendLog('🛑 Test run stopped by user.', 'fail', Date.now());
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Pause / Resume
+// ─────────────────────────────────────────────────────────────────────────────
+function togglePause() {
+  if (!isRunning) return;
+  isPaused = !isPaused;
+  const btn = document.getElementById('pauseBtn');
+  if (isPaused) {
+    btn.textContent = '▶ Resume';
+    btn.classList.add('active');
+    appendLog('⏸ Paused — test continues in background, display frozen.', 'info', Date.now());
+  } else {
+    btn.textContent = '⏸ Pause';
+    btn.classList.remove('active');
+    // Flush queued entries
+    while (pauseQueue.length) { processStep(pauseQueue.shift()); }
+    appendLog('▶ Resumed.', 'info', Date.now());
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Process a single SSE log entry
+// ─────────────────────────────────────────────────────────────────────────────
+function processStep(entry) {
+  const { message, status, ts, _done } = entry;
+  const plan = TEST_PLANS[currentPlanKey] || [];
+
+  // ── Check if message is a step marker that advances the plan ────────────────
+  const msgLower = (message || '').toLowerCase();
+
+  for (const step of plan) {
+    const matched = step.markers.some(m => msgLower.includes(m.toLowerCase()));
+    if (matched) {
+      // Finalize the previous active step (as pass if no failures)
+      if (activePlanStepId && activePlanStepId !== step.id) {
+        finalizePlanStep(activePlanStepId, activePlanFailed ? 'fail' : 'pass');
+      }
+      if (planState[step.id] !== 'pass' && planState[step.id] !== 'fail') {
+        activePlanStepId = step.id;
+        activePlanFailed  = false;
+        setPlanStepStatus(step.id, 'running');
+      }
+      break;
+    }
+  }
+
+  // ── Track failures within current step ──────────────────────────────────────
+  if (status === 'fail' && activePlanStepId) {
+    activePlanFailed = true;
+    setPlanStepStatus(activePlanStepId, 'fail');
+  }
+
+  // ── Update current step label in left panel ──────────────────────────────────
+  if (message) document.getElementById('currentStepLabel').textContent = message.replace(/━+/g, '').trim();
+
+  // ── Append to log ────────────────────────────────────────────────────────────
+  appendLog(message, status, ts);
+
+  // ── Update counts ────────────────────────────────────────────────────────────
+  if (status === 'pass')    { counts.pass++;    updateCounts(); }
+  if (status === 'fail')    { counts.fail++;    updateCounts(); }
+  if (status === 'running') { counts.running++; updateCounts(); }
+  if (status === 'info')    { counts.info++;    updateCounts(); }
+
+  // ── Done sentinel ────────────────────────────────────────────────────────────
+  if (_done) {
+    if (activePlanStepId) {
+      finalizePlanStep(activePlanStepId, activePlanFailed ? 'fail' : 'pass');
+      activePlanStepId = null;
+    }
+    stopLiveFeed();
+    document.getElementById('liveBadge').classList.remove('show');
+    endRun();
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// End-of-run cleanup
+// ─────────────────────────────────────────────────────────────────────────────
+function endRun() {
+  isRunning = false;
+  isPaused  = false;
+  clearInterval(elapsedTimer);
+  setControlState('done');
+
+  // Restore button highlight (keep selected, not running)
+  document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('running'));
+  if (selectedPage && selectedRole) {
+    document.getElementById(`btn-${selectedPage}-${selectedRole}`)?.classList.add('selected');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Control button state machine
+// ─────────────────────────────────────────────────────────────────────────────
+function setControlState(state) {
+  const runBtn   = document.getElementById('runBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const stopBtn  = document.getElementById('stopBtn');
+
+  if (state === 'no-page') {
+    runBtn.disabled   = true;
+    pauseBtn.disabled = true;
+    stopBtn.disabled  = true;
+    runBtn.textContent = '▶ Run Test';
+  } else if (state === 'selected') {
+    runBtn.disabled   = false;
+    pauseBtn.disabled = true;
+    stopBtn.disabled  = true;
+    runBtn.textContent = '▶ Run Test';
+  } else if (state === 'running') {
+    runBtn.disabled   = true;
+    pauseBtn.disabled = false;
+    stopBtn.disabled  = false;
+    runBtn.textContent = '▶ Running…';
+    pauseBtn.textContent = '⏸ Pause';
+    pauseBtn.classList.remove('active');
+  } else if (state === 'done') {
+    runBtn.disabled   = false;  // allow re-run
+    pauseBtn.disabled = true;
+    stopBtn.disabled  = true;
+    runBtn.textContent = '▶ Run Again';
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Reset plan step statuses to pending (keep labels, just reset icons)
+// ─────────────────────────────────────────────────────────────────────────────
+function resetPlanStatuses() {
+  const plan = TEST_PLANS[currentPlanKey] || [];
+  activePlanStepId = null;
+  activePlanFailed = false;
+  for (const step of plan) {
+    planState[step.id] = 'pending';
+    const el   = document.getElementById(`plan-${step.id}`);
+    const icon = document.getElementById(`icon-${step.id}`);
+    if (el)   el.className = 'plan-item status-pending';
+    if (icon) icon.innerHTML = '○';
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Append a log entry
+// ─────────────────────────────────────────────────────────────────────────────
+function appendLog(message, status, ts) {
+  const logList  = document.getElementById('logList');
+  const logEmpty = document.getElementById('logEmpty');
+  if (logEmpty) logEmpty.style.display = 'none';
+
+  const icons = { pass: '✅', fail: '❌', running: '🔵', info: '💡' };
+  const time  = ts ? new Date(ts).toLocaleTimeString('en-US', { hour12: false, hour:'2-digit', minute:'2-digit', second:'2-digit' }) : '';
+
+  const el = document.createElement('div');
+  el.className = `log-entry status-${status || 'info'}`;
+  el.innerHTML = `
+    <span class="log-icon">${icons[status] || '▸'}</span>
+    <span class="log-msg">${escHtml(message)}</span>
+    <span class="log-time">${time}</span>
+  `;
+  logList.appendChild(el);
+  logList.scrollTop = logList.scrollHeight;
+
+  steps.push({ message, status, ts });
+  document.getElementById('stepCount').textContent = `${steps.length} steps`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Clear only the log (keep plan visible)
+// ─────────────────────────────────────────────────────────────────────────────
+function clearLogOnly() {
+  steps  = [];
+  counts = { pass: 0, fail: 0, running: 0, info: 0 };
+  updateCounts();
+  const logList = document.getElementById('logList');
+  logList.innerHTML = '<div class="log-empty" id="logEmpty"><div class="le-icon">📄</div>Steps will stream here as the test runs.</div>';
+  document.getElementById('stepCount').textContent = '';
+  document.getElementById('currentStepLabel').textContent = '';
+  document.getElementById('elapsedLabel').textContent = '—';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Clear button — resets everything including the plan
+// ─────────────────────────────────────────────────────────────────────────────
+function clearLog() {
+  stopLiveFeed();
+  clearLogOnly();
+  const img  = document.getElementById('screenshotImg');
+  const noSS = document.getElementById('noScreenshot');
+  img.style.display  = 'none';
+  noSS.style.display = 'block';
+  if (currentPlanKey) { renderPlan(currentPlanKey); setControlState('selected'); }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+function updateCounts() {
+  document.getElementById('cntPass').textContent = counts.pass;
+  document.getElementById('cntFail').textContent = counts.fail;
+  document.getElementById('cntRunning').textContent = counts.running;
+  document.getElementById('sumPass').textContent = `${counts.pass} pass`;
+  document.getElementById('sumFail').textContent = `${counts.fail} fail`;
+  document.getElementById('sumInfo').textContent = `${counts.info} info`;
+}
+
+function fmtTime(s) {
+  const m = Math.floor(s / 60);
+  return `${m}:${String(s % 60).padStart(2, '0')}`;
+}
+
+function escHtml(str) {
+  return String(str || '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

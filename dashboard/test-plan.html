@@ -1,0 +1,1450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Paxel.AI — QA Test Plan</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:          #F5F0FF;
+      --surface:     #FFFFFF;
+      --border:      #E4D9FF;
+      --purple-50:   #F9F5FF;
+      --purple-100:  #EDE9FE;
+      --purple-200:  #DDD6FE;
+      --purple-500:  #8B5CF6;
+      --purple-600:  #7C3AED;
+      --purple-700:  #6D28D9;
+      --pass:        #059669;
+      --pass-bg:     #D1FAE5;
+      --fail:        #DC2626;
+      --fail-bg:     #FEE2E2;
+      --info:        #7C3AED;
+      --info-bg:     #EDE9FE;
+      --warn:        #D97706;
+      --warn-bg:     #FEF3C7;
+      --text:        #1E1B4B;
+      --muted:       #6B7280;
+      --radius-sm:   6px;
+      --radius-md:   10px;
+      --shadow-sm:   0 1px 3px rgba(109,40,217,.08);
+      --shadow-md:   0 4px 16px rgba(109,40,217,.12);
+    }
+    html, body { min-height: 100%; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* ── Top bar ────────────────────────────────────────────────────────── */
+    .topbar {
+      background: var(--surface);
+      border-bottom: 1.5px solid var(--border);
+      padding: 0 28px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      position: sticky; top: 0; z-index: 50;
+      box-shadow: var(--shadow-sm);
+    }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand-icon {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, var(--purple-600), var(--purple-500));
+      border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-weight: 700; font-size: 16px;
+      box-shadow: 0 2px 8px rgba(124,58,237,.3);
+    }
+    .brand-name { font-weight: 700; font-size: 16px; color: var(--purple-700); }
+    .brand-sub  { font-size: 11px; color: var(--muted); font-weight: 400; margin-top: 1px; }
+    .divider-v  { width: 1px; height: 32px; background: var(--border); flex-shrink: 0; }
+    .page-title { font-size: 15px; font-weight: 700; color: var(--text); }
+    .page-sub   { font-size: 11px; color: var(--muted); margin-top: 1px; }
+    .back-link {
+      margin-left: auto;
+      display: flex; align-items: center; gap: 6px;
+      height: 34px; padding: 0 14px;
+      background: var(--purple-50); color: var(--purple-700);
+      border: 1.5px solid var(--purple-200); border-radius: var(--radius-sm);
+      font-size: 12px; font-weight: 700; text-decoration: none;
+      transition: all .15s;
+    }
+    .back-link:hover { background: var(--purple-600); color: #fff; border-color: var(--purple-700); }
+
+    /* ── Layout ─────────────────────────────────────────────────────────── */
+    .layout {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 0;
+      min-height: calc(100vh - 64px);
+    }
+
+    /* ── Sidebar ─────────────────────────────────────────────────────────── */
+    .sidebar {
+      background: var(--surface);
+      border-right: 1.5px solid var(--border);
+      padding: 24px 0;
+      position: sticky; top: 64px;
+      height: calc(100vh - 64px);
+      overflow-y: auto;
+    }
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-thumb { background: var(--purple-200); border-radius: 3px; }
+    .sidebar-label {
+      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
+      color: var(--muted); padding: 0 20px 10px;
+    }
+    .sidebar-section {
+      padding: 0;
+    }
+    .sidebar-section + .sidebar-section { margin-top: 6px; }
+    .sidebar-page {
+      font-size: 11px; font-weight: 700; color: var(--purple-700);
+      padding: 8px 20px 4px; text-transform: uppercase; letter-spacing: .04em;
+    }
+    .sidebar-link {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 20px; font-size: 12px; font-weight: 500;
+      color: var(--muted); text-decoration: none; cursor: pointer;
+      transition: all .12s; border-left: 3px solid transparent;
+    }
+    .sidebar-link:hover { color: var(--purple-700); background: var(--purple-50); }
+    .sidebar-link.active {
+      color: var(--purple-700); background: var(--purple-100);
+      border-left-color: var(--purple-600); font-weight: 600;
+    }
+    .sidebar-badge {
+      margin-left: auto; font-size: 10px; font-weight: 700;
+      background: var(--purple-100); color: var(--purple-700);
+      padding: 1px 7px; border-radius: 20px;
+    }
+    .sidebar-divider { height: 1px; background: var(--border); margin: 12px 20px; }
+
+    /* ── Main content ───────────────────────────────────────────────────── */
+    .content {
+      padding: 32px 40px;
+      max-width: 900px;
+    }
+
+    /* ── Page section ───────────────────────────────────────────────────── */
+    .page-section { margin-bottom: 52px; scroll-margin-top: 80px; }
+    .section-header {
+      display: flex; align-items: center; gap: 14px;
+      margin-bottom: 20px; padding-bottom: 14px;
+      border-bottom: 2px solid var(--purple-200);
+    }
+    .section-icon {
+      width: 40px; height: 40px; border-radius: var(--radius-md);
+      background: linear-gradient(135deg, var(--purple-600), var(--purple-500));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; color: #fff; flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(124,58,237,.25);
+    }
+    .section-title { font-size: 18px; font-weight: 700; color: var(--purple-700); }
+    .section-desc  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .step-count-badge {
+      margin-left: auto; font-size: 11px; font-weight: 700;
+      background: var(--purple-100); color: var(--purple-700);
+      padding: 3px 10px; border-radius: 20px;
+    }
+
+    /* ── Step card ──────────────────────────────────────────────────────── */
+    .step-list { display: flex; flex-direction: column; gap: 10px; }
+    .step-card {
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: var(--radius-md); overflow: hidden;
+      box-shadow: var(--shadow-sm);
+      transition: box-shadow .15s;
+    }
+    .step-card:hover { box-shadow: var(--shadow-md); }
+    .step-card-header {
+      display: flex; align-items: flex-start; gap: 14px;
+      padding: 14px 16px; cursor: pointer;
+    }
+    .step-num {
+      flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%;
+      background: var(--purple-100); color: var(--purple-700);
+      font-size: 12px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      margin-top: 1px;
+    }
+    .step-num.setup { background: var(--info-bg); color: var(--info); font-size: 16px; }
+    .step-title-wrap { flex: 1; }
+    .step-title { font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.4; }
+    .step-subtitle { font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+    .step-tags { display: flex; gap: 5px; margin-top: 6px; flex-wrap: wrap; }
+    .step-tag {
+      font-size: 10px; font-weight: 600; padding: 1px 7px; border-radius: 20px;
+      background: var(--purple-100); color: var(--purple-700);
+    }
+    .step-tag.auth    { background: var(--info-bg);  color: var(--info); }
+    .step-tag.filter  { background: #EFF6FF;          color: #1D4ED8; }
+    .step-tag.kpi     { background: var(--pass-bg);   color: var(--pass); }
+    .step-tag.role    { background: var(--warn-bg);   color: var(--warn); }
+    .step-toggle { flex-shrink: 0; color: var(--muted); font-size: 11px; margin-top: 4px; user-select: none; }
+    .step-body {
+      border-top: 1px solid var(--border); padding: 14px 16px 14px 62px;
+      background: var(--purple-50); display: none;
+    }
+    .step-body.open { display: block; }
+    .step-body ul { padding-left: 18px; }
+    .step-body li { font-size: 12px; color: var(--text); margin-bottom: 5px; line-height: 1.5; }
+    .step-body li::marker { color: var(--purple-500); }
+    .step-body .note {
+      margin-top: 10px; padding: 8px 12px;
+      background: var(--warn-bg); border-left: 3px solid var(--warn);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      font-size: 11px; color: var(--warn); font-weight: 500;
+    }
+    .step-body .code {
+      margin-top: 10px; padding: 8px 12px;
+      background: #1E1B4B; color: #DDD6FE;
+      border-radius: var(--radius-sm); font-family: 'Courier New', monospace;
+      font-size: 11px; line-height: 1.6; overflow-x: auto;
+    }
+
+    /* ── AI Agent placeholder ───────────────────────────────────────────── */
+    .ai-section {
+      background: var(--surface); border: 2px dashed var(--purple-300, #C4B5FD);
+      border-radius: var(--radius-md); padding: 32px;
+      text-align: center; margin-top: 16px;
+    }
+    .ai-icon { font-size: 40px; margin-bottom: 12px; opacity: .7; }
+    .ai-title { font-size: 16px; font-weight: 700; color: var(--purple-700); margin-bottom: 6px; }
+    .ai-desc  { font-size: 13px; color: var(--muted); max-width: 480px; margin: 0 auto 20px; line-height: 1.6; }
+    .ai-capabilities {
+      display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 24px;
+    }
+    .ai-cap {
+      background: var(--purple-100); color: var(--purple-700);
+      border: 1px solid var(--purple-200); border-radius: var(--radius-sm);
+      font-size: 11px; font-weight: 600; padding: 5px 12px;
+    }
+    .ai-placeholder-input {
+      width: 100%; max-width: 520px; padding: 10px 14px;
+      border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+      font-family: inherit; font-size: 13px; color: var(--text);
+      background: var(--purple-50); outline: none;
+      transition: border-color .15s; display: block; margin: 0 auto 10px;
+    }
+    .ai-placeholder-input:focus { border-color: var(--purple-500); background: #fff; }
+    .ai-placeholder-btn {
+      background: var(--purple-600); color: #fff;
+      border: none; border-radius: var(--radius-sm);
+      font-family: inherit; font-size: 13px; font-weight: 700;
+      padding: 9px 24px; cursor: not-allowed; opacity: .5;
+    }
+    .ai-coming-soon {
+      font-size: 11px; color: var(--muted); margin-top: 12px;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .ai-quick-btn {
+      background: var(--purple-100); color: var(--purple-700);
+      border: 1px solid var(--purple-200); border-radius: var(--radius-sm);
+      font-size: 11px; font-weight: 600; padding: 5px 12px;
+      cursor: pointer; font-family: inherit; transition: background .12s, border-color .12s;
+    }
+    .ai-quick-btn:hover { background: var(--purple-200); border-color: var(--purple-400); }
+    .ai-quick-btn.active { background: var(--purple-600); color: #fff; border-color: var(--purple-600); }
+    .ai-placeholder-btn--active { cursor: pointer !important; opacity: 1 !important; }
+    .ai-placeholder-btn--active:hover { background: var(--purple-700); }
+    .ai-placeholder-btn--active:disabled { cursor: not-allowed !important; opacity: .6 !important; }
+    .ai-response-box {
+      max-width: 520px; margin: 16px auto 0; text-align: left;
+      border: 1.5px solid var(--purple-200); border-radius: var(--radius-sm);
+      background: #fff; overflow: hidden;
+    }
+    .ai-msg-user {
+      padding: 10px 14px; background: var(--purple-50);
+      border-bottom: 1px solid var(--purple-100);
+      font-size: 12px; color: var(--muted);
+    }
+    .ai-msg-user strong { color: var(--text); font-size: 13px; display: block; margin-bottom: 2px; }
+    .ai-msg-ai {
+      padding: 14px; font-size: 13px; color: var(--text);
+      line-height: 1.6; white-space: pre-wrap; font-family: inherit;
+    }
+    .ai-loading {
+      padding: 14px; font-size: 13px; color: var(--purple-500);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .ai-loading-dots span {
+      display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+      background: var(--purple-400); animation: ai-bounce .8s infinite;
+    }
+    .ai-loading-dots span:nth-child(2) { animation-delay: .15s; }
+    .ai-loading-dots span:nth-child(3) { animation-delay: .3s; }
+    @keyframes ai-bounce {
+      0%,80%,100% { transform: scale(.7); opacity: .5; }
+      40%          { transform: scale(1);  opacity: 1;  }
+    }
+    .ai-response-actions {
+      padding: 8px 14px; border-top: 1px solid var(--purple-100);
+      display: flex; gap: 8px;
+    }
+    .ai-action-btn {
+      font-family: inherit; font-size: 11px; font-weight: 600;
+      padding: 4px 12px; border-radius: var(--radius-sm); cursor: pointer; transition: all .12s;
+    }
+    .ai-action-btn.copy  { background: var(--purple-50); color: var(--purple-700); border: 1px solid var(--purple-200); }
+    .ai-action-btn.copy:hover  { background: var(--purple-100); }
+    .ai-action-btn.apply { background: var(--purple-600); color: #fff; border: 1px solid var(--purple-600); }
+    .ai-action-btn.apply:hover { background: var(--purple-700); }
+
+    /* ── AI toggle button (topbar) ──────────────────────────────────────── */
+    .ai-toggle-btn {
+      display: flex; align-items: center; gap: 6px;
+      height: 34px; padding: 0 14px; margin-left: 8px;
+      background: var(--purple-600); color: #fff;
+      border: none; border-radius: var(--radius-sm);
+      font-family: inherit; font-size: 12px; font-weight: 700;
+      cursor: pointer; white-space: nowrap; flex-shrink: 0;
+      transition: background .15s;
+    }
+    .ai-toggle-btn:hover  { background: var(--purple-700); }
+    .ai-toggle-btn.active { background: var(--purple-700); box-shadow: inset 0 2px 4px rgba(0,0,0,.15); }
+
+    /* ── AI panel (fixed, right side) ───────────────────────────────────── */
+    .ai-panel {
+      position: fixed; top: 64px; right: 0;
+      width: 340px; height: calc(100vh - 64px);
+      background: var(--surface); border-left: 1.5px solid var(--border);
+      display: flex; flex-direction: column; z-index: 40;
+      transform: translateX(0);
+      transition: transform .25s cubic-bezier(.4,0,.2,1);
+      box-shadow: -4px 0 24px rgba(109,40,217,.09);
+    }
+    .ai-panel.collapsed { transform: translateX(340px); box-shadow: none; }
+    body.ai-open .layout { padding-right: 340px; }
+    body.ai-open #scrollTopBtn { right: calc(340px + 28px); }
+
+    .ai-panel-header {
+      padding: 12px 14px; border-bottom: 1.5px solid var(--border);
+      display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+    }
+    .ai-panel-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--purple-500); flex-shrink: 0; }
+    .ai-panel-title { flex: 1; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text); }
+    .ai-panel-close {
+      background: none; border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+      width: 26px; height: 26px; cursor: pointer; color: var(--muted); font-size: 12px;
+      display: flex; align-items: center; justify-content: center; transition: all .12s;
+    }
+    .ai-panel-close:hover { background: var(--purple-50); color: var(--purple-700); }
+
+    .ai-context {
+      padding: 10px 14px; border-bottom: 1.5px solid var(--border);
+      background: var(--purple-50); flex-shrink: 0; min-height: 54px;
+      display: flex; flex-direction: column; justify-content: center;
+    }
+    .ai-context-empty { font-size: 11px; color: var(--muted); font-style: italic; line-height: 1.4; }
+    .ai-context-page { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--purple-600); margin-bottom: 2px; }
+    .ai-context-step { font-size: 12px; font-weight: 600; color: var(--text); line-height: 1.35; }
+
+    .ai-suggestions {
+      padding: 9px 12px; border-bottom: 1.5px solid var(--border);
+      display: flex; flex-wrap: wrap; gap: 5px; flex-shrink: 0;
+    }
+    .ai-sugg-btn {
+      height: 24px; padding: 0 9px;
+      background: var(--purple-50); color: var(--purple-700);
+      border: 1.5px solid var(--purple-200); border-radius: 20px;
+      font-family: inherit; font-size: 10px; font-weight: 700;
+      cursor: pointer; white-space: nowrap; transition: all .12s;
+    }
+    .ai-sugg-btn:hover { background: var(--purple-600); color: #fff; border-color: var(--purple-700); }
+
+    .ai-messages {
+      flex: 1; overflow-y: auto; padding: 12px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .ai-messages::-webkit-scrollbar { width: 4px; }
+    .ai-messages::-webkit-scrollbar-thumb { background: var(--purple-200); border-radius: 3px; }
+
+    .ai-msg-empty {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; text-align: center; padding: 20px; color: var(--muted);
+    }
+    .ai-msg-empty-title { font-size: 13px; font-weight: 600; color: var(--purple-700); margin-bottom: 8px; }
+    .ai-msg-empty-sub   { font-size: 11px; line-height: 1.6; }
+
+    .ai-msg { display: flex; flex-direction: column; gap: 3px; }
+    .ai-msg-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; padding: 0 2px; }
+    .ai-msg.user      .ai-msg-label { color: var(--purple-600); }
+    .ai-msg.assistant .ai-msg-label { color: var(--muted); }
+    .ai-msg-bubble {
+      padding: 9px 11px; border-radius: var(--radius-sm);
+      font-size: 12px; line-height: 1.55; white-space: pre-wrap; word-break: break-word;
+    }
+    .ai-msg.user      .ai-msg-bubble { background: var(--purple-600); color: #fff; border-radius: var(--radius-sm) var(--radius-sm) var(--radius-sm) 2px; }
+    .ai-msg.assistant .ai-msg-bubble { background: var(--purple-50); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sm) var(--radius-sm) 2px var(--radius-sm); }
+    .ai-msg-actions { display: flex; gap: 6px; margin-top: 5px; }
+    .ai-apply-btn {
+      height: 24px; padding: 0 10px;
+      background: var(--pass-bg); color: var(--pass);
+      border: 1.5px solid #A7F3D0; border-radius: var(--radius-sm);
+      font-family: inherit; font-size: 10px; font-weight: 700; cursor: pointer; transition: all .12s;
+    }
+    .ai-apply-btn:hover:not(:disabled) { background: #A7F3D0; }
+    .ai-apply-btn:disabled { opacity: .6; cursor: default; }
+    .ai-copy-btn {
+      height: 24px; padding: 0 10px;
+      background: var(--purple-50); color: var(--purple-700);
+      border: 1.5px solid var(--purple-200); border-radius: var(--radius-sm);
+      font-family: inherit; font-size: 10px; font-weight: 600; cursor: pointer; transition: all .12s;
+    }
+    .ai-copy-btn:hover { background: var(--purple-100); }
+
+    .ai-typing {
+      display: flex; gap: 4px; align-items: center; padding: 9px 11px;
+      background: var(--purple-50); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); width: fit-content;
+    }
+    .ai-typing-dot {
+      width: 5px; height: 5px; border-radius: 50%; background: var(--purple-500);
+      animation: aiDot 1.2s infinite ease-in-out;
+    }
+    .ai-typing-dot:nth-child(2) { animation-delay: .2s; }
+    .ai-typing-dot:nth-child(3) { animation-delay: .4s; }
+    @keyframes aiDot { 0%,80%,100%{opacity:.3;transform:scale(.75)} 40%{opacity:1;transform:scale(1)} }
+
+    .ai-input-area {
+      padding: 10px 12px; border-top: 1.5px solid var(--border);
+      display: flex; gap: 7px; align-items: flex-end; flex-shrink: 0;
+    }
+    .ai-input {
+      flex: 1; padding: 7px 10px;
+      border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+      font-family: inherit; font-size: 12px; color: var(--text);
+      background: var(--purple-50); outline: none; resize: none;
+      transition: border-color .15s; min-height: 34px; max-height: 90px; line-height: 1.4;
+    }
+    .ai-input:focus { border-color: var(--purple-500); background: #fff; }
+    .ai-send-btn {
+      flex-shrink: 0; width: 34px; height: 34px;
+      background: var(--purple-600); color: #fff; border: none;
+      border-radius: var(--radius-sm); cursor: pointer; font-size: 13px;
+      display: flex; align-items: center; justify-content: center; transition: background .15s;
+    }
+    .ai-send-btn:hover:not(:disabled) { background: var(--purple-700); }
+    .ai-send-btn:disabled { background: var(--purple-200); cursor: not-allowed; }
+
+    /* ── Scroll top button ──────────────────────────────────────────────── */
+    #scrollTopBtn {
+      position: fixed; bottom: 28px; right: 28px;
+      width: 40px; height: 40px; border-radius: 50%;
+      background: var(--purple-600); color: #fff; border: none;
+      font-size: 18px; cursor: pointer; box-shadow: var(--shadow-md);
+      display: none; align-items: center; justify-content: center;
+      transition: background .15s, right .25s;
+    }
+    #scrollTopBtn.show { display: flex; }
+    #scrollTopBtn:hover { background: var(--purple-700); }
+  </style>
+</head>
+<body>
+
+<!-- ── Top bar ─────────────────────────────────────────────────────────────── -->
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-icon">P</div>
+    <div>
+      <div class="brand-name">Paxel.AI</div>
+      <div class="brand-sub">QA Test Plan</div>
+    </div>
+  </div>
+  <div class="divider-v"></div>
+  <div>
+    <div class="page-title">Test Plan</div>
+    <div class="page-sub">Full specification of automated QA steps for all pages &amp; roles</div>
+  </div>
+  <a href="index.html" class="back-link">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+    Back to Dashboard
+  </a>
+  <button class="ai-toggle-btn" id="aiToggleBtn" onclick="toggleAiPanel()" title="Open AI Test Plan Assistant">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    AI Assistant
+  </button>
+</header>
+
+<!-- ── Layout ──────────────────────────────────────────────────────────────── -->
+<div class="layout">
+
+  <!-- Sidebar navigation -->
+  <aside class="sidebar">
+    <div class="sidebar-label">Pages</div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-page">Sales Summary</div>
+      <a class="sidebar-link active" href="#sales-summary" onclick="setActive(this)">
+        All roles
+        <span class="sidebar-badge">10 steps</span>
+      </a>
+    </div>
+
+    <div class="sidebar-divider"></div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-page">Other Pages</div>
+      <a class="sidebar-link" href="#accounts" onclick="setActive(this)">Accounts</a>
+      <a class="sidebar-link" href="#opportunities" onclick="setActive(this)">Opportunities</a>
+      <a class="sidebar-link" href="#contracts-pricing" onclick="setActive(this)">Contracts &amp; Pricing</a>
+      <a class="sidebar-link" href="#contacts" onclick="setActive(this)">Contacts</a>
+    </div>
+
+    <div class="sidebar-divider"></div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-page">AI Agent</div>
+      <a class="sidebar-link" href="#ai-agent" onclick="setActive(this)">
+        Integration Placeholder
+      </a>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="content">
+
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <!-- SALES SUMMARY                                                      -->
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <section class="page-section" id="sales-summary">
+      <div class="section-header">
+        <div class="section-icon">📊</div>
+        <div>
+          <div class="section-title">Sales Summary</div>
+          <div class="section-desc">Roles: Sales Rep · Director · Executive — 3 users per role, one login per run</div>
+        </div>
+        <span class="step-count-badge">10 steps</span>
+      </div>
+
+      <div class="step-list">
+
+        <!-- Step ⚙ Setup -->
+        <div class="step-card">
+          <div class="step-card-header" onclick="toggleStep(this)">
+            <div class="step-num setup">⚙</div>
+            <div class="step-title-wrap">
+              <div class="step-title">Setup — Admin login &amp; user impersonation</div>
+              <div class="step-subtitle">Login once as admin → impersonate each of the 3 role users → navigate to Sales Summary</div>
+              <div class="step-tags">
+                <span class="step-tag auth">Auth</span>
+                <span class="step-tag">Login</span>
+                <span class="step-tag">Impersonation</span>
+              </div>
+            </div>
+            <div class="step-toggle">▸</div>
+          </div>
+          <div class="step-body">
+            <ul>
+              <li>Navigate to <code>/admin/signin</code> and log in with ADMIN_EMAIL / ADMIN_PASSWORD.</li>
+              <li>For each user in the role group (e.g. David Farris, Michelle Hupfer, Rich Closer for Sales Rep): search by first name, select exact row by full name + company, confirm impersonation.</li>
+              <li>After impersonation, click "Sales Summary" in the left sidebar and wait for the page heading to be visible.</li>
+              <li>After all steps pass, exit impersonation before testing the next user.</li>
+            </ul>
+            <div class="note">⚠ Login happens only once per run. All 3 users are looped inside the same Playwright test.</div>
+          </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="step-card">
+          <div class="step-card-header" onclick="toggleStep(this)">
+            <div class="step-num">3</div>
+            <div class="step-title-wrap">
+              <div class="step-title">Notification button — hover, open, tabs, close, outside-click</div>
+              <div class="step-subtitle">Verify the bell button opens a panel with Overdue / Upcoming / Activity tabs, and closes correctly</div>
+              <div class="step-tags"><span class="step-tag">UI Behavior</span><span class="step-tag">Aria</span></div>
+            </div>
+            <div class="step-toggle">▸</div>
+          </div>
+          <div class="step-body">
+            <ul>
+              <li>Locate the notification bell via <code>getByRole('button', { name: 'Notifications' })</code>.</li>
+              <li>Hover over the button — a rectangular highlight should appear around it.</li>
+              <li>Click the bell → the notification panel opens (detected via <code>[role="tablist"]</code> containing an "Overdue" tab).</li>
+              <li>Click the <strong>Overdue</strong> tab — tab becomes active, content loads.</li>
+              <li>Click the <strong>Upcoming</strong> tab — tab becomes active, content loads.</li>
+              <li>Click the <strong>Activity</strong> tab — tab becomes active, content loads.</li>
+              <li>Click the bell again → panel closes (<code>tabList.isVisible()</code> returns false).</li>
+              <li>Click the bell once more → panel reopens.</li>
+              <li>Click the Sales Summary h2 heading (outside the panel) → panel closes.</li>
+            </ul>
+            <div class="note">⚠ Selector confirmed from live DOM: <code>aria-label="Notifications"</code>, <code>aria-pressed="false/true"</code></div>
+          </div>
+        </div>
+
+        <!-- Step 4a -->
+        <div class="step-card">
+          <div class="step-card-header" onclick="toggleStep(this)">
+            <div class="step-num">4a</div>
+            <div class="step-title-wrap">
+              <div class="step-title">Date filter — default shows yesterday &amp; hover effects</div>
+              <div class="step-subtitle">Verify the date button defaults to yesterday's date, open the dropdown, hover each preset</div>
+              <div class="step-tags"><span class="step-tag filter">Filter</span></div>
+            </div>
+            <div class="step-toggle">▸</div>
+          </div>
+          <div class="step-body">
+            <ul>
+              <li>Read the date filter button text — it must contain yesterday's date in <code>MMM D, YYYY</code> format.</li>
+              <li>Click the date filter button to open the dropdown; wait for "Yesterday" to be visible.</li>
+              <li>Hover each preset option: Yesterday · Month-to-date · Previous month · Quarter-to-date · Previous quarter · Year-to-date · Previous year · Custom range.</li>
+              <li>Each hover should produce a visual highlight effect.</li>
+              <li>Press Escape to close the dropdown without changing the selection.</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Step 4b -->
+        <div class="step-card">
+          <div class="step-card-header" onclick="toggleStep(this)">
+            <div class="step-num">4b</div>
+            <div class="step-title-wrap">
+              <div class="step-title">Date filter — click each preset, verify date text updates</div>
+              <div class="step-subtitle">Click every preset option and confirm the date filter button label reflects the new range</div>
+              <div class="step-tags"><span class="step-tag filter">Filter</span></div>
+            </div>
+            <div class="step-toggle">▸</div>
+          </div>
+          <div class="step-body">
+            <ul>
+              <li>For each preset (Yesterday, Month-to-date, Previous month, Quarter-to-date, Previous quarter, Year-to-date, Previous year): open dropdown → click preset → wait 800ms for refresh → read date button text → verify it is non-empty (length &gt; 4 chars).</li>
+              <li>Custom range: open dropdown → click Custom range → verify a calendar picker opens (detected by <code>[role="gridcell"]</code>) → press Escape.</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Step 4c -->
+        <div class="step-card">
+          <div class="step-card-header" onclick="toggleStep(this)">
+            <div class="step-num">4c</div>
+            <div class="step-title-wrap">
+              <div class="step-title">Date filter — KPI direction logic &amp; chart visibility</div>
+              <div class="step-subtitle">For each multi-day preset: verify KPI numbers, percentage direction, color coding, and chart renders</div>
+              <div class="step-tags"><span class="step-tag kpi">KPI</span><span class="step-tag filter">Filter</span></div>
+            </div>
+            <div class="step-toggle">▸</div>
+          </div>
+          <div class="step-body">
+            <ul>
+              <li>Presets tested: Month-to-date · Previous month · Quarter-to-date · Previous quarter · Year-to-date · Previous year.</li>
+              <li>For each: select preset → read Contracted Sales, Units, Orders KPI card text → parse current value, previous value, and displayed % change.</li>
+              <li>Verify % direction: if current &gt; previous → % must be positive (green). If current &lt; previous → % must be negative (red).</li>
+              <li>Verify % magnitude is within 3% of the calculated value.</li>
+              <li>Verify the chart (canvas / recharts) is visible.</li>
+              <li>Verify the Orders nav bar shows a count.</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Step 4d -->
+        <div class="step-card">
+          <div class="step-card-header" onclick="toggleStep(this)">
+            <div class="step-num">4d</div>
+            <div class="step-title-wrap">
+              <div class="step-title">Date filter — custom range: multi-month &amp; single-day</div>
+              <div class="step-subtitle">Test wide range selection, single-day selection (donut chart), and outside-click closes the picker</div>
+              <div class="step-tags"><span class="step-tag filter">Filter</span><span class="step-tag kpi">KPI</span></div>
+            </div>
+            <div class="step-toggle">▸</div>
+          </div>
+          <div class="step-body">
+            <ul>
+              <li><strong>Wide range:</strong> open Custom range → click first calendar cell → click last calendar cell → click Apply → verify KPI cards update.</li>
+              <li><strong>Single day:</strong> open Custom range → click the middle calendar cell twice (start = end) → click Apply → verify a donut chart appears (single-day view).</li>
+              <li><strong>Outside click:</strong> open Custom range → click the Sales Summary heading → verify calendar picker disappears.</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Step 4e -->
+        <div class="step-card">
+          <div class="step-card-header" onclick="toggleStep(this)">
+            <div class="step-num">4e</div>
+            <div class="step-title-wrap">
+              <div class="step-title">Orders count — KPI box = Orders − Returns logic</div>
+              <div class="step-subtitle">Verify the Orders KPI equals the Orders filter count minus the Returns filter count</div>
+              <div class="step-tags"><span class="step-tag kpi">KPI</span></div>
+            </div>
+            <div class="step-toggle">▸</div>
+          </div>
+          <div class="step-body">
+            <ul>
+              <li>Read the Orders KPI card value (e.g. 42).</li>
+              <li>Click the Orders nav tab to open the order type filter.</li>
+              <li>Select "Orders" → record the count shown in the nav bar.</li>
+              <li>Select "Returns" → record the count.</li>
+              <li>Verify: Orders count − Returns count = Orders KPI value.</li>
+              <li>Reset filter to "All" at the end.</li>
+            </ul>
+            <div class="note">⚠ Order type filter selector may need DOM discovery — currently detected via text matching "Order type / All orders / All types".</div>
+          </div>
+        </div>
+
+        <!-- Step 5a -->
+        <div class="step-card">
+          <div class="step-card-header" onclick="toggleStep(this)">
+            <div class="step-num">5a</div>
+            <div class="step-title-wrap">
+              <div class="step-title">Product filter — sections, selections, count, "Just this"</div>
+              <div class="step-subtitle">Verify Comp Plan and Other Sold Products sections exist, selection updates the label, "Just this" works</div>
+              <div class="step-tags"><span class="step-tag filter">Filter</span></div>
+            </div>
+            <div class="step-toggle">▸</div>
+          </div>
+          <div class="step-body">
+            <ul>
+              <li>Read the product filter button default label — should contain "Comp Plan (N)".</li>
+              <li>Open the dropdown — verify both "Comp Plan" and "Other sold products" sections are visible.</li>
+              <li>Select "Other sold products" only → Apply → verify filter label updates.</li>
+              <li>Select "Comp Plan" only → Apply → verify filter label updates.</li>
+              <li>Hover the first product item → "Just this" button appears → click it → Apply → verify label updates.</li>
+              <li>Check 3 checkboxes → Apply → verify count is reflected in the filter label.</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Step 5b -->
+        <div class="step-card">
+          <div class="step-card-header" onclick="toggleStep(this)">
+            <div class="step-num">5b</div>
+            <div class="step-title-wrap">
+              <div class="step-title">Product filter — NDC toggle &amp; search by name</div>
+              <div class="step-subtitle">Toggle the NDC view on/off and search for 8 known product names using both short and full name</div>
+              <div class="step-tags"><span class="step-tag filter">Filter</span></div>
+            </div>
+            <div class="step-toggle">▸</div>
+          </div>
+          <div class="step-body">
+            <ul>
+              <li>Open product filter → find the NDC toggle (<code>role="switch"</code>).</li>
+              <li>Turn NDC ON → verify row count increases (child NDCs visible).</li>
+              <li>Turn NDC OFF → verify row count decreases back to parent-only view.</li>
+              <li>For each of 8 products: type short prefix → verify at least 1 match; type full name → verify at least 1 match; clear input.</li>
+              <li>Products: ephedrine, erythromycin, fluorescein, methylene, papaverine, phenobarbital, procainamide, tacrolimus.</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Step 6 -->
+        <div class="step-card">
+          <div class="step-card-header" onclick="toggleStep(this)">
+            <div class="step-num">6</div>
+            <div class="step-title-wrap">
+              <div class="step-title">Customers filter — All / Current / Returning / New</div>
+              <div class="step-subtitle">Select each customer segment and confirm data loads for each option</div>
+              <div class="step-tags"><span class="step-tag filter">Filter</span><span class="step-tag kpi">KPI</span></div>
+            </div>
+            <div class="step-toggle">▸</div>
+          </div>
+          <div class="step-body">
+            <ul>
+              <li>For each option (All, Current, Returning, New): click "All customers" button → select option → Apply if shown → wait 800ms → verify "Contracted sales" KPI is visible (data loaded).</li>
+              <li>Record the filter label after each selection.</li>
+              <li>After "New", reset back to "All".</li>
+            </ul>
+          </div>
+        </div>
+
+      </div><!-- /step-list -->
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <!-- ACCOUNTS                                                           -->
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <section class="page-section" id="accounts">
+      <div class="section-header">
+        <div class="section-icon">🏢</div>
+        <div>
+          <div class="section-title">Accounts</div>
+          <div class="section-desc">Roles: Sales Rep · Director · Executive</div>
+        </div>
+        <span class="step-count-badge">Planned</span>
+      </div>
+      <div class="step-list">
+        <div class="step-card">
+          <div class="step-card-header" onclick="toggleStep(this)">
+            <div class="step-num setup">⚙</div>
+            <div class="step-title-wrap">
+              <div class="step-title">Setup — Login &amp; Impersonation</div>
+              <div class="step-subtitle">Same setup pattern as Sales Summary</div>
+              <div class="step-tags"><span class="step-tag auth">Auth</span></div>
+            </div>
+            <div class="step-toggle">▸</div>
+          </div>
+          <div class="step-body">
+            <ul><li>Login as admin, impersonate the role user, navigate to Accounts page.</li></ul>
+          </div>
+        </div>
+        <div class="step-card">
+          <div class="step-card-header" onclick="toggleStep(this)">
+            <div class="step-num">1</div>
+            <div class="step-title-wrap">
+              <div class="step-title">Accounts page — basic load &amp; filter tests</div>
+              <div class="step-subtitle">Test plan steps to be defined</div>
+              <div class="step-tags"><span class="step-tag">Planned</span></div>
+            </div>
+            <div class="step-toggle">▸</div>
+          </div>
+          <div class="step-body">
+            <div class="note">⚠ Test plan for this page is not yet written. Steps will be added here as the Playwright spec is built.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <!-- OPPORTUNITIES                                                      -->
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <section class="page-section" id="opportunities">
+      <div class="section-header">
+        <div class="section-icon">💡</div>
+        <div>
+          <div class="section-title">Opportunities</div>
+          <div class="section-desc">Roles: Sales Rep · Director · Executive</div>
+        </div>
+        <span class="step-count-badge">Planned</span>
+      </div>
+      <div class="step-list">
+        <div class="step-card">
+          <div class="step-card-header" onclick="toggleStep(this)">
+            <div class="step-num">1</div>
+            <div class="step-title-wrap">
+              <div class="step-title">Opportunities page — basic load &amp; filter tests</div>
+              <div class="step-subtitle">Test plan steps to be defined</div>
+              <div class="step-tags"><span class="step-tag">Planned</span></div>
+            </div>
+            <div class="step-toggle">▸</div>
+          </div>
+          <div class="step-body">
+            <div class="note">⚠ Test plan for this page is not yet written.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <!-- CONTRACTS & PRICING                                                -->
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <section class="page-section" id="contracts-pricing">
+      <div class="section-header">
+        <div class="section-icon">📝</div>
+        <div>
+          <div class="section-title">Contracts &amp; Pricing</div>
+          <div class="section-desc">Roles: Sales Rep · Director · Executive</div>
+        </div>
+        <span class="step-count-badge">Planned</span>
+      </div>
+      <div class="step-list">
+        <div class="step-card">
+          <div class="step-card-header" onclick="toggleStep(this)">
+            <div class="step-num">1</div>
+            <div class="step-title-wrap">
+              <div class="step-title">Contracts &amp; Pricing page — basic load &amp; filter tests</div>
+              <div class="step-subtitle">Test plan steps to be defined</div>
+              <div class="step-tags"><span class="step-tag">Planned</span></div>
+            </div>
+            <div class="step-toggle">▸</div>
+          </div>
+          <div class="step-body">
+            <div class="note">⚠ Test plan for this page is not yet written.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <!-- CONTACTS                                                           -->
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <section class="page-section" id="contacts">
+      <div class="section-header">
+        <div class="section-icon">👥</div>
+        <div>
+          <div class="section-title">Contacts</div>
+          <div class="section-desc">Roles: Sales Rep · Director · Executive</div>
+        </div>
+        <span class="step-count-badge">Planned</span>
+      </div>
+      <div class="step-list">
+        <div class="step-card">
+          <div class="step-card-header" onclick="toggleStep(this)">
+            <div class="step-num">1</div>
+            <div class="step-title-wrap">
+              <div class="step-title">Contacts page — basic load &amp; filter tests</div>
+              <div class="step-subtitle">Test plan steps to be defined</div>
+              <div class="step-tags"><span class="step-tag">Planned</span></div>
+            </div>
+            <div class="step-toggle">▸</div>
+          </div>
+          <div class="step-body">
+            <div class="note">⚠ Test plan for this page is not yet written.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <!-- AI AGENT PLACEHOLDER                                               -->
+    <!-- ══════════════════════════════════════════════════════════════════ -->
+    <section class="page-section" id="ai-agent">
+      <div class="section-header">
+        <div class="section-icon">🤖</div>
+        <div>
+          <div class="section-title">AI Agent Integration</div>
+          <div class="section-desc">Future: AI-assisted test plan updates, Playwright code generation, and Figma vs UI comparison</div>
+        </div>
+        <span class="step-count-badge" style="background:var(--warn-bg);color:var(--warn);">Coming Soon</span>
+      </div>
+
+      <div class="ai-section">
+        <div class="ai-icon">🤖</div>
+        <div class="ai-title">AI Agent</div>
+        <div class="ai-desc">
+          Select a quick action or type your own request. The agent can update test plan steps,
+          generate Playwright code, fix selectors, compare Figma designs, and analyze results.
+        </div>
+        <div class="ai-capabilities">
+          <button class="ai-quick-btn" onclick="selectQuickAction('update', this)">📋 Update test plan steps</button>
+          <button class="ai-quick-btn" onclick="selectQuickAction('playwright', this)">🧪 Generate Playwright code</button>
+          <button class="ai-quick-btn" onclick="selectQuickAction('selectors', this)">🐛 Fix failing selectors</button>
+          <button class="ai-quick-btn" onclick="selectQuickAction('figma', this)">🎨 Figma vs UI comparison</button>
+          <button class="ai-quick-btn" onclick="selectQuickAction('analyze', this)">📊 Analyze test results</button>
+        </div>
+        <textarea class="ai-placeholder-input" id="aiAgentInput" rows="3" placeholder="Describe what you need the AI agent to do — or click a quick action above…"></textarea>
+        <div>
+          <button class="ai-placeholder-btn ai-placeholder-btn--active" id="aiAgentSendBtn" onclick="sendToAiAgent()">Send to AI Agent</button>
+        </div>
+        <div id="aiAgentResponse" class="ai-response-box" style="display:none;"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ── AI Assistant panel ─────────────────────────────────────────────── -->
+  <aside class="ai-panel collapsed" id="aiPanel">
+
+    <div class="ai-panel-header">
+      <div class="ai-panel-dot"></div>
+      <div class="ai-panel-title">AI Test Plan Assistant</div>
+      <button class="ai-panel-close" onclick="toggleAiPanel()" title="Close panel">✕</button>
+    </div>
+
+    <!-- Context strip: shows selected page + step -->
+    <div class="ai-context" id="aiContext">
+      <div class="ai-context-empty">Click any step card to set context.</div>
+    </div>
+
+    <!-- Quick suggestion chips -->
+    <div class="ai-suggestions">
+      <button class="ai-sugg-btn" onclick="useSuggestion('rewrite')">Rewrite this test plan</button>
+      <button class="ai-sugg-btn" onclick="useSuggestion('edge-cases')">Add edge cases</button>
+      <button class="ai-sugg-btn" onclick="useSuggestion('mobile')">Add mobile coverage</button>
+      <button class="ai-sugg-btn" onclick="useSuggestion('figma')">Prepare for Figma comparison</button>
+    </div>
+
+    <!-- Message history -->
+    <div class="ai-messages" id="aiMessages">
+      <div class="ai-msg-empty" id="aiMsgEmpty">
+        <div class="ai-msg-empty-title">AI Test Plan Assistant</div>
+        <div class="ai-msg-empty-sub">Click any step card to set context, then use a suggestion or type your own request.<br/><br/>The assistant can rewrite plans, add edge cases, generate coverage checklists, and prepare Figma comparison guides.</div>
+      </div>
+    </div>
+
+    <!-- Input row -->
+    <div class="ai-input-area">
+      <textarea
+        class="ai-input" id="aiInput" rows="1"
+        placeholder="Ask about this test plan section… (Enter to send, Shift+Enter for newline)"
+        onkeydown="handleInputKey(event)"
+        oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,90)+'px'"
+      ></textarea>
+      <button class="ai-send-btn" id="aiSendBtn" onclick="sendMessage()" title="Send">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+
+  </aside>
+
+</div>
+
+<button id="scrollTopBtn" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Back to top">↑</button>
+
+<script>
+  // ─────────────────────────────────────────────────────────────────────────
+  // State
+  // ─────────────────────────────────────────────────────────────────────────
+  const aiState = {
+    isOpen:   false,    // AI panel open/collapsed
+    context:  null,     // { page: string, step: string } — set on step-card click
+    messages: [],       // { role: 'user'|'assistant', text: string, id: number }
+    nextId:   0,
+    isTyping: false,
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Mock AI responses — keyed by intent, each is a function of context
+  // ─────────────────────────────────────────────────────────────────────────
+  const MOCK = {
+    rewrite: ctx => `Here is an improved version of the "${ctx.step}" step:
+
+**Rewritten Steps:**
+1. Pre-condition — assert the page is in the default state before this step begins.
+2. Perform the primary action (exact interaction defined in the step).
+3. Assert the immediate UI response (visible change within 500ms).
+4. Assert the data state (DOM update or API response matches expected value).
+5. Negative assertion — confirm no error toast, no broken layout, no console errors.
+
+**Key improvements:**
+- Added explicit pre-condition for test isolation
+- Separated UI assertions from data assertions
+- Added timeout expectations (500ms UI, 2s data)
+- Added negative assertion for error states`,
+
+    'edge-cases': ctx => `**Edge cases to add for "${ctx.step}":**
+
+1. Empty state — what happens when no data is available for this section?
+2. Network timeout — simulate a slow API response (3–5s) during this interaction.
+3. Rapid repeated actions — click the same element 3× quickly without waiting.
+4. Invalid / boundary input — empty string, max-length string, special characters.
+5. Role boundary — confirm this element is hidden or disabled for unauthorized roles.
+6. Session expiry — what if the token expires mid-interaction?
+7. Concurrent filter changes — apply two filters within 100ms of each other.
+8. Scroll position — verify the UI is correct when the element is not in the viewport on load.`,
+
+    mobile: ctx => `**Mobile coverage for "${ctx.step}":**
+
+Viewports to test:
+• 390 × 844 — iPhone 14 (primary mobile)
+• 430 × 932 — iPhone 14 Plus
+• 768 × 1024 — iPad portrait
+
+Touch-specific checks:
+1. Tap target ≥ 44 × 44px on all interactive elements (WCAG 2.5.5).
+2. Swipe gestures on filter dropdowns work correctly.
+3. Virtual keyboard does not obscure the active input field.
+4. No horizontal scroll appears in the content area.
+5. Dropdowns and modals remain within viewport bounds.
+6. Filter chips wrap cleanly without overlapping on narrow screens.`,
+
+    figma: ctx => `**Figma vs UI comparison checklist for "${ctx.step}":**
+
+Layout:
+□ Element dimensions match Figma spec (width, height, padding).
+□ Spacing between elements follows the 8pt grid system.
+□ Component alignment matches the design (left, center, right).
+
+Typography:
+□ Font size and weight match the design token (e.g. 13px / 600).
+□ Text truncation shows ellipsis at the correct point.
+□ Line height is consistent with the design spec.
+
+Color tokens:
+□ Primary action background = purple-600 (#7C3AED).
+□ Hover state color matches the Figma prototype.
+□ Error / warning colors match the design system tokens.
+
+Interaction states:
+□ Hover state is visible and matches the Figma design.
+□ Focus ring is visible and uses the correct color (purple-500).
+□ Disabled state renders correctly (opacity, cursor).
+□ Loading / skeleton state matches the design.`,
+
+    default: ctx => `I reviewed the **"${ctx.step}"** step in the **${ctx.page}** section.
+
+**Current coverage assessment:**
+The step covers the primary happy path. Assertions appear correct for the main flow.
+
+**Suggested improvements:**
+• Add an explicit wait for the network response before asserting data values.
+• Use role-based selectors (getByRole) over text-based where possible — more stable.
+• Add a negative assertion after each action to confirm no error state appears.
+
+**Selector stability:**
+Consider requesting \`data-testid\` attributes on key UI elements from the dev team. This avoids brittle CSS class-name selectors that break on UI refactors.
+
+Would you like me to generate updated Playwright code for a specific sub-step, or add edge cases to this section?`,
+  };
+
+  function getMockResponse(userMsg, ctx) {
+    const m   = userMsg.toLowerCase();
+    const c   = ctx || { page: 'this page', step: 'this step' };
+    if (m.includes('rewrite') || m.includes('improve') || m.includes('update')) return MOCK.rewrite(c);
+    if (m.includes('edge') || m.includes('boundary') || m.includes('corner'))   return MOCK['edge-cases'](c);
+    if (m.includes('mobile') || m.includes('responsive') || m.includes('touch')) return MOCK.mobile(c);
+    if (m.includes('figma')  || m.includes('design')  || m.includes('visual'))  return MOCK.figma(c);
+    return MOCK.default(c);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // AI panel toggle
+  // ─────────────────────────────────────────────────────────────────────────
+  function toggleAiPanel() {
+    aiState.isOpen = !aiState.isOpen;
+    document.getElementById('aiPanel').classList.toggle('collapsed', !aiState.isOpen);
+    document.getElementById('aiToggleBtn').classList.toggle('active', aiState.isOpen);
+    document.body.classList.toggle('ai-open', aiState.isOpen);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Context — set when user clicks a step card header (via toggleStep)
+  // Reads page name from nearest .section-title; reads step from .step-title.
+  // No data-* attributes needed on HTML — all derived from the DOM.
+  // ─────────────────────────────────────────────────────────────────────────
+  function selectStepForAI(header) {
+    const section = header.closest('.page-section');
+    if (!section) return;
+    const page = section.querySelector('.section-title')?.textContent?.trim() || 'Unknown';
+    const step = header.querySelector('.step-title')?.textContent?.trim()   || 'Unknown';
+    aiState.context = { page, step };
+    renderAiContext();
+    // Highlight the selected card
+    document.querySelectorAll('.step-card').forEach(c => c.style.borderColor = '');
+    header.closest('.step-card').style.borderColor = 'var(--purple-400, #A78BFA)';
+  }
+
+  function renderAiContext() {
+    const el  = document.getElementById('aiContext');
+    const ctx = aiState.context;
+    if (!ctx) {
+      el.innerHTML = '<div class="ai-context-empty">Click any step card to set context.</div>';
+      return;
+    }
+    el.innerHTML = `
+      <div class="ai-context-page">${escHtml(ctx.page)}</div>
+      <div class="ai-context-step">${escHtml(ctx.step)}</div>
+    `;
+  }
+
+  function escHtml(s) {
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Suggestion chips — auto-fill the input with a helpful prompt
+  // ─────────────────────────────────────────────────────────────────────────
+  const SUGG_PROMPTS = {
+    'rewrite':    'Rewrite this test plan section with clearer steps and better assertions.',
+    'edge-cases': 'Add edge cases and boundary conditions to this test plan section.',
+    'mobile':     'Add mobile and responsive design coverage for this section.',
+    'figma':      'Prepare a Figma vs UI comparison checklist for this section.',
+  };
+
+  function useSuggestion(key) {
+    const input = document.getElementById('aiInput');
+    if (!input) return;
+    input.value = SUGG_PROMPTS[key] || '';
+    input.focus();
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 90) + 'px';
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Messages
+  // ─────────────────────────────────────────────────────────────────────────
+  function appendMessage(role, text, showActions) {
+    const container = document.getElementById('aiMessages');
+    document.getElementById('aiMsgEmpty')?.remove();
+
+    const id  = aiState.nextId++;
+    aiState.messages.push({ role, text, id });
+
+    const div = document.createElement('div');
+    div.className = `ai-msg ${role}`;
+    div.id        = `msg-${id}`;
+    div.innerHTML = `
+      <div class="ai-msg-label">${role === 'user' ? 'You' : 'AI Assistant'}</div>
+      <div class="ai-msg-bubble">${escHtml(text)}</div>
+      ${showActions ? `
+      <div class="ai-msg-actions">
+        <button class="ai-apply-btn" onclick="applyChanges(${id})">Apply Changes</button>
+        <button class="ai-copy-btn"  onclick="copyMsg(${id})">Copy</button>
+      </div>` : ''}
+    `;
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+    return id;
+  }
+
+  function showTyping() {
+    const container = document.getElementById('aiMessages');
+    const el = document.createElement('div');
+    el.id = 'aiTyping';
+    el.className = 'ai-msg assistant';
+    el.innerHTML = `
+      <div class="ai-msg-label">AI Assistant</div>
+      <div class="ai-typing">
+        <div class="ai-typing-dot"></div>
+        <div class="ai-typing-dot"></div>
+        <div class="ai-typing-dot"></div>
+      </div>
+    `;
+    container.appendChild(el);
+    container.scrollTop = container.scrollHeight;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Send message
+  // ─────────────────────────────────────────────────────────────────────────
+  async function sendMessage() {
+    const input = document.getElementById('aiInput');
+    const text  = (input?.value || '').trim();
+    if (!text || aiState.isTyping) return;
+
+    input.value = '';
+    input.style.height = 'auto';
+
+    // Auto-open the panel if it was collapsed
+    if (!aiState.isOpen) toggleAiPanel();
+
+    appendMessage('user', text, false);
+    aiState.isTyping = true;
+    document.getElementById('aiSendBtn').disabled = true;
+
+    showTyping();
+
+    // Simulate AI thinking: 0.8 – 1.8 seconds
+    await new Promise(r => setTimeout(r, 800 + Math.random() * 1000));
+
+    document.getElementById('aiTyping')?.remove();
+    appendMessage('assistant', getMockResponse(text, aiState.context), true);
+
+    aiState.isTyping = false;
+    document.getElementById('aiSendBtn').disabled = false;
+  }
+
+  function handleInputKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Action buttons under AI responses
+  // ─────────────────────────────────────────────────────────────────────────
+  function applyChanges(id) {
+    const btn = document.querySelector(`#msg-${id} .ai-apply-btn`);
+    if (!btn) return;
+    btn.textContent = 'Applied ✓';
+    btn.disabled    = true;
+    // Future: call real API or update the DOM step card here
+  }
+
+  function copyMsg(id) {
+    const msg = aiState.messages.find(m => m.id === id);
+    if (!msg) return;
+    navigator.clipboard.writeText(msg.text).catch(() => {});
+    const btn = document.querySelector(`#msg-${id} .ai-copy-btn`);
+    if (!btn) return;
+    const orig = btn.textContent;
+    btn.textContent = 'Copied ✓';
+    setTimeout(() => { btn.textContent = orig; }, 1500);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Accordion toggle — also selects context for AI panel
+  // ─────────────────────────────────────────────────────────────────────────
+  function toggleStep(header) {
+    const body   = header.nextElementSibling;
+    const toggle = header.querySelector('.step-toggle');
+    const isOpen = body.classList.toggle('open');
+    toggle.textContent = isOpen ? '▾' : '▸';
+    selectStepForAI(header);   // ← update AI context on every step card click
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Sidebar active link
+  // ─────────────────────────────────────────────────────────────────────────
+  function setActive(el) {
+    document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+    el.classList.add('active');
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Scroll spy — highlight the sidebar link for the section in view
+  // ─────────────────────────────────────────────────────────────────────────
+  const sections = document.querySelectorAll('.page-section');
+  const links    = document.querySelectorAll('.sidebar-link[href^="#"]');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const id = entry.target.id;
+        links.forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#' + id));
+      }
+    });
+  }, { rootMargin: '-60px 0px -60% 0px', threshold: 0 });
+  sections.forEach(s => observer.observe(s));
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // AI Agent section — mock frontend logic
+  // ─────────────────────────────────────────────────────────────────────────
+  const AI_PROMPTS = {
+    update:     'Update this test plan section to include missing edge cases and improve clarity',
+    playwright: 'Generate Playwright test code for this test plan section',
+    selectors:  'Review and fix all failing CSS selectors in this test plan section',
+    figma:      'Compare the current UI against the Figma design and list all visual discrepancies',
+    analyze:    'Analyze the latest test results and summarize failures, flakiness, and coverage gaps',
+  };
+
+  const AI_RESPONSES = {
+    update:
+`Updated test plan steps:
+
+1. Pre-condition: assert the page is in the default state before starting.
+2. Perform the primary action and wait for the loading indicator to disappear.
+3. Assert the immediate UI response is visible within 500ms.
+4. Edge case: empty state — verify the correct empty-state message appears.
+5. Edge case: network timeout — simulate a 5s delay and confirm a retry or error message.
+6. Negative assertion: confirm no error toast and no console errors after each step.
+
+Key additions: empty state, timeout handling, and explicit negative assertions.`,
+
+    playwright:
+`// Generated Playwright test snippet
+test('should complete the flow', async ({ page }) => {
+  await page.goto('/dashboard');
+  await page.waitForSelector('[data-testid="main-content"]');
+
+  // Step 1: interact with primary element
+  await page.click('[data-testid="action-btn"]');
+  await expect(page.locator('[data-testid="result-panel"]')).toBeVisible();
+
+  // Step 2: verify data state
+  const text = await page.locator('[data-testid="result-value"]').textContent();
+  expect(text).not.toBe('');
+
+  // Step 3: negative assertion
+  await expect(page.locator('.error-toast')).not.toBeVisible();
+});`,
+
+    selectors:
+`Suggested selector fixes:
+
+1. Date filter — replace .date-picker-input with [data-testid="date-filter"]
+   Reason: class is generated by the CSS framework and changes on rebuild.
+
+2. Submit button — replace button.btn-primary with [data-testid="submit-btn"]
+   Reason: multiple elements share this class; data-testid is unique.
+
+3. Result table — replace #results > table > tbody > tr with [data-testid="result-row"]
+   Reason: deeply nested selectors break when layout changes.
+
+Recommended: add data-testid attributes to all interactive elements before the next test run.`,
+
+    figma:
+`Figma vs UI comparison results:
+
+✅ Header layout — matches Figma (spacing, font weight, color)
+✅ Primary button — color and border-radius match design tokens
+
+⚠️  Date filter width — UI is 240px; Figma spec is 200px (12% wider)
+⚠️  Table row height — UI is 48px; Figma spec is 40px
+
+❌ Empty state illustration — not implemented in UI (Figma shows a custom SVG)
+❌ Mobile breakpoint (<768px) — sidebar collapses differently from Figma prototype
+
+Action items: fix date filter width, table row height, and implement the empty state illustration.`,
+
+    analyze:
+`Test results analysis summary:
+
+Total: 142 tests  |  Passed: 128  |  Failed: 9  |  Flaky: 5
+
+Top failures:
+• "Date filter applies correctly" — fails on Chrome 124 (selector timeout)
+• "Export CSV downloads file" — fails in CI only (missing download directory)
+• "Mobile menu closes on outside click" — intermittent, 3 of 10 runs
+
+Flaky tests: all 5 involve network-dependent assertions without proper await.
+
+Coverage gaps:
+• No tests for role-based visibility (admin vs viewer)
+• No tests for empty state (0 results returned)
+• No tests for session expiry mid-flow
+
+Recommended: fix selectors for the date filter, add network intercepts to flaky tests, and add 3 new tests for the coverage gaps.`,
+  };
+
+  let _aiAgentAction = null;
+  let _aiResponseText = '';
+
+  function selectQuickAction(action, el) {
+    _aiAgentAction = action;
+    document.querySelectorAll('.ai-quick-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    const input = document.getElementById('aiAgentInput');
+    input.value = AI_PROMPTS[action] || '';
+    input.focus();
+  }
+
+  function _escapeHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function sendToAiAgent() {
+    const input  = document.getElementById('aiAgentInput');
+    const box    = document.getElementById('aiAgentResponse');
+    const btn    = document.getElementById('aiAgentSendBtn');
+    const text   = input.value.trim();
+    if (!text) { input.focus(); return; }
+
+    box.style.display = 'block';
+    box.innerHTML = `
+      <div class="ai-msg-user"><strong>You</strong>${_escapeHtml(text)}</div>
+      <div class="ai-loading">AI is thinking…
+        <span class="ai-loading-dots"><span></span><span></span><span></span></span>
+      </div>`;
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+
+    const delay = 1000 + Math.random() * 800;
+    setTimeout(() => {
+      const action = _aiAgentAction || 'update';
+      _aiResponseText = AI_RESPONSES[action] || AI_RESPONSES.update;
+      box.innerHTML = `
+        <div class="ai-msg-user"><strong>You</strong>${_escapeHtml(text)}</div>
+        <div class="ai-msg-ai">${_escapeHtml(_aiResponseText)}</div>
+        <div class="ai-response-actions">
+          <button class="ai-action-btn copy"  onclick="copyAiResponse()">Copy response</button>
+          <button class="ai-action-btn apply" onclick="applyAiSuggestion()">Apply suggestion</button>
+        </div>`;
+      btn.disabled = false;
+      btn.textContent = 'Send to AI Agent';
+    }, delay);
+  }
+
+  function copyAiResponse() {
+    navigator.clipboard.writeText(_aiResponseText).then(() => {
+      const btn = document.querySelector('.ai-action-btn.copy');
+      const orig = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = orig; }, 1500);
+    });
+  }
+
+  function applyAiSuggestion() {
+    console.log('[AI Agent] Applying suggestion:', _aiResponseText);
+    const btn = document.querySelector('.ai-action-btn.apply');
+    const orig = btn.textContent;
+    btn.textContent = 'Applied!';
+    btn.style.background = '#16a34a';
+    setTimeout(() => { btn.textContent = orig; btn.style.background = ''; }, 1500);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Scroll-to-top button
+  // ─────────────────────────────────────────────────────────────────────────
+  const scrollBtn = document.getElementById('scrollTopBtn');
+  window.addEventListener('scroll', () => {
+    scrollBtn.classList.toggle('show', window.scrollY > 300);
+  });
+</script>
+</body>
+</html>

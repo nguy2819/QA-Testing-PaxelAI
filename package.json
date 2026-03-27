@@ -1,0 +1,18 @@
+{
+  "name": "qa-e2e-paxelai",
+  "version": "1.0.0",
+  "description": "E2E QA automation framework for Paxel.AI — Playwright + TypeScript",
+  "scripts": {
+    "test:dev":       "BASE_ENV=dev  playwright test tests/regression --reporter=list,html",
+    "test:prod":      "BASE_ENV=prod playwright test tests/regression --reporter=list,html",
+    "report":         "playwright show-report playwright-report",
+    "dashboard":      "node dashboard/server.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.42.0",
+    "@types/node": "^25.5.0",
+    "dotenv": "^16.4.0",
+    "express": "^5.2.1",
+    "typescript": "^5.4.0"
+  }
+}
