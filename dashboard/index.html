@@ -561,10 +561,11 @@ let planState         = {};  // id → 'pending'|'running'|'pass'|'fail'
 let activePlanStepId  = null;
 let activePlanFailed  = false;
 
-const API_BASE =
-  window.location.hostname.includes('localhost')
+function getApiBase() {
+  return window.location.hostname.includes('localhost')
     ? 'http://localhost:3001'
     : '';
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Live feed
@@ -577,7 +578,7 @@ function startLiveFeed() {
   img.onerror = null; // never auto-hide — file may not exist for first few frames
   liveFeedTimer = setInterval(() => {
     img.style.display = 'block'; // re-assert visibility every tick
-    img.src = `${API_BASE}/screenshots/live.jpg?t=${Date.now()}`;
+    img.src = `${getApiBase()}/screenshots/live.jpg?t=${Date.now()}`;
   }, 400);
 }
 function stopLiveFeed() {
@@ -734,7 +735,7 @@ async function startRun() {
 
   // POST to server — include role so server passes ROLE env var to Playwright
   try {
-    const res = await fetch(`${API_BASE}/api/run`, {
+    const res = await fetch(`${getApiBase()}/api/run`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password, page: selectedPage, role: selectedRole, env: currentEnv }),
@@ -753,7 +754,7 @@ async function startRun() {
   }
 
   // Subscribe to SSE stream
-  eventSource = new EventSource(`${API_BASE}/api/stream`);
+  eventSource = new EventSource(`${getApiBase()}/api/stream`);
   eventSource.onmessage = (e) => {
     try {
       const entry = JSON.parse(e.data);
@@ -772,7 +773,7 @@ async function startRun() {
 async function stopTest() {
   stopLiveFeed();
   if (eventSource) { eventSource.close(); eventSource = null; }
-  try { await fetch(`${API_BASE}/api/stop`, { method: 'POST' }); } catch {}
+  try { await fetch(`${getApiBase()}/api/stop`, { method: 'POST' }); } catch {}
   // Finalize any running plan step as fail (interrupted)
   if (activePlanStepId) { finalizePlanStep(activePlanStepId, 'fail'); activePlanStepId = null; }
   endRun();
