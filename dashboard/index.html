@@ -400,7 +400,7 @@
 
   <div class="page-divider-v" style="margin-left:auto"></div>
 
-  <a href="test-plan.html" class="test-plan-link" title="Open full Test Plan in a new tab">
+  <a href="/dashboard/test-plan.html" class="test-plan-link" title="Open full Test Plan in a new tab">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
     Test Plan
   </a>
@@ -572,7 +572,7 @@ function startLiveFeed() {
   img.onerror = null; // never auto-hide — file may not exist for first few frames
   liveFeedTimer = setInterval(() => {
     img.style.display = 'block'; // re-assert visibility every tick
-    img.src = `/screenshots/live.jpg?t=${Date.now()}`;
+    img.src = `/dashboard/run/screenshots/live.jpg?t=${Date.now()}`;
   }, 400);
 }
 function stopLiveFeed() {
@@ -735,8 +735,9 @@ async function startRun() {
       body: JSON.stringify({ email, password, page: selectedPage, role: selectedRole, env: currentEnv }),
     });
     if (!res.ok) {
-      const err = await res.json();
-      appendLog(`Server error: ${err.error}`, 'fail', null);
+      let msg = `Server error: HTTP ${res.status}`;
+      try { const err = await res.json(); msg = `Server error: ${err.error}`; } catch {}
+      appendLog(msg, 'fail', null);
       endRun();
       return;
     }
