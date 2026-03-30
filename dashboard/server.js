@@ -20,6 +20,19 @@ const PROJECT    = path.join(__dirname, '..');
 const RUN_DIR    = path.join(__dirname, 'run');
 const LOG_FILE   = path.join(RUN_DIR, 'current.jsonl');
 const SS_DIR     = path.join(RUN_DIR, 'screenshots');
+const NOVNC_DIR  = '/usr/share/novnc';
+const NOVNC_HTML = path.join(NOVNC_DIR, 'vnc.html');
+
+console.log('[startup] NOVNC_DIR exists:', fs.existsSync(NOVNC_DIR));
+console.log('[startup] NOVNC_HTML exists:', fs.existsSync(NOVNC_HTML));
+
+if (fs.existsSync(NOVNC_DIR)) {
+  try {
+    console.log('[startup] NOVNC_DIR sample files:', fs.readdirSync(NOVNC_DIR).slice(0, 10));
+  } catch (e) {
+    console.log('[startup] Could not read NOVNC_DIR:', e.message);
+  }
+}
 
 // Ensure run dirs exist
 fs.mkdirSync(SS_DIR, { recursive: true });
@@ -34,7 +47,16 @@ app.use(cors());
 // This path only exists inside Docker (/usr/share/novnc). On Windows dev the
 // directory won't be present — the route simply returns 404, which is fine
 // because the noVNC panel only makes sense inside Docker anyway.
-app.use('/novnc', express.static('/usr/share/novnc'));
+app.use('/novnc', express.static(NOVNC_DIR));
+
+app.get('/novnc/vnc.html', (req, res, next) => {
+  if (!fs.existsSync(NOVNC_HTML)) {
+    return res.status(404).send(`noVNC file missing at ${NOVNC_HTML}`);
+  }
+  res.sendFile(NOVNC_HTML, (err) => {
+    if (err) next(err);
+  });
+});
 
 // ── WebSocket proxy — /websockify → websockify on :6080 (internal only) ──────
 // noVNC connects via `path=websockify` query param. Render only exposes one
