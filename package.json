@@ -16,6 +16,7 @@
     "typescript": "^5.4.0"
   },
   "dependencies": {
-    "cors": "^2.8.6"
+    "cors": "^2.8.6",
+    "http-proxy-middleware": "^2.0.6"
   }
 }

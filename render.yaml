@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: qa-testing-paxelai
+    runtime: docker
+    # Render sets $PORT automatically; server.js reads process.env.PORT
+    # so no hardcoded port env var is needed here.
+    envVars:
+      - key: DISPLAY
+        value: ":99"
+    # Standard plan gives 1 CPU / 2 GB RAM — enough for one Playwright run.
+    # Upgrade to Pro if you need more concurrent headroom.
+    plan: standard
+    healthCheckPath: /api/status

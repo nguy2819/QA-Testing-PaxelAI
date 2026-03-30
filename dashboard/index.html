@@ -153,18 +153,22 @@
     }
     .live-badge.show { display: inline-block; animation: livepulse 2s infinite; }
     @keyframes livepulse { 0%,100%{opacity:1} 50%{opacity:.5} }
-    .screenshot-wrap {
-      flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; overflow: hidden;
+    /* ── noVNC live view (replaces screenshot polling) ──────────────── */
+    .vnc-wrap {
+      flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative;
+      background: #0d0d0d;
     }
-    .screenshot-img {
-      max-width: 100%; max-height: 100%; object-fit: contain;
-      border-radius: var(--radius-md); box-shadow: 0 8px 32px rgba(109,40,217,.18);
-      border: 1.5px solid var(--border); transition: opacity .2s;
+    .vnc-frame {
+      flex: 1; width: 100%; height: 100%; border: none; display: block;
     }
-    .no-screenshot { text-align: center; color: var(--muted); }
-    .no-screenshot .ns-icon { font-size: 52px; margin-bottom: 12px; opacity: .4; }
-    .no-screenshot strong { display: block; font-size: 15px; color: var(--purple-600); margin-bottom: 6px; }
-    .no-screenshot p { font-size: 13px; }
+    .vnc-placeholder {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; color: var(--muted); background: #F0EBF8;
+    }
+    .vnc-placeholder .ns-icon { font-size: 52px; margin-bottom: 12px; opacity: .4; }
+    .vnc-placeholder strong { display: block; font-size: 15px; color: var(--purple-600); margin-bottom: 6px; }
+    .vnc-placeholder p { font-size: 13px; }
     .step-counter {
       padding: 10px 20px; background: var(--surface); border-top: 1.5px solid var(--border);
       display: flex; gap: 20px; flex-shrink: 0;
@@ -416,13 +420,16 @@
       <span class="live-badge" id="liveBadge">● LIVE</span>
       <span id="currentStepLabel" style="margin-left:auto;font-size:11px;color:var(--muted);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
     </div>
-    <div class="screenshot-wrap" id="screenshotWrap">
-      <div class="no-screenshot" id="noScreenshot">
+    <div class="vnc-wrap" id="vncWrap">
+      <!-- Shown when idle -->
+      <div class="vnc-placeholder" id="vncPlaceholder">
         <div class="ns-icon">🧪</div>
         <strong>No test running</strong>
         <p>Select a page &amp; role to load its test plan,<br/>then click <strong>Run Test</strong>.</p>
       </div>
-      <img class="screenshot-img" id="screenshotImg" src="" alt="" style="display:none"/>
+      <!-- noVNC iframe — src set when test starts, cleared when idle -->
+      <iframe class="vnc-frame" id="vncFrame" src="" style="display:none"
+              allow="fullscreen" title="Live browser view"></iframe>
     </div>
     <div class="step-counter">
       <div class="counter-item">
@@ -568,21 +575,26 @@ function getApiBase() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Live feed
+// Live feed — noVNC iframe
+// noVNC auto-connects and auto-reconnects; we just set/clear the src.
 // ─────────────────────────────────────────────────────────────────────────────
+function getVncUrl() {
+  // Use a relative path so this works both locally (Docker) and on Render.
+  // `path=websockify` tells noVNC to open its WebSocket at /websockify on
+  // the same origin — Express proxies that to websockify on :6080 internally.
+  const params = 'autoconnect=true&reconnect=true&resize=scale&show_dot=true&quality=6&path=websockify';
+  return `/novnc/vnc.html?${params}`;
+}
 function startLiveFeed() {
-  stopLiveFeed();
-  const img  = document.getElementById('screenshotImg');
-  const noSS = document.getElementById('noScreenshot');
-  noSS.style.display = 'none';
-  img.onerror = null; // never auto-hide — file may not exist for first few frames
-  liveFeedTimer = setInterval(() => {
-    img.style.display = 'block'; // re-assert visibility every tick
-    img.src = `${getApiBase()}/screenshots/live.jpg?t=${Date.now()}`;
-  }, 400);
+  const frame       = document.getElementById('vncFrame');
+  const placeholder = document.getElementById('vncPlaceholder');
+  placeholder.style.display = 'none';
+  frame.src          = getVncUrl();
+  frame.style.display = 'block';
 }
 function stopLiveFeed() {
-  if (liveFeedTimer) { clearInterval(liveFeedTimer); liveFeedTimer = null; }
+  // noVNC reconnects automatically — nothing to clear here.
+  // Frame stays visible so the user can see the final browser state.
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -966,10 +978,11 @@ function clearLogOnly() {
 function clearLog() {
   stopLiveFeed();
   clearLogOnly();
-  const img  = document.getElementById('screenshotImg');
-  const noSS = document.getElementById('noScreenshot');
-  img.style.display  = 'none';
-  noSS.style.display = 'block';
+  const frame       = document.getElementById('vncFrame');
+  const placeholder = document.getElementById('vncPlaceholder');
+  frame.src          = '';
+  frame.style.display = 'none';
+  placeholder.style.display = 'block';
   if (currentPlanKey) { renderPlan(currentPlanKey); setControlState('selected'); }
 }
 
