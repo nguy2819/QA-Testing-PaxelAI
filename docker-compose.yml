@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  qa-dashboard:
+    build: .
+    container_name: paxel-qa-dashboard
+    ports:
+      - "3001:3001"   # Dashboard UI  →  http://localhost:3001
+      - "6080:6080"   # noVNC viewer  →  http://localhost:6080/vnc.html
+    environment:
+      - DISPLAY=:99
+    volumes:
+      # Persist run output (logs + screenshots) between restarts
+      - ./dashboard/run:/app/dashboard/run
+    restart: unless-stopped
+    shm_size: '2gb'   # Chromium needs shared memory

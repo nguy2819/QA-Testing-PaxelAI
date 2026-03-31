@@ -1,7 +1,4 @@
-echo "[startup] checking /app/novnc ..."
-ls -la /app || true
-ls -la /app/novnc || true
-test -f /app/novnc/vnc.html && echo "[startup] /app/novnc/vnc.html exists" || echo "[startup] /app/novnc/vnc.html missing"
+
 #!/bin/bash
 # docker/start.sh — boots Xvfb → fluxbox → x11vnc → websockify → Node
 # Each daemon is verified ready before the next one starts.
@@ -67,7 +64,7 @@ echo "[4/5] Starting websockify + noVNC on port 6080 ..."
 # 6080   WebSocket listen port
 # localhost:5900  upstream VNC TCP target
 websockify \
-  --web /usr/share/novnc \
+  --web /app/novnc \
   6080 \
   localhost:5900 \
   &

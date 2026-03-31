@@ -36,6 +36,12 @@ const NOVNC_DIR = NOVNC_CANDIDATES.find((dir) =>
 
 const NOVNC_HTML = NOVNC_DIR ? path.join(NOVNC_DIR, 'vnc.html') : null;
 
+// Debug logs
+console.log('[startup] __dirname:', __dirname);
+console.log('[startup] APP_ROOT:', APP_ROOT);
+console.log('[startup] novnc exists:', fs.existsSync(path.join(APP_ROOT, 'novnc')));
+console.log('[startup] vnc.html exists:', fs.existsSync(path.join(APP_ROOT, 'novnc', 'vnc.html')));
+
 console.log('[startup] /app exists:', fs.existsSync('/app'));
 console.log('[startup] /app/novnc exists:', fs.existsSync('/app/novnc'));
 console.log('[startup] /app/novnc/vnc.html exists:', fs.existsSync('/app/novnc/vnc.html'));

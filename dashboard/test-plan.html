@@ -1374,6 +1374,7 @@ Recommended: fix selectors for the date filter, add network intercepts to flaky 
 
   let _aiAgentAction = null;
   let _aiResponseText = '';
+  let _parsedIntent = null;
 
   function selectQuickAction(action, el) {
     _aiAgentAction = action;
@@ -1406,8 +1407,21 @@ Recommended: fix selectors for the date filter, add network intercepts to flaky 
 
     const delay = 1000 + Math.random() * 800;
     setTimeout(() => {
-      const action = _aiAgentAction || 'update';
-      _aiResponseText = AI_RESPONSES[action] || AI_RESPONSES.update;
+      _parsedIntent = parseIntent(text);
+      if (_parsedIntent) {
+        const { action, section, target, content } = _parsedIntent;
+        const actionLabels = { delete: 'delete a bullet', add: 'add a bullet', replace: 'replace a bullet', append: 'append a note' };
+        const lines = [
+          `Detected intent: ${actionLabels[action] || action} in section ${section.toUpperCase()}`,
+          target  ? `Target: "${target}"`  : null,
+          content ? `Content: "${content}"` : null,
+          `\nClick "Apply suggestion" to update the test plan.`,
+        ].filter(Boolean);
+        _aiResponseText = lines.join('\n');
+      } else {
+        const action = _aiAgentAction || 'update';
+        _aiResponseText = AI_RESPONSES[action] || AI_RESPONSES.update;
+      }
       box.innerHTML = `
         <div class="ai-msg-user"><strong>You</strong>${_escapeHtml(text)}</div>
         <div class="ai-msg-ai">${_escapeHtml(_aiResponseText)}</div>
@@ -1429,13 +1443,173 @@ Recommended: fix selectors for the date filter, add network intercepts to flaky 
     });
   }
 
+  // ─── Intent parser ────────────────────────────────────────────────────────
+  function parseIntent(text) {
+    const lower = text.toLowerCase().trim();
+
+    // Detect action
+    let action = null;
+    if (/\b(delete|remove)\b/.test(lower))        action = 'delete';
+    else if (/\b(add|insert)\b/.test(lower))      action = 'add';
+    else if (/\breplace\b/.test(lower))           action = 'replace';
+    else if (/\b(append|note)\b/.test(lower))     action = 'append';
+    if (!action) return null;
+
+    // Detect section
+    const sectionMatch = lower.match(/\b(4[abcde]|5[ab]|6)\b/);
+    if (!sectionMatch) return null;
+    const section = sectionMatch[1];
+
+    // Extract remaining text after section reference
+    const sectionIdx = lower.indexOf(section);
+    const afterRaw   = text.slice(sectionIdx + section.length).trim();
+
+    let target = null, content = null;
+
+    if (action === 'delete') {
+      target = afterRaw;
+    } else if (action === 'replace') {
+      const withMatch = afterRaw.match(/^(.+?)\s+with\s+(.+)$/i);
+      if (withMatch) { target = withMatch[1].trim(); content = withMatch[2].trim(); }
+      else            { target = afterRaw; }
+    } else if (action === 'add' || action === 'append') {
+      content = afterRaw.replace(/^[:—\-]\s*/, '');
+    }
+
+    return { action, section, target, content };
+  }
+
+  // ─── DOM helpers ──────────────────────────────────────────────────────────
+  function _findStepCard(sectionId) {
+    for (const num of document.querySelectorAll('.step-num')) {
+      if (num.textContent.trim().toLowerCase() === sectionId.toLowerCase()) {
+        return num.closest('.step-card');
+      }
+    }
+    return null;
+  }
+
+  function _fuzzyMatch(liText, target) {
+    if (!target) return false;
+    const norm = s => s.toLowerCase().replace(/\s+/g, ' ').trim();
+    const a = norm(liText), b = norm(target);
+    return a.includes(b) || b.includes(a);
+  }
+
+  function _expandCard(card) {
+    const body = card.querySelector('.step-body');
+    if (body && (body.style.display === 'none' || getComputedStyle(body).display === 'none')) {
+      const header = card.querySelector('.step-card-header');
+      if (header) header.click();
+    }
+  }
+
+  function _showSectionFeedback(card, message, success) {
+    const prev = card.querySelector('.ai-section-feedback');
+    if (prev) prev.remove();
+    const fb = document.createElement('div');
+    fb.className = 'ai-section-feedback';
+    fb.style.cssText = [
+      'margin:8px 0 0 0', 'padding:6px 14px', 'border-radius:6px',
+      'font-size:12px', 'font-weight:600',
+      `background:${success ? '#dcfce7' : '#fee2e2'}`,
+      `color:${success ? '#16a34a' : '#dc2626'}`,
+      `border-left:3px solid ${success ? '#16a34a' : '#dc2626'}`,
+    ].join(';');
+    fb.textContent = message;
+    card.appendChild(fb);
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => fb.remove(), 4000);
+  }
+
+  function _flashNew(el, color) {
+    el.style.transition = 'background 0.4s';
+    el.style.background = color;
+    setTimeout(() => { el.style.background = ''; }, 2000);
+  }
+
+  // ─── Apply suggestion ─────────────────────────────────────────────────────
   function applyAiSuggestion() {
-    console.log('[AI Agent] Applying suggestion:', _aiResponseText);
-    const btn = document.querySelector('.ai-action-btn.apply');
+    const btn  = document.querySelector('.ai-action-btn.apply');
     const orig = btn.textContent;
-    btn.textContent = 'Applied!';
-    btn.style.background = '#16a34a';
+
+    if (!_parsedIntent) {
+      btn.textContent = 'Applied!';
+      btn.style.background = '#16a34a';
+      setTimeout(() => { btn.textContent = orig; btn.style.background = ''; }, 1500);
+      return;
+    }
+
+    const { action, section, target, content } = _parsedIntent;
+    const card = _findStepCard(section);
+
+    if (!card) {
+      btn.textContent = 'Section not found';
+      btn.style.background = '#dc2626';
+      setTimeout(() => { btn.textContent = orig; btn.style.background = ''; }, 2000);
+      return;
+    }
+
+    _expandCard(card);
+    const ul = card.querySelector('.step-body ul');
+    let success = false, message = '';
+
+    if (action === 'delete') {
+      let found = null;
+      for (const li of (ul ? ul.querySelectorAll('li') : [])) {
+        if (_fuzzyMatch(li.textContent, target)) { found = li; break; }
+      }
+      if (found) {
+        found.style.transition = 'opacity 0.3s';
+        found.style.opacity = '0';
+        setTimeout(() => found.remove(), 300);
+        success = true; message = `Bullet deleted from §${section.toUpperCase()}`;
+      } else {
+        message = `Bullet not found in §${section.toUpperCase()}`;
+      }
+
+    } else if (action === 'add') {
+      if (ul && content) {
+        const li = document.createElement('li');
+        li.textContent = content;
+        ul.appendChild(li);
+        _flashNew(li, '#fef9c3');
+        success = true; message = `Bullet added to §${section.toUpperCase()}`;
+      } else {
+        message = 'No content to add.';
+      }
+
+    } else if (action === 'replace') {
+      let found = null;
+      for (const li of (ul ? ul.querySelectorAll('li') : [])) {
+        if (_fuzzyMatch(li.textContent, target)) { found = li; break; }
+      }
+      if (found && content) {
+        found.textContent = content;
+        _flashNew(found, '#fef9c3');
+        success = true; message = `Bullet replaced in §${section.toUpperCase()}`;
+      } else {
+        message = found ? 'No replacement content provided.' : `Bullet not found in §${section.toUpperCase()}`;
+      }
+
+    } else if (action === 'append') {
+      const body = card.querySelector('.step-body');
+      if (body && content) {
+        const note = document.createElement('div');
+        note.className = 'note';
+        note.textContent = `Note: ${content}`;
+        body.appendChild(note);
+        _flashNew(note, '#fef9c3');
+        success = true; message = `Note appended to §${section.toUpperCase()}`;
+      } else {
+        message = 'No note content provided.';
+      }
+    }
+
+    btn.textContent = success ? 'Applied!' : 'Error';
+    btn.style.background = success ? '#16a34a' : '#dc2626';
     setTimeout(() => { btn.textContent = orig; btn.style.background = ''; }, 1500);
+    if (message) _showSectionFeedback(card, message, success);
   }
 
   // ─────────────────────────────────────────────────────────────────────────

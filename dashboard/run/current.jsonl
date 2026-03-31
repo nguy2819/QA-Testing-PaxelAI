@@ -1,109 +1,61 @@
-{"message":"━━ Step 1 — Login as admin ━━","status":"info","screenshot":"1774591992634.jpg","ts":1774591992724}
-{"message":"━━ Step 1 — Login as admin ━━","status":"info","screenshot":"1774591992635.jpg","ts":1774591992739}
-{"message":"Navigating to admin sign-in… (baseURL: about:blank)","status":"running","screenshot":"1774591992729.jpg","ts":1774591992776}
-{"message":"Navigating to admin sign-in… (baseURL: about:blank)","status":"running","screenshot":"1774591992742.jpg","ts":1774591992777}
-{"message":"Admin login ✓ — landed on: https://devapp.paxel.ai/admin/dashboard","status":"pass","screenshot":"1774591996781.jpg","ts":1774591997125}
-{"message":"Admin login ✓ — landed on: https://devapp.paxel.ai/admin/dashboard","status":"pass","screenshot":"1774591996946.jpg","ts":1774591997156}
-{"message":"════ Testing user: David Farris (Nexus Pharmaceuticals) ════","status":"info","screenshot":"1774591997130.jpg","ts":1774591997231}
-{"message":"━━ Step 2 — Impersonate David Farris (salesrep @ Nexus Pharmaceuticals) ━━","status":"info","screenshot":"1774591997236.jpg","ts":1774591997292}
-{"message":"════ Testing user: David Farris (Nexus Pharmaceuticals) ════","status":"info","screenshot":"1774591997160.jpg","ts":1774591997296}
-{"message":"Impersonating David Farris…","status":"running","screenshot":"1774591997297.jpg","ts":1774591997359}
-{"message":"━━ Step 2 — Impersonate David Farris (salesrep @ Nexus Pharmaceuticals) ━━","status":"info","screenshot":"1774591997301.jpg","ts":1774591997361}
-{"message":"Impersonating David Farris…","status":"running","screenshot":"1774591997368.jpg","ts":1774591997423}
-{"message":"Impersonation confirmed ✓","status":"pass","screenshot":"1774591998836.jpg","ts":1774591999160}
-{"message":"Impersonation confirmed ✓","status":"pass","screenshot":"1774591998980.jpg","ts":1774591999260}
-{"message":"Navigating to Sales Summary…","status":"running","screenshot":"1774591999172.jpg","ts":1774591999321}
-{"message":"Navigating to Sales Summary…","status":"running","screenshot":"1774591999267.jpg","ts":1774591999430}
-{"message":"Sales Summary loaded ✓","status":"pass","screenshot":"1774591999585.jpg","ts":1774591999739}
-{"message":"━━ Step 3 — Notification button ━━","status":"info","screenshot":"1774591999745.jpg","ts":1774591999837}
-{"message":"Sales Summary loaded ✓","status":"pass","screenshot":"1774591999756.jpg","ts":1774591999846}
-{"message":"Visible header buttons: ","status":"info","screenshot":"1774591999866.jpg","ts":1774591999969}
-{"message":"━━ Step 3 — Notification button ━━","status":"info","screenshot":"1774591999861.jpg","ts":1774592000002}
-{"message":"Notification button located at x:1113 ✓","status":"info","screenshot":"1774592000087.jpg","ts":1774592000156}
-{"message":"Visible header buttons: ","status":"info","screenshot":"1774592000048.jpg","ts":1774592000174}
-{"message":"Notification button located at x:1113 ✓","status":"info","screenshot":"1774592000245.jpg","ts":1774592000298}
-{"message":"Hover: rectangular highlight around notification button ✓","status":"pass","screenshot":"1774592000685.jpg","ts":1774592000749}
-{"message":"Hover: rectangular highlight around notification button ✓","status":"pass","screenshot":"1774592000826.jpg","ts":1774592000894}
-{"message":"Notification box opened ✓","status":"pass","screenshot":"1774592001803.jpg","ts":1774592001841}
-{"message":"Notification box opened ✓","status":"pass","screenshot":"1774592001939.jpg","ts":1774592002040}
-{"message":"\"Overdue\" tab clicked — content loaded ✓","status":"pass","screenshot":"1774592002646.jpg","ts":1774592002691}
-{"message":"\"Overdue\" tab clicked — content loaded ✓","status":"pass","screenshot":"1774592002802.jpg","ts":1774592002869}
-{"message":"\"Upcoming\" tab clicked — content loaded ✓","status":"pass","screenshot":"1774592003501.jpg","ts":1774592003541}
-{"message":"\"Upcoming\" tab clicked — content loaded ✓","status":"pass","screenshot":"1774592003684.jpg","ts":1774592003733}
-{"message":"\"Activity\" tab clicked — content loaded ✓","status":"pass","screenshot":"1774592004380.jpg","ts":1774592004472}
-{"message":"\"Activity\" tab clicked — content loaded ✓","status":"pass","screenshot":"1774592004534.jpg","ts":1774592004633}
-{"message":"Notification box closes on button click: ✓","status":"pass","screenshot":"1774592005061.jpg","ts":1774592005107}
-{"message":"Notification box closes on button click: ✓","status":"pass","screenshot":"1774592005198.jpg","ts":1774592005258}
-{"message":"Notification box reopens on button click: ✓","status":"pass","screenshot":"1774592005938.jpg","ts":1774592005973}
-{"message":"Notification box reopens on button click: ✓","status":"pass","screenshot":"1774592006095.jpg","ts":1774592006149}
-{"message":"Notification box closes on outside click: ✓","status":"pass","screenshot":"1774592006604.jpg","ts":1774592006644}
-{"message":"━━ Step 4a — Date filter: default shows yesterday + hover effects ━━","status":"info","screenshot":"1774592006661.jpg","ts":1774592006712}
-{"message":"Today: Mar 27, 2026   Yesterday: Mar 26, 2026","status":"info","screenshot":"1774592006717.jpg","ts":1774592006759}
-{"message":"Date filter shows: \"Mar 25, 2026\"","status":"info","screenshot":"1774592006769.jpg","ts":1774592006813}
-{"message":"Notification box closes on outside click: ✓","status":"pass","screenshot":"1774592006779.jpg","ts":1774592006867}
-{"message":"Default = yesterday (Mar 26, 2026): FAIL — shown: Mar 25, 2026","status":"fail","screenshot":"1774592006819.jpg","ts":1774592006871}
-{"message":"━━ Step 4a — Date filter: default shows yesterday + hover effects ━━","status":"info","screenshot":"1774592006885.jpg","ts":1774592006936}
-{"message":"Today: Mar 27, 2026   Yesterday: Mar 26, 2026","status":"info","screenshot":"1774592006945.jpg","ts":1774592006998}
-{"message":"Date filter shows: \"Mar 25, 2026\"","status":"info","screenshot":"1774592007015.jpg","ts":1774592007075}
-{"message":"Date filter dropdown opened ✓","status":"pass","screenshot":"1774592007055.jpg","ts":1774592007138}
-{"message":"Default = yesterday (Mar 26, 2026): FAIL — shown: Mar 25, 2026","status":"fail","screenshot":"1774592007083.jpg","ts":1774592007140}
-{"message":"Date filter dropdown opened ✓","status":"pass","screenshot":"1774592007337.jpg","ts":1774592007445}
-{"message":"Hover \"Yesterday\" — effect ✓","status":"pass","screenshot":"1774592007375.jpg","ts":1774592007467}
-{"message":"Hover \"Yesterday\" — effect ✓","status":"pass","screenshot":"1774592007700.jpg","ts":1774592007797}
-{"message":"Hover \"Month-to-date\" — effect ✓","status":"pass","screenshot":"1774592007715.jpg","ts":1774592007823}
-{"message":"Hover \"Month-to-date\" — effect ✓","status":"pass","screenshot":"1774592008034.jpg","ts":1774592008175}
-{"message":"Hover \"Previous month\" — effect ✓","status":"pass","screenshot":"1774592008062.jpg","ts":1774592008201}
-{"message":"Hover \"Quarter-to-date\" — effect ✓","status":"pass","screenshot":"1774592008417.jpg","ts":1774592008475}
-{"message":"Hover \"Previous month\" — effect ✓","status":"pass","screenshot":"1774592008418.jpg","ts":1774592008522}
-{"message":"Hover \"Previous quarter\" — effect ✓","status":"pass","screenshot":"1774592008714.jpg","ts":1774592008771}
-{"message":"Hover \"Quarter-to-date\" — effect ✓","status":"pass","screenshot":"1774592008730.jpg","ts":1774592008804}
-{"message":"Hover \"Year-to-date\" — effect ✓","status":"pass","screenshot":"1774592008992.jpg","ts":1774592009063}
-{"message":"Hover \"Previous quarter\" — effect ✓","status":"pass","screenshot":"1774592009049.jpg","ts":1774592009113}
-{"message":"Hover \"Previous year\" — effect ✓","status":"pass","screenshot":"1774592009295.jpg","ts":1774592009387}
-{"message":"Hover \"Year-to-date\" — effect ✓","status":"pass","screenshot":"1774592009350.jpg","ts":1774592009421}
-{"message":"Hover \"Custom range\" — effect ✓","status":"pass","screenshot":"1774592009598.jpg","ts":1774592009658}
-{"message":"Hover \"Previous year\" — effect ✓","status":"pass","screenshot":"1774592009648.jpg","ts":1774592009749}
-{"message":"Hover \"Custom range\" — effect ✓","status":"pass","screenshot":"1774592009962.jpg","ts":1774592010008}
-{"message":"Date filter closes on Escape: check manually","status":"info","screenshot":"1774592010191.jpg","ts":1774592010224}
-{"message":"━━ Step 4b — Date filter: click Previous month, verify date text updates ━━","status":"info","screenshot":"1774592010227.jpg","ts":1774592010273}
-{"message":"Date filter closes on Escape: check manually","status":"info","screenshot":"1774592010535.jpg","ts":1774592010582}
-{"message":"━━ Step 4b — Date filter: click Previous month, verify date text updates ━━","status":"info","screenshot":"1774592010586.jpg","ts":1774592010627}
-{"message":"Before URL: https://devapp.paxel.ai/tenant/dashboard","status":"info","screenshot":"1774592010800.jpg","ts":1774592010840}
-{"message":"Date filter button visible in 4b: ✓","status":"pass","screenshot":"1774592010851.jpg","ts":1774592010906}
-{"message":"Before URL: https://devapp.paxel.ai/tenant/dashboard","status":"info","screenshot":"1774592011142.jpg","ts":1774592011179}
-{"message":"Date filter button visible in 4b: ✓","status":"pass","screenshot":"1774592011192.jpg","ts":1774592011249}
-{"message":"Date picker did not open on first click — retrying","status":"info","screenshot":"1774592012290.jpg","ts":1774592012321}
-{"message":"Date picker did not open on first click — retrying","status":"info","screenshot":"1774592012657.jpg","ts":1774592012688}
-{"message":"Date picker opened in 4b: ✓","status":"pass","screenshot":"1774592013396.jpg","ts":1774592013447}
-{"message":"\"Previous month\" option visible: ✓","status":"pass","screenshot":"1774592013464.jpg","ts":1774592013509}
-{"message":"Date picker opened in 4b: ✓","status":"pass","screenshot":"1774592013753.jpg","ts":1774592013814}
-{"message":"\"Previous month\" option visible: ✓","status":"pass","screenshot":"1774592013835.jpg","ts":1774592013889}
-{"message":"URL updated to previous-month: ✓ | https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-month","status":"pass","screenshot":"1774592015100.jpg","ts":1774592015144}
-{"message":"Chart heading shows Previous month: ✓","status":"pass","screenshot":"1774592015160.jpg","ts":1774592015193}
-{"message":"━━ Step 4c — Previous month: KPI visibility & chart (stable) ━━","status":"info","screenshot":"1774592015197.jpg","ts":1774592015240}
-{"message":"URL is still previous-month: ✓ | https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-month","status":"pass","screenshot":"1774592015244.jpg","ts":1774592015298}
-{"message":"Contracted Sales visible: ✓","status":"pass","screenshot":"1774592015326.jpg","ts":1774592015357}
-{"message":"Units visible: ✓","status":"pass","screenshot":"1774592015363.jpg","ts":1774592015419}
-{"message":"Orders visible: ✓","status":"pass","screenshot":"1774592015426.jpg","ts":1774592015506}
-{"message":"Chart heading shows Previous month: ✓","status":"pass","screenshot":"1774592015518.jpg","ts":1774592015559}
-{"message":"URL updated to previous-month: ✓ | https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-month","status":"pass","screenshot":"1774592015535.jpg","ts":1774592015576}
-{"message":"Order chart visible: ✓","status":"pass","screenshot":"1774592015573.jpg","ts":1774592015610}
-{"message":"Chart heading shows Previous month: ✓","status":"pass","screenshot":"1774592015596.jpg","ts":1774592015641}
-{"message":"━━ Step 4d — Custom range: multi-month, single-day, outside-click close ━━","status":"info","screenshot":"1774592015614.jpg","ts":1774592015667}
-{"message":"━━ Step 4c — Previous month: KPI visibility & chart (stable) ━━","status":"info","screenshot":"1774592015645.jpg","ts":1774592015708}
-{"message":"URL is still previous-month: ✓ | https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-month","status":"pass","screenshot":"1774592015713.jpg","ts":1774592015763}
-{"message":"Contracted Sales visible: ✓","status":"pass","screenshot":"1774592015812.jpg","ts":1774592015870}
-{"message":"Units visible: ✓","status":"pass","screenshot":"1774592015876.jpg","ts":1774592015925}
-{"message":"Orders visible: ✓","status":"pass","screenshot":"1774592015931.jpg","ts":1774592015978}
-{"message":"Chart heading shows Previous month: ✓","status":"pass","screenshot":"1774592015994.jpg","ts":1774592016041}
-{"message":"Order chart visible: ✓","status":"pass","screenshot":"1774592016058.jpg","ts":1774592016108}
-{"message":"━━ Step 4d — Custom range: multi-month, single-day, outside-click close ━━","status":"info","screenshot":"1774592016114.jpg","ts":1774592016160}
-{"message":"FAIL \"Step 4d — Custom range: multi-month, single-day, outside-click close\": locator.click: Test timeout of 90000ms exceeded. | URL: https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-month","status":"fail","screenshot":"","ts":1774592061173}
-{"message":"Exiting impersonation for David Farris…","status":"running","screenshot":"","ts":1774592061203}
-{"message":"FAIL \"Step 4d — Custom range: multi-month, single-day, outside-click close\": locator.click: Test timeout of 90000ms exceeded. | URL: https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-month","status":"fail","screenshot":"","ts":1774592082725}
-{"message":"Exiting impersonation for David Farris…","status":"running","screenshot":"","ts":1774592082749}
-{"message":"FAIL \"Step 4d — Custom range: multi-month, single-day, outside-click close\": locator.click: Test timeout of 90000ms exceeded. | URL: https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-month","status":"fail","screenshot":"","ts":1774592082763}
-{"message":"Exiting impersonation for David Farris…","status":"running","screenshot":"","ts":1774592082784}
-{"message":"⚠️ Run finished with exit code null.","status":"fail","screenshot":"","ts":1774592083094,"_done":true}
-{"message":"⚠️ Run finished with exit code null.","status":"fail","screenshot":"","ts":1774592083130,"_done":true}
-{"message":"⚠️ Run finished with exit code null.","status":"fail","screenshot":"","ts":1774592083517,"_done":true}
+{"message":"━━ Step 1 — Login as admin ━━","status":"info","screenshot":"1774892406433.jpg","ts":1774892406689}
+{"message":"Navigating to admin sign-in… (baseURL: about:blank)","status":"running","screenshot":"1774892406694.jpg","ts":1774892406747}
+{"message":"Admin login ✓ — landed on: https://devapp.paxel.ai/admin/dashboard","status":"pass","screenshot":"1774892410128.jpg","ts":1774892410297}
+{"message":"════ Testing user: David Farris (Nexus Pharmaceuticals) ════","status":"info","screenshot":"1774892410307.jpg","ts":1774892410438}
+{"message":"━━ Step 2 — Impersonate David Farris (salesrep @ Nexus Pharmaceuticals) ━━","status":"info","screenshot":"1774892410448.jpg","ts":1774892410684}
+{"message":"Impersonating David Farris…","status":"running","screenshot":"1774892410693.jpg","ts":1774892410787}
+{"message":"Impersonation confirmed ✓","status":"pass","screenshot":"1774892412398.jpg","ts":1774892412612}
+{"message":"Navigating to Sales Summary…","status":"running","screenshot":"1774892412623.jpg","ts":1774892412930}
+{"message":"Sales Summary loaded ✓","status":"pass","screenshot":"1774892413117.jpg","ts":1774892413222}
+{"message":"━━ Step 3 — Notification button ━━","status":"info","screenshot":"1774892413231.jpg","ts":1774892413317}
+{"message":"Visible header buttons: ","status":"info","screenshot":"1774892413338.jpg","ts":1774892413474}
+{"message":"Notification button located at x:1097 ✓","status":"info","screenshot":"1774892413552.jpg","ts":1774892413641}
+{"message":"Hover: rectangular highlight around notification button ✓","status":"pass","screenshot":"1774892414163.jpg","ts":1774892414228}
+{"message":"Notification box opened ✓","status":"pass","screenshot":"1774892415260.jpg","ts":1774892415381}
+{"message":"\"Overdue\" tab clicked — content loaded ✓","status":"pass","screenshot":"1774892416162.jpg","ts":1774892416230}
+{"message":"\"Upcoming\" tab clicked — content loaded ✓","status":"pass","screenshot":"1774892417017.jpg","ts":1774892417073}
+{"message":"\"Activity\" tab clicked — content loaded ✓","status":"pass","screenshot":"1774892417834.jpg","ts":1774892417894}
+{"message":"Notification box closes on button click: ✓","status":"pass","screenshot":"1774892418416.jpg","ts":1774892418486}
+{"message":"Notification box reopens on button click: ✓","status":"pass","screenshot":"1774892419312.jpg","ts":1774892419379}
+{"message":"Notification box closes on outside click: ✓","status":"pass","screenshot":"1774892419999.jpg","ts":1774892420060}
+{"message":"━━ Step 4a — Date filter: default shows yesterday + hover effects ━━","status":"info","screenshot":"1774892420073.jpg","ts":1774892420164}
+{"message":"Today: Mar 30, 2026   Yesterday: Mar 29, 2026","status":"info","screenshot":"1774892420170.jpg","ts":1774892420241}
+{"message":"Date filter shows: \"Mar 29, 2026\"","status":"info","screenshot":"1774892420254.jpg","ts":1774892420328}
+{"message":"Default = yesterday (Mar 29, 2026): ✓","status":"pass","screenshot":"1774892420334.jpg","ts":1774892420423}
+{"message":"Date filter dropdown opened ✓","status":"pass","screenshot":"1774892420591.jpg","ts":1774892420727}
+{"message":"Hover \"Yesterday\" — effect ✓","status":"pass","screenshot":"1774892420972.jpg","ts":1774892421081}
+{"message":"Hover \"Month-to-date\" — effect ✓","status":"pass","screenshot":"1774892421334.jpg","ts":1774892421411}
+{"message":"Hover \"Previous month\" — effect ✓","status":"pass","screenshot":"1774892421616.jpg","ts":1774892421730}
+{"message":"Hover \"Quarter-to-date\" — effect ✓","status":"pass","screenshot":"1774892421967.jpg","ts":1774892422048}
+{"message":"Hover \"Previous quarter\" — effect ✓","status":"pass","screenshot":"1774892422299.jpg","ts":1774892422378}
+{"message":"Hover \"Year-to-date\" — effect ✓","status":"pass","screenshot":"1774892422583.jpg","ts":1774892422677}
+{"message":"Hover \"Previous year\" — effect ✓","status":"pass","screenshot":"1774892422883.jpg","ts":1774892422996}
+{"message":"Hover \"Custom range\" — effect ✓","status":"pass","screenshot":"1774892423199.jpg","ts":1774892423313}
+{"message":"Date filter closes on Escape: check manually","status":"info","screenshot":"1774892423839.jpg","ts":1774892423907}
+{"message":"━━ Step 4b — Date filter: click Previous month, verify date text updates ━━","status":"info","screenshot":"1774892423913.jpg","ts":1774892423970}
+{"message":"Before URL: https://devapp.paxel.ai/tenant/dashboard","status":"info","screenshot":"1774892424499.jpg","ts":1774892424570}
+{"message":"Date filter button visible in 4b: ✓","status":"pass","screenshot":"1774892424581.jpg","ts":1774892424637}
+{"message":"Date picker did not open on first click — retrying","status":"info","screenshot":"1774892425984.jpg","ts":1774892426059}
+{"message":"Date picker opened in 4b: ✓","status":"pass","screenshot":"1774892427132.jpg","ts":1774892427189}
+{"message":"\"Previous month\" option visible: ✓","status":"pass","screenshot":"1774892427202.jpg","ts":1774892427272}
+{"message":"URL updated to previous-month: ✓ | https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-month","status":"pass","screenshot":"1774892428915.jpg","ts":1774892428986}
+{"message":"Chart heading shows Previous month: ✓","status":"pass","screenshot":"1774892429002.jpg","ts":1774892429071}
+{"message":"━━ Step 4c — Previous month: KPI visibility & chart (stable) ━━","status":"info","screenshot":"1774892429077.jpg","ts":1774892429137}
+{"message":"URL is still previous-month: ✓ | https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-month","status":"pass","screenshot":"1774892429145.jpg","ts":1774892429204}
+{"message":"Contracted Sales visible: ✓","status":"pass","screenshot":"1774892429236.jpg","ts":1774892429334}
+{"message":"Units visible: ✓","status":"pass","screenshot":"1774892429342.jpg","ts":1774892429457}
+{"message":"Orders visible: ✓","status":"pass","screenshot":"1774892429464.jpg","ts":1774892429526}
+{"message":"Chart heading shows Previous month: ✓","status":"pass","screenshot":"1774892429540.jpg","ts":1774892429606}
+{"message":"Order chart visible: ✓","status":"pass","screenshot":"1774892429619.jpg","ts":1774892429695}
+{"message":"━━ Step 4d — Custom range: multi-month, single-day, outside-click close ━━","status":"info","screenshot":"1774892429703.jpg","ts":1774892429826}
+{"message":"━━ Step 4d1 — Wide range custom date selection ━━","status":"info","screenshot":"1774892429834.jpg","ts":1774892429904}
+{"message":"4d1: click date filter button","status":"running","screenshot":"1774892429919.jpg","ts":1774892429991}
+{"message":"FAIL \"Step 4d — Custom range: multi-month, single-day, outside-click close\": \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed | URL: https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-month","status":"fail","screenshot":"1774892435002.jpg","ts":1774892435069}
+{"message":"━━ Step 4e — Orders count: KPI box == Orders − Returns ━━","status":"info","screenshot":"1774892435481.jpg","ts":1774892435537}
+{"message":"Orders KPI box: 924  (text: \"Orders924\")","status":"info","screenshot":"1774892435551.jpg","ts":1774892435621}
+{"message":"FAIL \"Step 4e — Orders count: KPI box == Orders − Returns\": locator.textContent: Error: strict mode violation: locator('button').filter({ hasText: /^orders\\s*\\d+/i }).first().or(locator('[class*=\"tab\"]').filter({ hasText: /orders/i })) resolved to 3 elements: | URL: https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-month","status":"fail","screenshot":"1774892435673.jpg","ts":1774892435787}
+{"message":"━━ Step 5a — Product filter: sections, selections, count, Just this ━━","status":"info","screenshot":"1774892436199.jpg","ts":1774892436271}
+{"message":"Product filter default: \"My comp plan\"","status":"info","screenshot":"1774892436282.jpg","ts":1774892436351}
+{"message":"Shows \"Comp Plan (N)\": ✓","status":"pass","screenshot":"1774892436357.jpg","ts":1774892436420}
+{"message":"🛑 Test run stopped by user.","status":"fail","screenshot":"","ts":1774892440246,"_done":true}
+{"message":"⚠️ Run finished with exit code null.","status":"fail","screenshot":"","ts":1774892440311,"_done":true}

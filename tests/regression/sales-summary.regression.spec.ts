@@ -679,70 +679,248 @@ await S('Step 4c — Previous month: KPI visibility & chart (stable)', async () 
 
 
         // ════════════════════════════════════════════════════════════════════
-        // STEP 4d — Custom range
+        // STEP 4d — Custom range (debug version)
         // ════════════════════════════════════════════════════════════════════
         await S('Step 4d — Custom range: multi-month, single-day, outside-click close', async () => {
-          // Wide range
-          await ss.openDateFilter();
-          await page.locator('div[role="button"]').filter({ hasText: /custom range/i }).click();
-          await page.waitForTimeout(600);
+          const salesSummaryHeading = page.getByRole('heading', { name: /sales summary/i }).first();
 
-          const CELL_SELECTORS = [
-            '[role="gridcell"] button:not([disabled]):not([aria-disabled="true"])',
-            'button.rdp-day:not(.rdp-day_disabled):not(.rdp-day_outside)',
-            'table td button:not([disabled])',
-          ];
-          let cells = page.locator('[role="gridcell"] button:not([disabled])');
-          for (const sel of CELL_SELECTORS) {
-            if (await page.locator(sel).count() > 5) { cells = page.locator(sel); break; }
+          const pickerRoot = page.locator('section').filter({
+            hasText: /yesterday|month-to-date|custom range/i
+          }).first();
+
+          const customRangeOption = page.locator('div[role="button"], button').filter({
+            hasText: /^custom range$/i
+          }).first();
+
+          const calendarDayButtons = page.locator(
+            '[role="gridcell"] button:not([disabled]):not([aria-disabled="true"])'
+          );
+
+          const applyBtn = page.getByRole('button', { name: /^apply$/i }).first();
+          const cancelBtn = page.getByRole('button', { name: /^cancel$/i }).first();
+
+          // Broad but useful selectors for visual checks
+          const donutChart = page.locator('canvas[role="img"], svg').first();
+          const orderChartHeading = page.getByText(/orders\s*•/i).first();
+
+          async function ensurePickerClosed() {
+            const isOpen = await pickerRoot.isVisible({ timeout: 700 }).catch(() => false);
+            if (isOpen) {
+              await logStep(page, '4d debug: picker already open — closing first', 'info');
+              await page.keyboard.press('Escape').catch(() => {});
+              await page.waitForTimeout(400);
+            }
           }
 
-          const cnt = await cells.count();
-          if (cnt >= 2) {
-            await cells.first().click(); await page.waitForTimeout(250);
-            await cells.last().click();  await page.waitForTimeout(250);
-            await logStep(page, `Wide range: first → last cell selected (${cnt} cells) ✓`, 'pass');
+          async function openPickerSafely(label: string) {
+            await ensurePickerClosed();
+
+            await logStep(page, `${label}: click date filter button`, 'running');
+            async function openPickerSafely(label: string) {
+            await ensurePickerClosed();
+
+            const dateFilterBtn = page.locator('button').filter({
+              hasText: /[A-Z][a-z]{2}\s+\d{1,2},\s+\d{4}/
+            }).first();
+
+            const btnCount = await page.locator('button').filter({
+              hasText: /[A-Z][a-z]{2}\s+\d{1,2},\s+\d{4}/
+            }).count();
+
+            await logStep(page, `${label}: date filter button matches found = ${btnCount}`, 'info');
+            await logStep(page, `${label}: click date filter button`, 'running');
+
+            await expect(dateFilterBtn).toBeVisible({ timeout: 5000 });
+            await dateFilterBtn.scrollIntoViewIfNeeded().catch(() => {});
+            await dateFilterBtn.click({ force: true });
+
+            await logStep(page, `${label}: wait for picker root`, 'running');
+            await expect(pickerRoot).toBeVisible({ timeout: 5000 });
+
+            const pickerVisible = await pickerRoot.isVisible().catch(() => false);
+            await logStep(
+              page,
+              `${label}: picker opened ${pickerVisible ? '✓' : 'FAIL'}`,
+              pickerVisible ? 'pass' : 'fail'
+            );
           }
 
-          const applyWide = page.getByRole('button', { name: /^apply$/i });
-          if (await applyWide.isVisible({ timeout: 2_000 }).catch(() => false)) await applyWide.click();
-          await ss.waitForDashboardRefresh();
+            await logStep(page, `${label}: wait for picker root`, 'running');
+            await expect(pickerRoot).toBeVisible({ timeout: 5000 });
 
-          const wideDateTxt = (await ss.dateFilterButton.first().textContent() ?? '').trim();
-          await logStep(page, `Wide range — date filter: "${wideDateTxt}"`, 'info');
-          await checkAllKpi(page);
+            const pickerVisible = await pickerRoot.isVisible().catch(() => false);
+            await logStep(
+              page,
+              `${label}: picker opened ${pickerVisible ? '✓' : 'FAIL'}`,
+              pickerVisible ? 'pass' : 'fail'
+            );
+          }
 
-          // Single-day
-          await ss.openDateFilter();
-          await page.locator('div[role="button"]').filter({ hasText: /custom range/i }).click();
+          async function openCustomRangeSafely(label: string) {
+            const matchCount = await page.locator('div[role="button"], button')
+              .filter({ hasText: /^custom range$/i })
+              .count();
+
+            await logStep(page, `${label}: Custom range matches found = ${matchCount}`, 'info');
+
+            await expect(customRangeOption).toBeVisible({ timeout: 5000 });
+            await customRangeOption.scrollIntoViewIfNeeded().catch(() => {});
+            await logStep(page, `${label}: clicking Custom range`, 'running');
+            await customRangeOption.click({ force: true });
+
+            await logStep(page, `${label}: waiting for calendar day buttons`, 'running');
+            await expect(calendarDayButtons.first()).toBeVisible({ timeout: 5000 });
+
+            const count = await calendarDayButtons.count();
+            await logStep(page, `${label}: selectable calendar day buttons = ${count}`, 'info');
+          }
+
+          // ────────────────────────────────────────────────────────────────
+          // 4d1 — Wide range
+          // ────────────────────────────────────────────────────────────────
+          await logStep(page, '━━ Step 4d1 — Wide range custom date selection ━━', 'info');
+
+          await openPickerSafely('4d1');
+          await openCustomRangeSafely('4d1');
+
+          const wideCount = await calendarDayButtons.count();
+
+          if (wideCount < 10) {
+            await logStep(page, `4d1: not enough selectable day buttons (${wideCount})`, 'fail');
+          } else {
+            const startDay = calendarDayButtons.nth(1);
+            const endDay = calendarDayButtons.nth(wideCount - 2);
+
+            const startLabel = ((await startDay.textContent().catch(() => '')) ?? '').trim();
+            const endLabel = ((await endDay.textContent().catch(() => '')) ?? '').trim();
+
+            await logStep(page, `4d1: start day text = "${startLabel}"`, 'info');
+            await logStep(page, `4d1: end day text = "${endLabel}"`, 'info');
+
+            await expect(startDay).toBeVisible({ timeout: 5000 });
+            await logStep(page, '4d1: clicking wide-range start day', 'running');
+            await startDay.click({ force: true });
+            await page.waitForTimeout(300);
+
+            await expect(endDay).toBeVisible({ timeout: 5000 });
+            await logStep(page, '4d1: clicking wide-range end day', 'running');
+            await endDay.click({ force: true });
+            await page.waitForTimeout(300);
+
+            await logStep(page, '4d1: waiting for Apply button', 'running');
+            await expect(applyBtn).toBeVisible({ timeout: 5000 });
+
+            const applyVisible = await applyBtn.isVisible().catch(() => false);
+            await logStep(
+              page,
+              `4d1: Apply visible ${applyVisible ? '✓' : 'FAIL'}`,
+              applyVisible ? 'pass' : 'fail'
+            );
+
+            await logStep(page, '4d1: clicking Apply', 'running');
+            await applyBtn.click({ force: true });
+
+            await logStep(page, '4d1: waiting for dashboard refresh', 'running');
+            await ss.waitForDashboardRefresh();
+
+            const contractedSalesVisible = await page.getByText(/contracted sales/i).first()
+              .isVisible({ timeout: 5000 }).catch(() => false);
+            const unitsVisible = await page.getByText(/^units$/i).first()
+              .isVisible({ timeout: 5000 }).catch(() => false);
+            const ordersVisible = await page.getByText(/^orders$/i).first()
+              .isVisible({ timeout: 5000 }).catch(() => false);
+
+            await logStep(page, `4d1: Contracted Sales visible: ${contractedSalesVisible ? '✓' : 'FAIL'}`, contractedSalesVisible ? 'pass' : 'fail');
+            await logStep(page, `4d1: Units visible: ${unitsVisible ? '✓' : 'FAIL'}`, unitsVisible ? 'pass' : 'fail');
+            await logStep(page, `4d1: Orders visible: ${ordersVisible ? '✓' : 'FAIL'}`, ordersVisible ? 'pass' : 'fail');
+
+            const donutVisibleWide = await donutChart.isVisible({ timeout: 3000 }).catch(() => false);
+            await logStep(
+              page,
+              `4d1: donut hidden after wide range: ${!donutVisibleWide ? '✓' : 'FAIL — still visible'}`,
+              !donutVisibleWide ? 'pass' : 'fail'
+            );
+
+            const chartHeadingVisible = await orderChartHeading.isVisible({ timeout: 5000 }).catch(() => false);
+            await logStep(
+              page,
+              `4d1: order chart heading visible after wide range: ${chartHeadingVisible ? '✓' : 'FAIL'}`,
+              chartHeadingVisible ? 'pass' : 'fail'
+            );
+          }
+
+          // ────────────────────────────────────────────────────────────────
+          // 4d2 — Single day
+          // ────────────────────────────────────────────────────────────────
+          await logStep(page, '━━ Step 4d2 — Single-day custom date selection ━━', 'info');
+
+          await openPickerSafely('4d2');
+          await openCustomRangeSafely('4d2');
+
+          const singleCount = await calendarDayButtons.count();
+
+          if (singleCount < 3) {
+            await logStep(page, `4d2: not enough selectable day buttons (${singleCount})`, 'fail');
+          } else {
+            const middleIndex = Math.floor(singleCount / 2);
+            const middleDay = calendarDayButtons.nth(middleIndex);
+            const middleLabel = ((await middleDay.textContent().catch(() => '')) ?? '').trim();
+
+            await logStep(page, `4d2: middle day index = ${middleIndex}, text = "${middleLabel}"`, 'info');
+
+            await expect(middleDay).toBeVisible({ timeout: 5000 });
+            await logStep(page, '4d2: clicking same day first time', 'running');
+            await middleDay.click({ force: true });
+            await page.waitForTimeout(300);
+
+            await logStep(page, '4d2: clicking same day second time', 'running');
+            await middleDay.click({ force: true });
+            await page.waitForTimeout(300);
+
+            await expect(applyBtn).toBeVisible({ timeout: 5000 });
+            await logStep(page, '4d2: clicking Apply', 'running');
+            await applyBtn.click({ force: true });
+
+            await logStep(page, '4d2: waiting for dashboard refresh', 'running');
+            await ss.waitForDashboardRefresh();
+
+            const donutVisibleSingle = await donutChart.isVisible({ timeout: 5000 }).catch(() => false);
+            await logStep(
+              page,
+              `4d2: donut visible after single-day selection: ${donutVisibleSingle ? '✓' : 'FAIL'}`,
+              donutVisibleSingle ? 'pass' : 'fail'
+            );
+          }
+
+          // ────────────────────────────────────────────────────────────────
+          // 4d3 — Outside click closes picker
+          // ────────────────────────────────────────────────────────────────
+          await logStep(page, '━━ Step 4d3 — Outside click closes picker ━━', 'info');
+
+          await openPickerSafely('4d3');
+          await openCustomRangeSafely('4d3');
+
+          await expect(salesSummaryHeading).toBeVisible({ timeout: 5000 });
+          await logStep(page, '4d3: clicking Sales Summary heading outside picker', 'running');
+          await salesSummaryHeading.click({ force: true });
           await page.waitForTimeout(600);
 
-          const scCells = page.locator(CELL_SELECTORS[0]);
-          const sc = await scCells.count();
-          if (sc > 0) {
-          const mid = scCells.nth(Math.floor(sc / 2));
-          await mid.click();
-          await page.waitForTimeout(300);
-          await logStep(page, 'Single-day custom range selected ✓', 'pass');
-        }
-          const singleDayTxt = await getDateButtonText(ss);
-          await logStep(page, `Single-day custom range date text: "${singleDayTxt}"`, 'info');
-          const applyS = page.getByRole('button', { name: /^apply$/i });
-          if (await applyS.isVisible({ timeout: 2_000 }).catch(() => false)) await applyS.click();
-          await ss.waitForDashboardRefresh();
+          const pickerStillVisible = await pickerRoot.isVisible({ timeout: 1000 }).catch(() => false);
+          await logStep(
+            page,
+            `4d3: outside click closes picker: ${!pickerStillVisible ? '✓' : 'FAIL'}`,
+            !pickerStillVisible ? 'pass' : 'fail'
+          );
 
-          const donut = page.locator('[class*="donut"],[class*="pie"],svg circle').first();
-          const donutVis = await donut.isVisible({ timeout: 5_000 }).catch(() => false);
-          await logStep(page, `Single-day donut chart: ${donutVis ? 'visible ✓' : 'not detected'}`, donutVis ? 'pass' : 'info');
-
-          // Outside click closes picker
-          await ss.openDateFilter();
-          await page.locator('div[role="button"]').filter({ hasText: /custom range/i }).click();
-          await page.waitForTimeout(400);
-          await page.locator('h1, h2, main').first().click({ force: true });
-          await page.waitForTimeout(500);
-          const calGone = !(await page.locator('[role="gridcell"]').first().isVisible().catch(() => false));
-          await logStep(page, `Date picker closes on outside click: ${calGone ? '✓' : 'FAIL'}`, calGone ? 'pass' : 'fail');
+          if (pickerStillVisible) {
+            const cancelVisible = await cancelBtn.isVisible({ timeout: 1000 }).catch(() => false);
+            if (cancelVisible) {
+              await logStep(page, '4d3: picker still open — clicking Cancel for cleanup', 'info');
+              await cancelBtn.click({ force: true }).catch(() => {});
+            } else {
+              await page.keyboard.press('Escape').catch(() => {});
+            }
+          }
         });
 
         // ════════════════════════════════════════════════════════════════════
