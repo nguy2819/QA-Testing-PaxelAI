@@ -34,15 +34,23 @@ const NOVNC_DIR = NOVNC_CANDIDATES.find((dir) =>
 
 const NOVNC_HTML = NOVNC_DIR ? path.join(NOVNC_DIR, 'vnc.html') : null;
 
-console.log('[startup] noVNC candidates:', NOVNC_CANDIDATES);
-console.log('[startup] resolved NOVNC_DIR:', NOVNC_DIR);
-console.log('[startup] NOVNC_HTML exists:', NOVNC_HTML ? fs.existsSync(NOVNC_HTML) : false);
+console.log('[startup] /app exists:', fs.existsSync('/app'));
+console.log('[startup] /app/novnc exists:', fs.existsSync('/app/novnc'));
+console.log('[startup] /app/novnc/vnc.html exists:', fs.existsSync('/app/novnc/vnc.html'));
 
-if (NOVNC_DIR) {
+if (fs.existsSync('/app')) {
   try {
-    console.log('[startup] NOVNC_DIR sample files:', fs.readdirSync(NOVNC_DIR).slice(0, 10));
+    console.log('[startup] /app sample:', fs.readdirSync('/app').slice(0, 20));
   } catch (e) {
-    console.log('[startup] Could not read NOVNC_DIR:', e.message);
+    console.log('[startup] Could not read /app:', e.message);
+  }
+}
+
+if (fs.existsSync('/app/novnc')) {
+  try {
+    console.log('[startup] /app/novnc sample:', fs.readdirSync('/app/novnc').slice(0, 20));
+  } catch (e) {
+    console.log('[startup] Could not read /app/novnc:', e.message);
   }
 }
 
