@@ -18,6 +18,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && dpkg-reconfigure -f noninteractive tzdata \
     && rm -rf /var/lib/apt/lists/*
 
+RUN mkdir -p /app/novnc \
+  && if [ -f /usr/share/novnc/vnc.html ]; then cp -r /usr/share/novnc/* /app/novnc/; fi \
+  && if [ -f /usr/share/noVNC/vnc.html ]; then cp -r /usr/share/noVNC/* /app/novnc/; fi \
+  && if [ -f /opt/novnc/vnc.html ]; then cp -r /opt/novnc/* /app/novnc/; fi \
+  && if [ -f /opt/noVNC/vnc.html ]; then cp -r /opt/noVNC/* /app/novnc/; fi
+  
 # Verify every binary exists at build time — fail fast if something is missing
 RUN which Xvfb     || { echo "MISSING: Xvfb";     exit 1; } && \
     which x11vnc   || { echo "MISSING: x11vnc";   exit 1; } && \
