@@ -20,8 +20,10 @@ const PROJECT    = path.join(__dirname, '..');
 const RUN_DIR    = path.join(__dirname, 'run');
 const LOG_FILE   = path.join(RUN_DIR, 'current.jsonl');
 const SS_DIR     = path.join(RUN_DIR, 'screenshots');
+const APP_ROOT = path.join(__dirname, '..');
+
 const NOVNC_CANDIDATES = [
-  '/app/novnc',
+  path.join(APP_ROOT, 'novnc'),   // ✅ THIS is your real path
   '/usr/share/novnc',
   '/usr/share/noVNC',
   '/opt/novnc',
@@ -46,7 +48,7 @@ if (fs.existsSync('/app')) {
   }
 }
 
-if (fs.existsSync('/app/novnc')) {
+if (fs.existsSync(path.join(APP_ROOT, 'novnc'))) {
   try {
     console.log('[startup] /app/novnc sample:', fs.readdirSync('/app/novnc').slice(0, 20));
   } catch (e) {
