@@ -55,6 +55,7 @@ x11vnc \
   -forever \
   -rfbport 5900 \
   -xkb \
+  -noxdamage \
   &
 wait_for_port 5900 "x11vnc"
 
