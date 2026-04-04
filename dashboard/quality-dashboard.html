@@ -1,0 +1,1314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Paxel.AI — Quality Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:         #F5F0FF;
+      --surface:    #FFFFFF;
+      --border:     #E4D9FF;
+      --purple-50:  #F9F5FF;
+      --purple-100: #EDE9FE;
+      --purple-200: #DDD6FE;
+      --purple-400: #A78BFA;
+      --purple-500: #8B5CF6;
+      --purple-600: #7C3AED;
+      --purple-700: #6D28D9;
+      --pass:       #059669;
+      --pass-bg:    #D1FAE5;
+      --fail:       #DC2626;
+      --fail-bg:    #FEE2E2;
+      --warn:       #D97706;
+      --warn-bg:    #FEF3C7;
+      --text:       #1E1B4B;
+      --muted:      #6B7280;
+      --radius-sm:  6px;
+      --radius-md:  10px;
+      --shadow-sm:  0 1px 3px rgba(109,40,217,.08);
+      --shadow-md:  0 4px 16px rgba(109,40,217,.12);
+    }
+
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    /* ── Topbar ────────────────────────────────────────────────── */
+    .topbar {
+      background: var(--surface);
+      border-bottom: 1.5px solid var(--border);
+      padding: 0 28px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex-shrink: 0;
+      box-shadow: var(--shadow-sm);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .brand-icon {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, var(--purple-600), var(--purple-500));
+      border-radius: var(--radius-sm);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-weight: 700; font-size: 16px;
+      box-shadow: 0 2px 8px rgba(124,58,237,.3);
+    }
+    .brand-name { font-weight: 700; font-size: 16px; color: var(--purple-700); }
+    .brand-sub  { font-size: 11px; color: var(--muted); font-weight: 400; margin-top: 1px; }
+    .divider-v  { width: 1px; height: 32px; background: var(--border); flex-shrink: 0; }
+
+    .topbar-nav { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+    .nav-link {
+      display: flex; align-items: center; gap: 6px;
+      height: 34px; padding: 0 14px;
+      border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+      font-family: inherit; font-size: 12px; font-weight: 600;
+      text-decoration: none; white-space: nowrap;
+      background: var(--purple-50); color: var(--purple-700);
+      transition: all .15s; cursor: pointer; flex-shrink: 0;
+    }
+    .nav-link:hover { background: var(--purple-100); border-color: var(--purple-500); }
+    .nav-link.active { background: var(--purple-600); color: #fff; border-color: var(--purple-700); }
+    .nav-link.active:hover { background: var(--purple-700); }
+
+    /* ── Page layout ───────────────────────────────────────────── */
+    .page { max-width: 1440px; margin: 0 auto; padding: 28px 28px 48px; }
+
+    /* ── Page header ───────────────────────────────────────────── */
+    .page-header {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      margin-bottom: 24px; gap: 16px;
+    }
+    .page-title { font-size: 22px; font-weight: 700; color: var(--purple-700); }
+    .page-subtitle { font-size: 13px; color: var(--muted); margin-top: 3px; }
+    .btn-primary {
+      height: 38px; padding: 0 18px;
+      background: var(--purple-600); color: #fff;
+      border: none; border-radius: var(--radius-sm);
+      font-family: inherit; font-size: 13px; font-weight: 600;
+      cursor: pointer; display: flex; align-items: center; gap: 6px;
+      transition: background .15s; white-space: nowrap; flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(124,58,237,.25);
+    }
+    .btn-primary:hover { background: var(--purple-700); }
+    .btn-secondary {
+      height: 36px; padding: 0 16px;
+      background: var(--purple-50); color: var(--purple-700);
+      border: 1.5px solid var(--purple-200); border-radius: var(--radius-sm);
+      font-family: inherit; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: all .15s;
+    }
+    .btn-secondary:hover { background: var(--purple-100); }
+
+    /* ── KPI cards ─────────────────────────────────────────────── */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .kpi-card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 16px 18px;
+      box-shadow: var(--shadow-sm);
+    }
+    .kpi-label {
+      font-size: 11px; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px;
+    }
+    .kpi-value { font-size: 30px; font-weight: 700; color: var(--text); line-height: 1; }
+    .kpi-sub   { font-size: 11px; color: var(--muted); margin-top: 4px; }
+    .kpi-card.c-fail   .kpi-value { color: var(--fail); }
+    .kpi-card.c-warn   .kpi-value { color: var(--warn); }
+    .kpi-card.c-pass   .kpi-value { color: var(--pass); }
+    .kpi-card.c-purple .kpi-value { color: var(--purple-600); }
+
+    /* ── Charts section ────────────────────────────────────────── */
+    .section {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow-sm);
+    }
+    .section-header {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 20px; flex-wrap: wrap;
+    }
+    .section-title { font-size: 14px; font-weight: 700; color: var(--text); flex: 1; min-width: 120px; }
+
+    /* Toggle group */
+    .toggle-group {
+      display: flex; border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm); overflow: hidden; flex-shrink: 0;
+    }
+    .toggle-btn {
+      height: 30px; padding: 0 12px;
+      background: var(--purple-50); border: none; cursor: pointer;
+      font-family: inherit; font-size: 12px; font-weight: 600;
+      color: var(--muted); transition: all .15s;
+    }
+    .toggle-btn.active { background: var(--purple-600); color: #fff; }
+    .toggle-btn:not(.active):hover { background: var(--purple-100); color: var(--purple-700); }
+
+    /* Range buttons */
+    .range-group { display: flex; gap: 4px; flex-shrink: 0; }
+    .range-btn {
+      height: 28px; padding: 0 10px;
+      border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+      background: var(--purple-50); color: var(--muted);
+      font-family: inherit; font-size: 11px; font-weight: 600; cursor: pointer;
+      transition: all .15s;
+    }
+    .range-btn.active { background: var(--purple-600); color: #fff; border-color: var(--purple-700); }
+    .range-btn:not(.active):hover { background: var(--purple-100); border-color: var(--purple-500); color: var(--purple-700); }
+
+    /* ── Heatmap ───────────────────────────────────────────────── */
+    .heatmap-outer { display: flex; gap: 4px; align-items: flex-start; overflow-x: auto; padding-bottom: 6px; }
+    .heatmap-weekdays { display: flex; flex-direction: column; gap: 3px; margin-top: 19px; flex-shrink: 0; }
+    .heatmap-weekday { height: 13px; font-size: 9px; color: var(--muted); line-height: 13px; white-space: nowrap; }
+    .heatmap-inner { display: flex; flex-direction: column; gap: 0; }
+    .heatmap-months { display: flex; gap: 3px; margin-bottom: 4px; height: 15px; }
+    .heatmap-month-spacer { flex-shrink: 0; }
+    .heatmap-month-tag { font-size: 10px; color: var(--muted); flex-shrink: 0; line-height: 15px; }
+    .heatmap-grid { display: flex; gap: 3px; }
+    .heatmap-week { display: flex; flex-direction: column; gap: 3px; }
+    .heatmap-day {
+      width: 13px; height: 13px; border-radius: 2px;
+      background: #F3F0FF; border: 1px solid #E4D9FF;
+      cursor: default; position: relative; flex-shrink: 0;
+      transition: transform .1s;
+    }
+    .heatmap-day:hover { transform: scale(1.4); z-index: 2; }
+    .heatmap-day[data-l="1"] { background: #DDD6FE; border-color: #C4B5FD; }
+    .heatmap-day[data-l="2"] { background: #A78BFA; border-color: #8B5CF6; }
+    .heatmap-day[data-l="3"] { background: #7C3AED; border-color: #6D28D9; }
+    .heatmap-day[data-l="4"] { background: #4C1D95; border-color: #3730A3; }
+    .heatmap-day.out-of-range { opacity: .3; }
+    .heatmap-legend { display: flex; align-items: center; gap: 5px; margin-top: 10px; font-size: 11px; color: var(--muted); }
+    .legend-cell { width: 11px; height: 11px; border-radius: 2px; border: 1px solid rgba(0,0,0,.08); }
+
+    /* Tooltip */
+    .hm-tooltip {
+      position: fixed; z-index: 999;
+      background: #1E1B4B; color: #fff;
+      padding: 8px 12px; border-radius: var(--radius-sm);
+      font-size: 12px; line-height: 1.5; pointer-events: none;
+      display: none; white-space: nowrap; box-shadow: var(--shadow-md);
+    }
+
+    /* ── Monthly trend ─────────────────────────────────────────── */
+    .monthly-wrap { overflow-x: auto; }
+    .monthly-chart {
+      display: flex; align-items: flex-end; gap: 6px;
+      height: 130px; padding: 10px 0 0; min-width: max-content;
+    }
+    .month-col { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 40px; flex-shrink: 0; }
+    .month-bar {
+      width: 100%; background: var(--purple-400); border-radius: 3px 3px 0 0;
+      min-height: 2px; transition: height .3s;
+    }
+    .month-bar:hover { background: var(--purple-600); }
+    .month-col-label { font-size: 10px; color: var(--muted); white-space: nowrap; text-align: center; }
+    .month-col-count { font-size: 10px; font-weight: 700; color: var(--purple-700); }
+
+    /* ── Mini charts grid ──────────────────────────────────────── */
+    .mini-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1.5px solid var(--border);
+    }
+    .mini-chart-title {
+      font-size: 11px; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .05em; margin-bottom: 10px;
+    }
+    .bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .bar-label { font-size: 12px; color: var(--text); width: 120px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .bar-track { flex: 1; height: 8px; background: var(--purple-50); border-radius: 4px; overflow: hidden; border: 1px solid var(--border); }
+    .bar-fill  { height: 100%; border-radius: 4px; background: var(--purple-500); transition: width .35s; }
+    .bar-fill.c-critical { background: #EF4444; }
+    .bar-fill.c-high     { background: #F97316; }
+    .bar-fill.c-medium   { background: #EAB308; }
+    .bar-fill.c-low      { background: #22C55E; }
+    .bar-count { font-size: 11px; font-weight: 700; color: var(--muted); width: 22px; text-align: right; flex-shrink: 0; }
+    .no-data { color: var(--muted); font-size: 12px; padding: 4px 0; }
+
+    /* ── Defect table section ──────────────────────────────────── */
+    .table-section {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+    }
+    .table-toolbar {
+      padding: 14px 18px;
+      border-bottom: 1.5px solid var(--border);
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    .table-title { font-size: 14px; font-weight: 700; color: var(--text); }
+    .table-count {
+      font-size: 12px; color: var(--muted);
+      background: var(--purple-50); padding: 2px 8px; border-radius: 20px;
+      border: 1px solid var(--border);
+    }
+    .filter-bar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+    .filter-input {
+      height: 32px; padding: 0 10px;
+      border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+      font-family: inherit; font-size: 12px; color: var(--text);
+      background: var(--purple-50); outline: none; transition: border-color .15s;
+    }
+    .filter-input:focus { border-color: var(--purple-500); background: #fff; }
+    .filter-input.search { width: 180px; }
+    .filter-select {
+      height: 32px; padding: 0 8px;
+      border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+      font-family: inherit; font-size: 12px; color: var(--text);
+      background: var(--purple-50); outline: none; cursor: pointer;
+    }
+    .filter-select:focus { border-color: var(--purple-500); }
+
+    /* Table */
+    .table-scroll { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    thead th {
+      padding: 9px 12px;
+      text-align: left; font-size: 11px; font-weight: 700;
+      color: var(--muted); text-transform: uppercase; letter-spacing: .04em;
+      border-bottom: 1.5px solid var(--border);
+      background: var(--purple-50);
+      white-space: nowrap; cursor: pointer; user-select: none;
+    }
+    thead th:hover { background: var(--purple-100); color: var(--purple-700); }
+    thead th.sort-asc::after  { content: ' ↑'; color: var(--purple-500); }
+    thead th.sort-desc::after { content: ' ↓'; color: var(--purple-500); }
+    thead th.no-sort { cursor: default; }
+    thead th.no-sort:hover { background: var(--purple-50); color: var(--muted); }
+    tbody tr:hover { background: var(--purple-50); }
+    tbody tr:not(:last-child) td { border-bottom: 1px solid var(--border); }
+    td { padding: 8px 12px; vertical-align: middle; }
+    td.id-col    { font-family: monospace; font-size: 11px; font-weight: 600; color: var(--purple-600); white-space: nowrap; }
+    td.title-col { max-width: 200px; }
+    td.title-col span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+    td.notes-col { max-width: 160px; }
+    td.notes-col span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    td.rc-detail-col { max-width: 140px; }
+    td.rc-detail-col span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    td.actions-col { white-space: nowrap; }
+
+    /* Badges */
+    .badge {
+      display: inline-flex; align-items: center;
+      padding: 2px 8px; border-radius: 20px;
+      font-size: 10px; font-weight: 700; white-space: nowrap;
+    }
+    .badge.sev-critical { background: #FEE2E2; color: #DC2626; }
+    .badge.sev-high     { background: #FFEDD5; color: #C2410C; }
+    .badge.sev-medium   { background: #FEF3C7; color: #92400E; }
+    .badge.sev-low      { background: #D1FAE5; color: #065F46; }
+    .badge.sts-open       { background: #DBEAFE; color: #1D4ED8; }
+    .badge.sts-in-progress{ background: var(--purple-100); color: var(--purple-700); }
+    .badge.sts-closed     { background: var(--pass-bg); color: var(--pass); }
+    .badge.sts-reopened   { background: var(--fail-bg); color: var(--fail); }
+    .badge.pri-p1 { background: #FEE2E2; color: #DC2626; }
+    .badge.pri-p2 { background: #FFEDD5; color: #C2410C; }
+    .badge.pri-p3 { background: #FEF3C7; color: #92400E; }
+    .badge.pri-p4 { background: #D1FAE5; color: #065F46; }
+
+    .clickup-link { color: var(--purple-600); text-decoration: none; font-weight: 600; font-size: 11px; white-space: nowrap; }
+    .clickup-link:hover { text-decoration: underline; }
+    .verified-yes { color: var(--pass); font-size: 14px; }
+    .verified-no  { color: var(--muted); font-size: 13px; }
+
+    /* Action buttons */
+    .act-btn {
+      height: 26px; padding: 0 10px; margin-right: 3px;
+      border-radius: var(--radius-sm); font-family: inherit;
+      font-size: 11px; font-weight: 600; cursor: pointer;
+      border: 1.5px solid transparent; transition: all .15s;
+    }
+    .act-btn.edit { background: var(--purple-50); color: var(--purple-700); border-color: var(--purple-200); }
+    .act-btn.edit:hover { background: var(--purple-600); color: #fff; border-color: var(--purple-700); }
+    .act-btn.del  { background: var(--fail-bg); color: var(--fail); border-color: #FECACA; }
+    .act-btn.del:hover { background: var(--fail); color: #fff; }
+
+    /* Empty state */
+    .empty-state { padding: 60px 24px; text-align: center; color: var(--muted); }
+    .empty-icon  { font-size: 52px; margin-bottom: 12px; opacity: .35; }
+    .empty-title { font-size: 16px; font-weight: 600; color: var(--purple-700); margin-bottom: 6px; }
+    .empty-sub   { font-size: 13px; }
+
+    /* ── Quick add row ─────────────────────────────────────────── */
+    .quick-row {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      padding: 10px 14px;
+      border-top: 1.5px solid var(--border);
+      background: var(--purple-50);
+    }
+    .quick-label { font-size: 11px; font-weight: 700; color: var(--purple-700); white-space: nowrap; flex-shrink: 0; }
+    .quick-input {
+      height: 30px; padding: 0 9px;
+      border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+      font-family: inherit; font-size: 12px; color: var(--text);
+      background: #fff; outline: none; transition: border-color .15s;
+    }
+    .quick-input:focus { border-color: var(--purple-500); }
+    .quick-input.qtitle { flex: 1; min-width: 160px; }
+    .quick-select {
+      height: 30px; padding: 0 6px;
+      border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+      font-family: inherit; font-size: 12px; background: #fff;
+      outline: none; cursor: pointer;
+    }
+    .quick-btn {
+      height: 30px; padding: 0 14px;
+      background: var(--purple-600); color: #fff;
+      border: none; border-radius: var(--radius-sm);
+      font-family: inherit; font-size: 12px; font-weight: 600;
+      cursor: pointer; transition: background .15s; white-space: nowrap; flex-shrink: 0;
+    }
+    .quick-btn:hover { background: var(--purple-700); }
+
+    /* ── Modal ─────────────────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(30,27,75,.45);
+      z-index: 200; display: none; align-items: center; justify-content: center; padding: 20px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--surface); border-radius: var(--radius-md);
+      box-shadow: 0 24px 64px rgba(30,27,75,.22);
+      width: 100%; max-width: 700px; max-height: 92vh;
+      display: flex; flex-direction: column;
+      border: 1.5px solid var(--border);
+    }
+    .modal-header {
+      padding: 18px 20px; border-bottom: 1.5px solid var(--border);
+      display: flex; align-items: center; gap: 12px;
+    }
+    .modal-title { font-size: 16px; font-weight: 700; color: var(--text); flex: 1; }
+    .modal-close {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--purple-50); border: 1.5px solid var(--border);
+      cursor: pointer; font-size: 14px; color: var(--muted);
+      display: flex; align-items: center; justify-content: center; transition: all .15s;
+    }
+    .modal-close:hover { background: var(--fail-bg); color: var(--fail); border-color: #FECACA; }
+    .modal-body { padding: 20px; overflow-y: auto; flex: 1; }
+    .modal-footer {
+      padding: 14px 20px; border-top: 1.5px solid var(--border);
+      display: flex; gap: 8px; justify-content: flex-end;
+    }
+
+    /* Form grid */
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+    .form-group.full { grid-column: 1 / -1; }
+    .form-label {
+      font-size: 11px; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .04em;
+    }
+    .form-ctrl {
+      height: 36px; padding: 0 12px;
+      border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+      font-family: inherit; font-size: 13px; color: var(--text);
+      background: var(--purple-50); outline: none; transition: border-color .15s;
+    }
+    .form-ctrl:focus { border-color: var(--purple-500); background: #fff; }
+    textarea.form-ctrl { height: 72px; padding: 8px 12px; resize: vertical; line-height: 1.5; }
+    .check-row { display: flex; align-items: center; gap: 8px; height: 36px; }
+    .check-row input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--purple-600); cursor: pointer; }
+    .check-row label { font-size: 13px; color: var(--text); cursor: pointer; }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 24px; right: 24px;
+      background: var(--text); color: #fff;
+      padding: 12px 18px; border-radius: var(--radius-sm);
+      font-size: 13px; font-weight: 500; box-shadow: var(--shadow-md); z-index: 500;
+      transform: translateY(80px); opacity: 0; transition: all .25s; pointer-events: none;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.ok  { background: var(--pass); }
+    .toast.err { background: var(--fail); }
+  </style>
+</head>
+<body>
+
+<!-- ── Topbar ──────────────────────────────────────────────────────────── -->
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-icon">P</div>
+    <div>
+      <div class="brand-name">Paxel.AI</div>
+      <div class="brand-sub">Quality Dashboard</div>
+    </div>
+  </div>
+  <div class="divider-v"></div>
+  <nav class="topbar-nav">
+    <a href="/index.html" class="nav-link">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      Test Runner
+    </a>
+    <a href="/quality-dashboard.html" class="nav-link active">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Quality Dashboard
+    </a>
+    <a href="/test-plan.html" class="nav-link">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Test Plan
+    </a>
+  </nav>
+</header>
+
+<!-- ── Page ────────────────────────────────────────────────────────────── -->
+<div class="page">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Quality Dashboard</h1>
+      <p class="page-subtitle">Track defects, root causes, trends, and quality signals over time</p>
+    </div>
+    <button class="btn-primary" onclick="openAddModal()">+ Add Bug</button>
+  </div>
+
+  <!-- KPI Cards -->
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label">Total Defects</div>
+      <div class="kpi-value" id="kpiTotal">0</div>
+    </div>
+    <div class="kpi-card c-fail">
+      <div class="kpi-label">Open</div>
+      <div class="kpi-value" id="kpiOpen">0</div>
+    </div>
+    <div class="kpi-card c-pass">
+      <div class="kpi-label">Closed</div>
+      <div class="kpi-value" id="kpiClosed">0</div>
+    </div>
+    <div class="kpi-card c-warn">
+      <div class="kpi-label">Reopened</div>
+      <div class="kpi-value" id="kpiReopened">0</div>
+    </div>
+    <div class="kpi-card c-fail">
+      <div class="kpi-label">Critical</div>
+      <div class="kpi-value" id="kpiCritical">0</div>
+    </div>
+    <div class="kpi-card c-purple">
+      <div class="kpi-label">In Progress</div>
+      <div class="kpi-value" id="kpiInProgress">0</div>
+    </div>
+    <div class="kpi-card c-pass">
+      <div class="kpi-label">Root Cause Fix %</div>
+      <div class="kpi-value" id="kpiRcFix">—</div>
+      <div class="kpi-sub">of closed bugs</div>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="section">
+    <div class="section-header">
+      <span class="section-title">Defect Trends</span>
+      <div class="range-group" id="rangeGroup">
+        <button class="range-btn" onclick="setRange('30d',this)">30d</button>
+        <button class="range-btn active" onclick="setRange('90d',this)">90d</button>
+        <button class="range-btn" onclick="setRange('year',this)">This Year</button>
+        <button class="range-btn" onclick="setRange('all',this)">All</button>
+      </div>
+      <div class="toggle-group">
+        <button class="toggle-btn active" id="btnHeatmap" onclick="setView('heatmap')">Heatmap</button>
+        <button class="toggle-btn"        id="btnMonthly" onclick="setView('monthly')">Monthly</button>
+      </div>
+    </div>
+
+    <!-- Heatmap view -->
+    <div id="viewHeatmap">
+      <div class="heatmap-outer">
+        <div class="heatmap-weekdays">
+          <div class="heatmap-weekday">Mon</div>
+          <div class="heatmap-weekday" style="visibility:hidden">Tue</div>
+          <div class="heatmap-weekday">Wed</div>
+          <div class="heatmap-weekday" style="visibility:hidden">Thu</div>
+          <div class="heatmap-weekday">Fri</div>
+          <div class="heatmap-weekday" style="visibility:hidden">Sat</div>
+          <div class="heatmap-weekday" style="visibility:hidden">Sun</div>
+        </div>
+        <div class="heatmap-inner">
+          <div class="heatmap-months" id="hmMonths"></div>
+          <div class="heatmap-grid"   id="hmGrid"></div>
+        </div>
+      </div>
+      <div class="heatmap-legend">
+        <span>Less</span>
+        <div class="legend-cell" style="background:#F3F0FF"></div>
+        <div class="legend-cell" style="background:#DDD6FE"></div>
+        <div class="legend-cell" style="background:#A78BFA"></div>
+        <div class="legend-cell" style="background:#7C3AED"></div>
+        <div class="legend-cell" style="background:#4C1D95"></div>
+        <span>More</span>
+      </div>
+    </div>
+
+    <!-- Monthly trend view -->
+    <div id="viewMonthly" style="display:none">
+      <div class="monthly-wrap">
+        <div class="monthly-chart" id="monthlyChart"></div>
+      </div>
+    </div>
+
+    <!-- Supporting mini charts -->
+    <div class="mini-grid">
+      <div>
+        <div class="mini-chart-title">By Severity</div>
+        <div id="chartSeverity"></div>
+      </div>
+      <div>
+        <div class="mini-chart-title">Root Cause Distribution</div>
+        <div id="chartRootCause"></div>
+      </div>
+      <div>
+        <div class="mini-chart-title">By Page / Feature</div>
+        <div id="chartFeature"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Defect Table -->
+  <div class="table-section">
+    <div class="table-toolbar">
+      <span class="table-title">Defect Log</span>
+      <span class="table-count" id="tableCount">0 defects</span>
+      <div class="filter-bar">
+        <input  class="filter-input search" type="search" placeholder="Search…" id="fSearch"   oninput="applyFilters()"/>
+        <select class="filter-select" id="fSeverity" onchange="applyFilters()">
+          <option value="">All Severity</option>
+          <option>Critical</option><option>High</option><option>Medium</option><option>Low</option>
+        </select>
+        <select class="filter-select" id="fStatus" onchange="applyFilters()">
+          <option value="">All Status</option>
+          <option>Open</option><option>In Progress</option><option>Closed</option><option>Reopened</option>
+        </select>
+        <select class="filter-select" id="fPriority" onchange="applyFilters()">
+          <option value="">All Priority</option>
+          <option>P1</option><option>P2</option><option>P3</option><option>P4</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th onclick="sortBy('id')">Defect ID</th>
+            <th onclick="sortBy('title')">Title</th>
+            <th onclick="sortBy('pageFeature')">Page / Feature</th>
+            <th onclick="sortBy('severity')">Severity</th>
+            <th onclick="sortBy('priority')">Priority</th>
+            <th onclick="sortBy('status')">Status</th>
+            <th onclick="sortBy('rootCauseCategory')">Root Cause</th>
+            <th class="no-sort">RC Detail</th>
+            <th onclick="sortBy('fixType')">Fix Type</th>
+            <th onclick="sortBy('reportedDate')">Reported</th>
+            <th class="no-sort">ClickUp</th>
+            <th onclick="sortBy('verified')">Verified</th>
+            <th class="no-sort">Notes</th>
+            <th class="no-sort">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="defectTbody"></tbody>
+      </table>
+    </div>
+
+    <div id="emptyState" class="empty-state" style="display:none">
+      <div class="empty-icon">🐛</div>
+      <div class="empty-title">No defects yet</div>
+      <div class="empty-sub">Add your first bug using the button above, or use the quick entry below.</div>
+    </div>
+
+    <!-- Quick add row -->
+    <div class="quick-row">
+      <span class="quick-label">Quick Add:</span>
+      <input  class="quick-input qtitle" type="text"   id="qTitle"    placeholder="Bug title…"/>
+      <select class="quick-select"       id="qSeverity">
+        <option>Medium</option><option>Critical</option><option>High</option><option>Low</option>
+      </select>
+      <select class="quick-select"       id="qStatus">
+        <option>Open</option><option>In Progress</option><option>Closed</option><option>Reopened</option>
+      </select>
+      <input  class="quick-input"        id="qFeature"  placeholder="Page/Feature" style="width:120px" type="text"/>
+      <button class="quick-btn" onclick="quickAdd()">Add</button>
+    </div>
+  </div>
+
+</div><!-- /page -->
+
+<!-- Heatmap tooltip -->
+<div class="hm-tooltip" id="hmTooltip"></div>
+
+<!-- ── Add / Edit Modal ────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="modalOverlay" onclick="overlayClick(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modalTitle">Add Bug</span>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <form id="bugForm" onsubmit="saveBug(event)" class="form-grid">
+        <input type="hidden" id="fId"/>
+
+        <div class="form-group full">
+          <label class="form-label">Title *</label>
+          <input class="form-ctrl" type="text" id="fTitle" required placeholder="Brief description of the defect"/>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Page / Feature</label>
+          <input class="form-ctrl" type="text" id="fPageFeature" placeholder="e.g. Sales Summary, Login"/>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Reported Date</label>
+          <input class="form-ctrl" type="date" id="fReportedDate"/>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Severity</label>
+          <select class="form-ctrl" id="fSeverity">
+            <option>Critical</option><option>High</option>
+            <option selected>Medium</option><option>Low</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Priority</label>
+          <select class="form-ctrl" id="fPriority">
+            <option>P1</option><option>P2</option>
+            <option selected>P3</option><option>P4</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <select class="form-ctrl" id="fStatus">
+            <option selected>Open</option><option>In Progress</option>
+            <option>Closed</option><option>Reopened</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Root Cause Category</label>
+          <select class="form-ctrl" id="fRootCauseCat">
+            <option>Unknown</option>
+            <option>Missing validation</option>
+            <option>Wrong business logic</option>
+            <option>Role / permission issue</option>
+            <option>UI state issue</option>
+            <option>API / data mapping</option>
+            <option>Regression</option>
+            <option>Requirement gap</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Fix Type</label>
+          <select class="form-ctrl" id="fFixType">
+            <option value="">— None —</option>
+            <option>Surface patch</option>
+            <option>Partial fix</option>
+            <option>Root cause fix</option>
+          </select>
+        </div>
+
+        <div class="form-group full">
+          <label class="form-label">Root Cause Detail</label>
+          <input class="form-ctrl" type="text" id="fRootCauseDetail" placeholder="What specifically caused this issue?"/>
+        </div>
+
+        <div class="form-group full">
+          <label class="form-label">ClickUp Link</label>
+          <input class="form-ctrl" type="url" id="fClickupLink" placeholder="https://app.clickup.com/t/…"/>
+        </div>
+
+        <div class="form-group full">
+          <label class="form-label">Notes</label>
+          <textarea class="form-ctrl" id="fNotes" placeholder="Steps to reproduce, context, observations…"></textarea>
+        </div>
+
+        <div class="form-group full">
+          <div class="check-row">
+            <input type="checkbox" id="fVerified"/>
+            <label for="fVerified">Verified — fix confirmed in testing</label>
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn-primary"   onclick="document.getElementById('bugForm').requestSubmit()">Save Bug</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// STORAGE LAYER
+// To connect to a backend, replace storageLoad / storageSave with API calls.
+// ═══════════════════════════════════════════════════════════════════════════
+const STORAGE_KEY = 'paxel_qa_defects';
+
+function storageLoad() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch { return []; }
+}
+
+function storageSave(data) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════════════════
+let defects  = storageLoad();
+let sortKey  = 'reportedDate';
+let sortDir  = 'desc';
+let range    = '90d';
+let view     = 'heatmap';
+let editId   = null;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PUBLIC API
+// Call addBug(data) from Playwright output or backend defect ingestion.
+// Only `title` is required; all other fields have defaults.
+// ═══════════════════════════════════════════════════════════════════════════
+function addBug(data) {
+  if (!data || !data.title) throw new Error('addBug: title is required');
+  const bug = {
+    id:                generateId(),
+    title:             data.title,
+    pageFeature:       data.pageFeature       || '',
+    severity:          data.severity          || 'Medium',
+    priority:          data.priority          || 'P3',
+    status:            data.status            || 'Open',
+    rootCauseCategory: data.rootCauseCategory || 'Unknown',
+    rootCauseDetail:   data.rootCauseDetail   || '',
+    fixType:           data.fixType           || '',
+    reportedDate:      data.reportedDate      || todayISO(),
+    clickupLink:       data.clickupLink       || '',
+    verified:          Boolean(data.verified),
+    notes:             data.notes             || '',
+    createdAt:         new Date().toISOString()
+  };
+  defects.push(bug);
+  storageSave(defects);
+  refreshAll();
+  return bug;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+function generateId() {
+  const max = defects.reduce((m, d) => Math.max(m, parseInt(d.id.replace('DEF-', '')) || 0), 0);
+  return 'DEF-' + String(max + 1).padStart(3, '0');
+}
+
+function todayISO() { return new Date().toISOString().slice(0, 10); }
+
+function isoDate(d) { return d.toISOString().slice(0, 10); }
+
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function toast(msg, type) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (type ? ' ' + type : '');
+  setTimeout(() => { el.className = 'toast'; }, 2600);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REFRESH
+// ═══════════════════════════════════════════════════════════════════════════
+function refreshAll() {
+  updateKPI();
+  renderTable();
+  renderCharts();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// KPI
+// ═══════════════════════════════════════════════════════════════════════════
+function updateKPI() {
+  const total      = defects.length;
+  const open       = defects.filter(d => d.status === 'Open').length;
+  const closed     = defects.filter(d => d.status === 'Closed').length;
+  const reopened   = defects.filter(d => d.status === 'Reopened').length;
+  const inProgress = defects.filter(d => d.status === 'In Progress').length;
+  const critical   = defects.filter(d => d.severity === 'Critical').length;
+  const rcFixed    = defects.filter(d => d.status === 'Closed' && d.fixType === 'Root cause fix').length;
+
+  document.getElementById('kpiTotal').textContent      = total;
+  document.getElementById('kpiOpen').textContent       = open;
+  document.getElementById('kpiClosed').textContent     = closed;
+  document.getElementById('kpiReopened').textContent   = reopened;
+  document.getElementById('kpiInProgress').textContent = inProgress;
+  document.getElementById('kpiCritical').textContent   = critical;
+  document.getElementById('kpiRcFix').textContent      = closed > 0 ? Math.round(rcFixed / closed * 100) + '%' : '—';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TABLE
+// ═══════════════════════════════════════════════════════════════════════════
+function getFiltered() {
+  const search = document.getElementById('fSearch').value.toLowerCase();
+  const sev    = document.getElementById('fSeverity').value;
+  const sts    = document.getElementById('fStatus').value;
+  const pri    = document.getElementById('fPriority').value;
+  return defects.filter(d => {
+    if (sev && d.severity !== sev) return false;
+    if (sts && d.status !== sts) return false;
+    if (pri && d.priority !== pri) return false;
+    if (search) {
+      const hay = [d.id, d.title, d.pageFeature, d.rootCauseCategory, d.notes].join(' ').toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    return true;
+  });
+}
+
+function applyFilters() { renderTable(); }
+
+function renderTable() {
+  const rows = getFiltered().slice().sort((a, b) => {
+    let va = a[sortKey] ?? '', vb = b[sortKey] ?? '';
+    if (typeof va === 'boolean') { va = va ? 1 : 0; vb = vb ? 1 : 0; }
+    if (va < vb) return sortDir === 'asc' ? -1 : 1;
+    if (va > vb) return sortDir === 'asc' ?  1 : -1;
+    return 0;
+  });
+
+  const tbody = document.getElementById('defectTbody');
+  const empty = document.getElementById('emptyState');
+  document.getElementById('tableCount').textContent = rows.length + ' defect' + (rows.length !== 1 ? 's' : '');
+
+  if (rows.length === 0) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  tbody.innerHTML = rows.map(d => {
+    const sevCls = 'sev-' + d.severity.toLowerCase();
+    const stsCls = 'sts-' + d.status.toLowerCase().replace(/\s+/g, '-');
+    const priCls = 'pri-' + d.priority.toLowerCase();
+    return `
+    <tr>
+      <td class="id-col">${esc(d.id)}</td>
+      <td class="title-col"><span title="${esc(d.title)}">${esc(d.title)}</span></td>
+      <td>${esc(d.pageFeature)}</td>
+      <td><span class="badge ${sevCls}">${esc(d.severity)}</span></td>
+      <td><span class="badge ${priCls}">${esc(d.priority)}</span></td>
+      <td><span class="badge ${stsCls}">${esc(d.status)}</span></td>
+      <td>${esc(d.rootCauseCategory)}</td>
+      <td class="rc-detail-col"><span title="${esc(d.rootCauseDetail)}">${esc(d.rootCauseDetail)}</span></td>
+      <td>${esc(d.fixType)}</td>
+      <td style="white-space:nowrap">${esc(d.reportedDate)}</td>
+      <td>${d.clickupLink ? `<a class="clickup-link" href="${esc(d.clickupLink)}" target="_blank" rel="noopener noreferrer">↗ View</a>` : '—'}</td>
+      <td style="text-align:center">${d.verified ? '<span class="verified-yes">✓</span>' : '<span class="verified-no">—</span>'}</td>
+      <td class="notes-col"><span title="${esc(d.notes)}">${esc(d.notes)}</span></td>
+      <td class="actions-col">
+        <button class="act-btn edit" onclick="openEditModal('${esc(d.id)}')">Edit</button>
+        <button class="act-btn del"  onclick="deleteBug('${esc(d.id)}')">Delete</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  // Update sort indicators
+  document.querySelectorAll('thead th').forEach(th => th.classList.remove('sort-asc', 'sort-desc'));
+  const headers = document.querySelectorAll('thead th');
+  const keyMap = ['id','title','pageFeature','severity','priority','status','rootCauseCategory',null,'fixType','reportedDate',null,'verified',null,null];
+  headers.forEach((th, i) => {
+    if (keyMap[i] === sortKey) th.classList.add(sortDir === 'asc' ? 'sort-asc' : 'sort-desc');
+  });
+}
+
+function sortBy(key) {
+  sortDir = (sortKey === key && sortDir === 'asc') ? 'desc' : 'asc';
+  sortKey = key;
+  renderTable();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CRUD
+// ═══════════════════════════════════════════════════════════════════════════
+function deleteBug(id) {
+  if (!confirm('Delete this defect?')) return;
+  defects = defects.filter(d => d.id !== id);
+  storageSave(defects);
+  refreshAll();
+  toast('Defect deleted', 'err');
+}
+
+function quickAdd() {
+  const title = document.getElementById('qTitle').value.trim();
+  if (!title) { document.getElementById('qTitle').focus(); return; }
+  addBug({
+    title,
+    severity:    document.getElementById('qSeverity').value,
+    status:      document.getElementById('qStatus').value,
+    pageFeature: document.getElementById('qFeature').value.trim()
+  });
+  document.getElementById('qTitle').value   = '';
+  document.getElementById('qFeature').value = '';
+  toast('Bug added', 'ok');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MODAL
+// ═══════════════════════════════════════════════════════════════════════════
+function openAddModal() {
+  editId = null;
+  document.getElementById('modalTitle').textContent = 'Add Bug';
+  document.getElementById('bugForm').reset();
+  document.getElementById('fReportedDate').value = todayISO();
+  document.getElementById('modalOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('fTitle').focus(), 50);
+}
+
+function openEditModal(id) {
+  const bug = defects.find(d => d.id === id);
+  if (!bug) return;
+  editId = id;
+  document.getElementById('modalTitle').textContent = 'Edit Bug — ' + id;
+  document.getElementById('fId').value              = bug.id;
+  document.getElementById('fTitle').value           = bug.title;
+  document.getElementById('fPageFeature').value     = bug.pageFeature;
+  document.getElementById('fReportedDate').value    = bug.reportedDate;
+  document.getElementById('fSeverity').value        = bug.severity;
+  document.getElementById('fPriority').value        = bug.priority;
+  document.getElementById('fStatus').value          = bug.status;
+  document.getElementById('fRootCauseCat').value    = bug.rootCauseCategory;
+  document.getElementById('fRootCauseDetail').value = bug.rootCauseDetail;
+  document.getElementById('fFixType').value         = bug.fixType;
+  document.getElementById('fClickupLink').value     = bug.clickupLink;
+  document.getElementById('fNotes').value           = bug.notes;
+  document.getElementById('fVerified').checked      = bug.verified;
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+  editId = null;
+}
+
+function overlayClick(e) {
+  if (e.target === document.getElementById('modalOverlay')) closeModal();
+}
+
+function saveBug(e) {
+  e.preventDefault();
+  const data = {
+    title:             document.getElementById('fTitle').value.trim(),
+    pageFeature:       document.getElementById('fPageFeature').value.trim(),
+    reportedDate:      document.getElementById('fReportedDate').value,
+    severity:          document.getElementById('fSeverity').value,
+    priority:          document.getElementById('fPriority').value,
+    status:            document.getElementById('fStatus').value,
+    rootCauseCategory: document.getElementById('fRootCauseCat').value,
+    rootCauseDetail:   document.getElementById('fRootCauseDetail').value.trim(),
+    fixType:           document.getElementById('fFixType').value,
+    clickupLink:       document.getElementById('fClickupLink').value.trim(),
+    notes:             document.getElementById('fNotes').value.trim(),
+    verified:          document.getElementById('fVerified').checked
+  };
+
+  if (editId) {
+    const idx = defects.findIndex(d => d.id === editId);
+    if (idx !== -1) defects[idx] = { ...defects[idx], ...data };
+    storageSave(defects);
+    refreshAll();
+    closeModal();
+    toast('Bug updated', 'ok');
+  } else {
+    closeModal();
+    addBug(data);
+    toast('Bug added', 'ok');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CHART CONTROLS
+// ═══════════════════════════════════════════════════════════════════════════
+function setRange(r, btn) {
+  range = r;
+  document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderCharts();
+}
+
+function setView(v) {
+  view = v;
+  document.getElementById('btnHeatmap').classList.toggle('active', v === 'heatmap');
+  document.getElementById('btnMonthly').classList.toggle('active', v === 'monthly');
+  document.getElementById('viewHeatmap').style.display = v === 'heatmap' ? '' : 'none';
+  document.getElementById('viewMonthly').style.display = v === 'monthly' ? '' : 'none';
+  renderCharts();
+}
+
+function renderCharts() {
+  renderHeatmap();
+  renderMonthly();
+  renderMiniCharts();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// RANGE CALC
+// ═══════════════════════════════════════════════════════════════════════════
+function getRangeBounds() {
+  const now   = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let start;
+  if (range === '30d') {
+    start = new Date(today); start.setDate(start.getDate() - 29);
+  } else if (range === '90d') {
+    start = new Date(today); start.setDate(start.getDate() - 89);
+  } else if (range === 'year') {
+    start = new Date(today.getFullYear(), 0, 1);
+  } else {
+    // all
+    if (defects.length === 0) {
+      start = new Date(today); start.setDate(start.getDate() - 29);
+    } else {
+      const earliest = defects.reduce((m, d) => d.reportedDate < m ? d.reportedDate : m, defects[0].reportedDate);
+      start = new Date(earliest + 'T00:00:00');
+    }
+  }
+  return { start, today };
+}
+
+function buildDayMap() {
+  const map = {};
+  defects.forEach(d => {
+    if (!d.reportedDate) return;
+    if (!map[d.reportedDate]) map[d.reportedDate] = [];
+    map[d.reportedDate].push(d);
+  });
+  return map;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HEATMAP
+// ═══════════════════════════════════════════════════════════════════════════
+function countToLevel(n) {
+  if (n === 0) return 0;
+  if (n <= 1)  return 1;
+  if (n <= 3)  return 2;
+  if (n <= 6)  return 3;
+  return 4;
+}
+
+function renderHeatmap() {
+  const { start, today } = getRangeBounds();
+  const dayMap = buildDayMap();
+
+  // Align start to Monday
+  const adj = new Date(start);
+  const dow = adj.getDay(); // 0=Sun
+  adj.setDate(adj.getDate() - (dow === 0 ? 6 : dow - 1));
+
+  // Build week columns
+  const weeks = [];
+  const cur   = new Date(adj);
+  while (cur <= today) {
+    const week = [];
+    for (let i = 0; i < 7; i++) {
+      const iso   = isoDate(cur);
+      const bugs  = dayMap[iso] || [];
+      const inRng = cur >= start && cur <= today;
+      week.push({ iso, count: bugs.length, bugs, inRng, date: new Date(cur) });
+      cur.setDate(cur.getDate() + 1);
+    }
+    weeks.push(week);
+  }
+
+  // Month labels
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const monthsEl = document.getElementById('hmMonths');
+  let monthsHtml = '';
+  let lastMonth  = -1;
+  weeks.forEach(wk => {
+    const m = wk[0].date.getMonth();
+    if (m !== lastMonth) {
+      lastMonth = m;
+      monthsHtml += `<span class="heatmap-month-tag" style="width:16px">${MONTHS[m]}</span>`;
+    } else {
+      monthsHtml += `<span class="heatmap-month-spacer" style="width:16px"></span>`;
+    }
+  });
+  monthsEl.innerHTML = monthsHtml;
+
+  // Day cells
+  const gridEl = document.getElementById('hmGrid');
+  gridEl.innerHTML = weeks.map(wk => `
+    <div class="heatmap-week">
+      ${wk.map(day => `
+        <div class="heatmap-day${day.inRng ? '' : ' out-of-range'}"
+             data-l="${day.inRng ? countToLevel(day.count) : 0}"
+             onmouseenter="showHmTip(event,'${day.iso}',${day.count})"
+             onmouseleave="hideHmTip()">
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+}
+
+function showHmTip(e, date, count) {
+  const dayMap = buildDayMap();
+  const bugs   = dayMap[date] || [];
+  const sev    = {};
+  bugs.forEach(b => { sev[b.severity] = (sev[b.severity] || 0) + 1; });
+  const sevLine = Object.entries(sev).map(([s,n]) => `${n} ${s}`).join(', ');
+  const tip = document.getElementById('hmTooltip');
+  tip.innerHTML = `<strong>${date}</strong><br>${count} defect${count !== 1 ? 's' : ''}${sevLine ? '<br><span style="opacity:.8">' + sevLine + '</span>' : ''}`;
+  tip.style.display = 'block';
+  tip.style.left    = (e.clientX + 14) + 'px';
+  tip.style.top     = (e.clientY - 14) + 'px';
+}
+
+function hideHmTip() {
+  document.getElementById('hmTooltip').style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MONTHLY TREND
+// ═══════════════════════════════════════════════════════════════════════════
+function renderMonthly() {
+  const { start, today } = getRangeBounds();
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  // Build month keys in range
+  const buckets = {};
+  const cur = new Date(start.getFullYear(), start.getMonth(), 1);
+  const end = new Date(today.getFullYear(), today.getMonth(), 1);
+  while (cur <= end) {
+    buckets[isoDate(cur).slice(0, 7)] = 0;
+    cur.setMonth(cur.getMonth() + 1);
+  }
+
+  defects.forEach(d => {
+    if (!d.reportedDate) return;
+    const key = d.reportedDate.slice(0, 7);
+    if (key in buckets) buckets[key]++;
+  });
+
+  const entries = Object.entries(buckets);
+  const maxVal  = Math.max(...entries.map(([,v]) => v), 1);
+
+  const el = document.getElementById('monthlyChart');
+  if (entries.length === 0) {
+    el.innerHTML = '<div style="padding:20px;color:var(--muted);font-size:13px">No data in range</div>';
+    return;
+  }
+
+  el.innerHTML = entries.map(([key, count]) => {
+    const [y, m]  = key.split('-');
+    const label   = MONTHS[parseInt(m) - 1] + ' ' + y.slice(2);
+    const heightPct = count > 0 ? Math.max(Math.round(count / maxVal * 100), 4) : 2;
+    return `
+      <div class="month-col" title="${key}: ${count} defect${count !== 1 ? 's' : ''}">
+        <div class="month-col-count">${count > 0 ? count : ''}</div>
+        <div class="month-bar" style="height:${heightPct}%"></div>
+        <div class="month-col-label">${label}</div>
+      </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MINI CHARTS
+// ═══════════════════════════════════════════════════════════════════════════
+function barRows(entries, maxVal, fillClass) {
+  if (entries.length === 0) return '<div class="no-data">No data</div>';
+  return entries.map(([label, count]) => `
+    <div class="bar-row">
+      <div class="bar-label" title="${esc(label)}">${esc(label)}</div>
+      <div class="bar-track"><div class="bar-fill ${fillClass || ''}" style="width:${Math.round(count/maxVal*100)}%"></div></div>
+      <div class="bar-count">${count}</div>
+    </div>`).join('');
+}
+
+function renderMiniCharts() {
+  // Severity
+  const sevOrder  = ['Critical','High','Medium','Low'];
+  const sevFill   = { Critical: 'c-critical', High: 'c-high', Medium: 'c-medium', Low: 'c-low' };
+  const sevCounts = {};
+  defects.forEach(d => { sevCounts[d.severity] = (sevCounts[d.severity] || 0) + 1; });
+  const sevMax = Math.max(...Object.values(sevCounts), 1);
+  document.getElementById('chartSeverity').innerHTML = barRows(
+    sevOrder.map(s => [s, sevCounts[s] || 0]),
+    sevMax,
+    null // individual fill classes per row
+  );
+  // Override bar fill colors per severity
+  document.querySelectorAll('#chartSeverity .bar-row').forEach((row, i) => {
+    const fill = row.querySelector('.bar-fill');
+    if (fill) fill.className = 'bar-fill ' + (sevFill[sevOrder[i]] || '');
+  });
+
+  // Root cause
+  const rcMap = {};
+  defects.forEach(d => { if (d.rootCauseCategory) rcMap[d.rootCauseCategory] = (rcMap[d.rootCauseCategory] || 0) + 1; });
+  const rcEntries = Object.entries(rcMap).sort((a,b) => b[1]-a[1]).slice(0, 6);
+  const rcMax     = Math.max(...rcEntries.map(([,v]) => v), 1);
+  document.getElementById('chartRootCause').innerHTML = barRows(rcEntries, rcMax);
+
+  // Feature
+  const ftMap = {};
+  defects.forEach(d => { if (d.pageFeature) ftMap[d.pageFeature] = (ftMap[d.pageFeature] || 0) + 1; });
+  const ftEntries = Object.entries(ftMap).sort((a,b) => b[1]-a[1]).slice(0, 6);
+  const ftMax     = Math.max(...ftEntries.map(([,v]) => v), 1);
+  document.getElementById('chartFeature').innerHTML = barRows(ftEntries, ftMax);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// KEYBOARD
+// ═══════════════════════════════════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+  if (e.key === 'Enter' && e.target.id === 'qTitle') quickAdd();
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════════════
+refreshAll();
+</script>
+</body>
+</html>
