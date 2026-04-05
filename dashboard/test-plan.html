@@ -486,7 +486,7 @@
       <div class="sidebar-page">Sales Summary</div>
       <a class="sidebar-link active" href="#sales-summary" onclick="setActive(this)">
         All roles
-        <span class="sidebar-badge">10 steps</span>
+        <span class="sidebar-badge">15 steps</span>
       </a>
     </div>
 
@@ -523,7 +523,7 @@
           <div class="section-title">Sales Summary</div>
           <div class="section-desc">Roles: Sales Rep · Director · Executive — 3 users per role, one login per run</div>
         </div>
-        <span class="step-count-badge">10 steps</span>
+        <span class="step-count-badge">15 steps</span>
       </div>
 
       <div class="step-list">
@@ -608,17 +608,26 @@
           <div class="step-card-header" onclick="toggleStep(this)">
             <div class="step-num">4b</div>
             <div class="step-title-wrap">
-              <div class="step-title">Date filter — click each preset, verify date text updates</div>
-              <div class="step-subtitle">Click every preset option and confirm the date filter button label reflects the new range</div>
-              <div class="step-tags"><span class="step-tag filter">Filter</span></div>
+              <div class="step-title">Date filter — Yesterday (special case)</div>
+              <div class="step-subtitle">Select Yesterday, verify the date button, KPI cards, and flexible chart state</div>
+              <div class="step-tags"><span class="step-tag filter">Filter</span><span class="step-tag kpi">KPI</span></div>
             </div>
             <div class="step-toggle">▸</div>
           </div>
           <div class="step-body">
             <ul>
-              <li>For each preset (Yesterday, Month-to-date, Previous month, Quarter-to-date, Previous quarter, Year-to-date, Previous year): open dropdown → click preset → wait 800ms for refresh → read date button text → verify it is non-empty (length &gt; 4 chars).</li>
-              <li>Custom range: open dropdown → click Custom range → verify a calendar picker opens (detected by <code>[role="gridcell"]</code>) → press Escape.</li>
+              <li>Open the date filter dropdown → select <strong>Yesterday</strong> → wait for date button text to change.</li>
+              <li>Verify date button text matches yesterday's date in <code>MMM D, YYYY</code> format.</li>
+              <li><strong>KPI cards — special Yesterday rules:</strong>
+                <ul>
+                  <li>Current KPI values (Contracted sales, Units, Orders) <em>may legitimately be zero</em> — do not fail on zero current.</li>
+                  <li>Previous comparison values must be visible and parseable.</li>
+                  <li>FAIL if all three previous comparison values are zero simultaneously.</li>
+                </ul>
+              </li>
+              <li><strong>Orders chart — flexible:</strong> acceptable outcomes are (a) a valid chart plot area, (b) a no-data message (e.g. "No sales data"), or (c) the chart heading visible. Do NOT fail Yesterday only because the standard multi-day chart area is missing.</li>
             </ul>
+            <div class="note">⚠ Yesterday is a special case — zero current KPI values are acceptable. Do not invent comparison label wording for Yesterday unless confirmed in the live UI.</div>
           </div>
         </div>
 
@@ -627,20 +636,26 @@
           <div class="step-card-header" onclick="toggleStep(this)">
             <div class="step-num">4c</div>
             <div class="step-title-wrap">
-              <div class="step-title">Date filter — KPI direction logic &amp; chart visibility</div>
-              <div class="step-subtitle">For each multi-day preset: verify KPI numbers, percentage direction, color coding, and chart renders</div>
-              <div class="step-tags"><span class="step-tag kpi">KPI</span><span class="step-tag filter">Filter</span></div>
+              <div class="step-title">Date filter — Month-to-date</div>
+              <div class="step-subtitle">Verify date range (month start → yesterday), KPI cards with "Previous MTD" label, Orders chart heading &amp; plot area</div>
+              <div class="step-tags"><span class="step-tag filter">Filter</span><span class="step-tag kpi">KPI</span></div>
             </div>
             <div class="step-toggle">▸</div>
           </div>
           <div class="step-body">
             <ul>
-              <li>Presets tested: Month-to-date · Previous month · Quarter-to-date · Previous quarter · Year-to-date · Previous year.</li>
-              <li>For each: select preset → read Contracted Sales, Units, Orders KPI card text → parse current value, previous value, and displayed % change.</li>
-              <li>Verify % direction: if current &gt; previous → % must be positive (green). If current &lt; previous → % must be negative (red).</li>
-              <li>Verify % magnitude is within 3% of the calculated value.</li>
-              <li>Verify the chart (canvas / recharts) is visible.</li>
-              <li>Verify the Orders nav bar shows a count.</li>
+              <li>Open date filter → select <strong>Month-to-date</strong> → wait for date button to update.</li>
+              <li>Verify date button shows <code>MMM 1 – MMM D, YYYY</code> (month start through <em>yesterday</em>, not today).</li>
+              <li>Verify URL contains <code>dateRange=month-to-date</code>.</li>
+              <li><strong>KPI cards — all three (Contracted sales, Units, Orders):</strong>
+                <ul>
+                  <li>Current and previous values must be visible and parseable.</li>
+                  <li>Previous comparison label must contain <strong>Previous MTD</strong>.</li>
+                  <li>FAIL if all three current values are zero simultaneously.</li>
+                  <li>FAIL if all three previous values are zero simultaneously.</li>
+                </ul>
+              </li>
+              <li><strong>Orders chart:</strong> heading must read <strong>Orders • Month-to-date</strong>; chart plot area must be visible. FAIL if heading is present but plot area is missing.</li>
             </ul>
           </div>
         </div>
@@ -650,17 +665,26 @@
           <div class="step-card-header" onclick="toggleStep(this)">
             <div class="step-num">4d</div>
             <div class="step-title-wrap">
-              <div class="step-title">Date filter — custom range: multi-month &amp; single-day</div>
-              <div class="step-subtitle">Test wide range selection, single-day selection (donut chart), and outside-click closes the picker</div>
+              <div class="step-title">Date filter — Previous month</div>
+              <div class="step-subtitle">Verify full previous calendar month date range, "Previous last month" label, and Orders chart</div>
               <div class="step-tags"><span class="step-tag filter">Filter</span><span class="step-tag kpi">KPI</span></div>
             </div>
             <div class="step-toggle">▸</div>
           </div>
           <div class="step-body">
             <ul>
-              <li><strong>Wide range:</strong> open Custom range → click first calendar cell → click last calendar cell → click Apply → verify KPI cards update.</li>
-              <li><strong>Single day:</strong> open Custom range → click the middle calendar cell twice (start = end) → click Apply → verify a donut chart appears (single-day view).</li>
-              <li><strong>Outside click:</strong> open Custom range → click the Sales Summary heading → verify calendar picker disappears.</li>
+              <li>Open date filter → select <strong>Previous month</strong> → wait for date button to update.</li>
+              <li>Verify date button shows the full previous calendar month: <code>MMM 1 – MMM D, YYYY</code> (first day → last day of the previous month).</li>
+              <li>Verify URL contains <code>dateRange=previous-month</code>.</li>
+              <li><strong>KPI cards — all three:</strong>
+                <ul>
+                  <li>Current and previous values must be visible and parseable.</li>
+                  <li>Previous comparison label must contain <strong>Previous last month</strong>.</li>
+                  <li>FAIL if all three current values are zero simultaneously.</li>
+                  <li>FAIL if all three previous values are zero simultaneously.</li>
+                </ul>
+              </li>
+              <li><strong>Orders chart:</strong> heading must read <strong>Orders • Previous month</strong>; chart plot area must be visible.</li>
             </ul>
           </div>
         </div>
@@ -669,6 +693,157 @@
         <div class="step-card">
           <div class="step-card-header" onclick="toggleStep(this)">
             <div class="step-num">4e</div>
+            <div class="step-title-wrap">
+              <div class="step-title">Date filter — Quarter-to-date</div>
+              <div class="step-subtitle">Verify date range (quarter start → yesterday), "Previous QTD" label, and Orders chart</div>
+              <div class="step-tags"><span class="step-tag filter">Filter</span><span class="step-tag kpi">KPI</span></div>
+            </div>
+            <div class="step-toggle">▸</div>
+          </div>
+          <div class="step-body">
+            <ul>
+              <li>Open date filter → select <strong>Quarter-to-date</strong> → wait for date button to update.</li>
+              <li>Verify date button shows quarter start through <em>yesterday</em> (not today): <code>MMM 1 – MMM D, YYYY</code>.</li>
+              <li>Verify URL contains <code>dateRange=quarter-to-date</code>.</li>
+              <li><strong>KPI cards — all three:</strong>
+                <ul>
+                  <li>Current and previous values must be visible and parseable.</li>
+                  <li>Previous comparison label must contain <strong>Previous QTD</strong>.</li>
+                  <li>FAIL if all three current values are zero simultaneously.</li>
+                  <li>FAIL if all three previous values are zero simultaneously.</li>
+                </ul>
+              </li>
+              <li><strong>Orders chart:</strong> heading must read <strong>Orders • Quarter-to-date</strong>; chart plot area must be visible.</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Step 4f -->
+        <div class="step-card">
+          <div class="step-card-header" onclick="toggleStep(this)">
+            <div class="step-num">4f</div>
+            <div class="step-title-wrap">
+              <div class="step-title">Date filter — Previous quarter</div>
+              <div class="step-subtitle">Verify full previous quarter date range, "Previous last quarter" label, and Orders chart</div>
+              <div class="step-tags"><span class="step-tag filter">Filter</span><span class="step-tag kpi">KPI</span></div>
+            </div>
+            <div class="step-toggle">▸</div>
+          </div>
+          <div class="step-body">
+            <ul>
+              <li>Open date filter → select <strong>Previous quarter</strong> → wait for date button to update.</li>
+              <li>Verify date button shows the full previous quarter range: first day → last day of the previous quarter.</li>
+              <li>Verify URL contains <code>dateRange=previous-quarter</code>.</li>
+              <li><strong>KPI cards — all three:</strong>
+                <ul>
+                  <li>Current and previous values must be visible and parseable.</li>
+                  <li>Previous comparison label must contain <strong>Previous last quarter</strong>.</li>
+                  <li>FAIL if all three current values are zero simultaneously.</li>
+                  <li>FAIL if all three previous values are zero simultaneously.</li>
+                </ul>
+              </li>
+              <li><strong>Orders chart:</strong> heading must read <strong>Orders • Previous quarter</strong>; chart plot area must be visible.</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Step 4g -->
+        <div class="step-card">
+          <div class="step-card-header" onclick="toggleStep(this)">
+            <div class="step-num">4g</div>
+            <div class="step-title-wrap">
+              <div class="step-title">Date filter — Year-to-date (fiscal-year aware)</div>
+              <div class="step-subtitle">Verify fiscal year start → yesterday; Nexus = Jan, Caplin = Apr. "Previous YTD" label and Orders chart.</div>
+              <div class="step-tags"><span class="step-tag filter">Filter</span><span class="step-tag kpi">KPI</span><span class="step-tag role">Fiscal year</span></div>
+            </div>
+            <div class="step-toggle">▸</div>
+          </div>
+          <div class="step-body">
+            <ul>
+              <li>Open date filter → select <strong>Year-to-date</strong> → wait for date button to update.</li>
+              <li>Verify date button shows fiscal year start → <em>yesterday</em>. Fiscal year start is company-specific:
+                <ul>
+                  <li><strong>Nexus Pharmaceuticals</strong> — calendar year: Jan 1.</li>
+                  <li><strong>Caplin Steriles USA Inc</strong> — fiscal year: Apr 1.</li>
+                  <li>Other companies — default to calendar year (Jan 1) until confirmed.</li>
+                </ul>
+              </li>
+              <li>Verify URL contains <code>dateRange=year-to-date</code>.</li>
+              <li><strong>KPI cards — all three:</strong>
+                <ul>
+                  <li>Current and previous values must be visible and parseable.</li>
+                  <li>Previous comparison label must contain <strong>Previous YTD</strong>.</li>
+                  <li>FAIL if all three current values are zero simultaneously.</li>
+                  <li>FAIL if all three previous values are zero simultaneously.</li>
+                </ul>
+              </li>
+              <li><strong>Orders chart:</strong> heading must read <strong>Orders • Year-to-date</strong>; chart plot area must be visible.</li>
+            </ul>
+            <div class="note">⚠ Fiscal year config: Nexus = Jan, Caplin = Apr. Rich Pharmaceuticals fiscal year start is not yet confirmed — currently defaults to Jan.</div>
+          </div>
+        </div>
+
+        <!-- Step 4h -->
+        <div class="step-card">
+          <div class="step-card-header" onclick="toggleStep(this)">
+            <div class="step-num">4h</div>
+            <div class="step-title-wrap">
+              <div class="step-title">Date filter — Previous year (fiscal-year aware)</div>
+              <div class="step-subtitle">Verify full previous fiscal year range; Nexus = Jan–Dec, Caplin = Apr–Mar. "Previous last year" label.</div>
+              <div class="step-tags"><span class="step-tag filter">Filter</span><span class="step-tag kpi">KPI</span><span class="step-tag role">Fiscal year</span></div>
+            </div>
+            <div class="step-toggle">▸</div>
+          </div>
+          <div class="step-body">
+            <ul>
+              <li>Open date filter → select <strong>Previous year</strong> → wait for date button to update.</li>
+              <li>Verify date button shows the full previous fiscal year: first day → last day of that year. Fiscal year config:
+                <ul>
+                  <li><strong>Nexus Pharmaceuticals</strong> — Jan 1 – Dec 31 of previous year.</li>
+                  <li><strong>Caplin Steriles USA Inc</strong> — Apr 1 – Mar 31 of the previous fiscal year.</li>
+                  <li>Other companies — default to Jan–Dec until confirmed.</li>
+                </ul>
+              </li>
+              <li>Verify URL contains <code>dateRange=previous-year</code>.</li>
+              <li><strong>KPI cards — all three:</strong>
+                <ul>
+                  <li>Current and previous values must be visible and parseable.</li>
+                  <li>Previous comparison label must contain <strong>Previous last year</strong>.</li>
+                  <li>FAIL if all three current values are zero simultaneously.</li>
+                  <li>FAIL if all three previous values are zero simultaneously.</li>
+                </ul>
+              </li>
+              <li><strong>Orders chart:</strong> heading must read <strong>Orders • Previous year</strong>; chart plot area must be visible.</li>
+            </ul>
+            <div class="note">⚠ Fiscal year config: Nexus = Jan, Caplin = Apr. Rich Pharmaceuticals fiscal year start is not yet confirmed — currently defaults to Jan.</div>
+          </div>
+        </div>
+
+        <!-- Step 4i -->
+        <div class="step-card">
+          <div class="step-card-header" onclick="toggleStep(this)">
+            <div class="step-num">4i</div>
+            <div class="step-title-wrap">
+              <div class="step-title">Date filter — Custom range (multi-day, single-day, outside-click close)</div>
+              <div class="step-subtitle">Wide range updates KPI &amp; chart; single-day shows single-day visualization; outside click closes picker</div>
+              <div class="step-tags"><span class="step-tag filter">Filter</span><span class="step-tag kpi">KPI</span></div>
+            </div>
+            <div class="step-toggle">▸</div>
+          </div>
+          <div class="step-body">
+            <ul>
+              <li><strong>4i1 — Wide multi-day range:</strong> open date filter → click <strong>Custom range</strong> → calendar appears → click near-first day (start) → click near-last day (end) → click <strong>Apply</strong> → wait for dashboard refresh → verify date button shows a range with a "–" separator → verify Contracted sales, Units, Orders KPI cards are all visible → verify Orders chart heading is visible.</li>
+              <li><strong>4i2 — Single-day range:</strong> open Custom range → click the middle calendar day twice (same day twice = single-day range) → click <strong>Apply</strong> → wait for dashboard refresh → verify a single-day visualization (donut chart or equivalent) is visible. Do <em>not</em> require a multi-day bar chart plot area for single-day.</li>
+              <li><strong>4i3 — Outside click closes picker:</strong> open date filter → click Custom range → calendar opens → click the <em>Sales Summary</em> page heading (outside the picker) → verify the calendar picker closes (picker root no longer visible).</li>
+            </ul>
+            <div class="note">⚠ For single-day (4i2), the Orders bar chart plot area is not expected — the single-day visualization (donut/similar) is the accepted state.</div>
+          </div>
+        </div>
+
+        <!-- Step 4j — Orders count (formerly 4e) -->
+        <div class="step-card">
+          <div class="step-card-header" onclick="toggleStep(this)">
+            <div class="step-num">4j</div>
             <div class="step-title-wrap">
               <div class="step-title">Orders count — KPI box = Orders − Returns logic</div>
               <div class="step-subtitle">Verify the Orders KPI equals the Orders filter count minus the Returns filter count</div>
@@ -685,7 +860,7 @@
               <li>Verify: Orders count − Returns count = Orders KPI value.</li>
               <li>Reset filter to "All" at the end.</li>
             </ul>
-            <div class="note">⚠ Order type filter selector may need DOM discovery — currently detected via text matching "Order type / All orders / All types".</div>
+            <div class="note">⚠ Order type filter selector may need DOM discovery — currently detected via text matching "Order type / All orders / All types". Previously numbered 4e; renumbered 4j to make room for the new Date Filter sections 4b–4i.</div>
           </div>
         </div>
 

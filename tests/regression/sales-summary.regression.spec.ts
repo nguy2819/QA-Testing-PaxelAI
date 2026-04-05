@@ -12,7 +12,7 @@ import { ImpersonationPage } from '../../pages/ImpersonationPage';
 import { SalesSummaryPage }  from '../../pages/SalesSummaryPage';
 import { SALES_REPS, DIRECTORS, EXECUTIVES } from '../../data/users';
 import { loginAsAdmin }          from '../../helpers/auth.helper';
-import { initRun, logStep, startLiveCapture, stopLiveCapture } from '../../helpers/step.helper';
+import { initRun, logStep } from '../../helpers/step.helper';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Role → users mapping
@@ -58,27 +58,90 @@ function previousQuarterRange(ref = yesterday()) {
   return { start: prevQuarterStart, end: prevQuarterEnd };
 }
 
-function expectedDateRegex(label: string, ref = yesterday()): RegExp {
+// ─────────────────────────────────────────────────────────────────────────────
+// Fiscal-year config — keyed by company name.
+// Nexus Pharmaceuticals  → calendar year (January, month index 0)
+// Caplin Steriles USA Inc → fiscal year  (April,   month index 3)
+// If a company is not in this map, defaults safely to calendar year (January).
+// TODO: verify fiscal-year start for 'Rich Pharmaceuticals' and add it here.
+// ─────────────────────────────────────────────────────────────────────────────
+const FISCAL_YEAR_CONFIG: Record<string, { startMonth: number }> = {
+  'Nexus Pharmaceuticals':   { startMonth: 0 }, // January
+  'Caplin Steriles USA Inc': { startMonth: 3 }, // April
+  // TODO: add 'Rich Pharmaceuticals' once fiscal year start is confirmed
+};
+
+/** Returns fiscal-year start month (0-indexed). Defaults to 0 (January) for unknown companies. */
+function fiscalYearStartMonth(company: string): number {
+  return FISCAL_YEAR_CONFIG[company]?.startMonth ?? 0;
+  // Default: calendar year (January). Extend FISCAL_YEAR_CONFIG above to override.
+}
+
+function startOfFiscalYear(ref: Date, company: string): Date {
+  const fsm  = fiscalYearStartMonth(company);
+  const year = ref.getMonth() >= fsm ? ref.getFullYear() : ref.getFullYear() - 1;
+  return new Date(year, fsm, 1);
+}
+
+function previousFiscalYearRange(ref: Date, company: string): { start: Date; end: Date } {
+  const thisStart = startOfFiscalYear(ref, company);
+  const prevEnd   = new Date(thisStart.getTime() - 86_400_000);
+  return { start: startOfFiscalYear(prevEnd, company), end: prevEnd };
+}
+
+function expectedDateRegex(label: string, ref = yesterday(), company = ''): RegExp {
   const y = ref;
-  const yText = escapeRe(fmtDate(y));
 
   if (label === 'Yesterday') {
-    return new RegExp(yText, 'i');
+    return new RegExp(escapeRe(fmtDate(y)), 'i');
   }
 
   if (label === 'Month-to-date') {
     const start = startOfMonth(y);
-    return new RegExp(`${escapeRe(MONTHS[start.getMonth()])}\\s+${start.getDate()}\\s*[–-]\\s*${escapeRe(MONTHS[y.getMonth()])}\\s+${y.getDate()},\\s+${y.getFullYear()}`, 'i');
+    return new RegExp(
+      `${escapeRe(MONTHS[start.getMonth()])}\\s+${start.getDate()}\\s*[–-]\\s*` +
+      `${escapeRe(MONTHS[y.getMonth()])}\\s+${y.getDate()},\\s+${y.getFullYear()}`, 'i'
+    );
   }
 
   if (label === 'Previous month') {
     const { start, end } = previousMonthRange(y);
-    return new RegExp(`${escapeRe(MONTHS[start.getMonth()])}\\s+${start.getDate()}\\s*[–-]\\s*${escapeRe(MONTHS[end.getMonth()])}\\s+${end.getDate()},\\s+${end.getFullYear()}`, 'i');
+    return new RegExp(
+      `${escapeRe(MONTHS[start.getMonth()])}\\s+${start.getDate()}\\s*[–-]\\s*` +
+      `${escapeRe(MONTHS[end.getMonth()])}\\s+${end.getDate()},\\s+${end.getFullYear()}`, 'i'
+    );
   }
 
   if (label === 'Quarter-to-date') {
     const start = startOfQuarter(y);
-    return new RegExp(`${escapeRe(MONTHS[start.getMonth()])}\\s+${start.getDate()}\\s*[–-]\\s*${escapeRe(MONTHS[y.getMonth()])}\\s+${y.getDate()},\\s+${y.getFullYear()}`, 'i');
+    return new RegExp(
+      `${escapeRe(MONTHS[start.getMonth()])}\\s+${start.getDate()}\\s*[–-]\\s*` +
+      `${escapeRe(MONTHS[y.getMonth()])}\\s+${y.getDate()},\\s+${y.getFullYear()}`, 'i'
+    );
+  }
+
+  if (label === 'Previous quarter') {
+    const { start, end } = previousQuarterRange(y);
+    return new RegExp(
+      `${escapeRe(MONTHS[start.getMonth()])}\\s+${start.getDate()}\\s*[–-]\\s*` +
+      `${escapeRe(MONTHS[end.getMonth()])}\\s+${end.getDate()},\\s+${end.getFullYear()}`, 'i'
+    );
+  }
+
+  if (label === 'Year-to-date') {
+    const start = startOfFiscalYear(y, company);
+    return new RegExp(
+      `${escapeRe(MONTHS[start.getMonth()])}\\s+${start.getDate()}\\s*[–-]\\s*` +
+      `${escapeRe(MONTHS[y.getMonth()])}\\s+${y.getDate()},\\s+${y.getFullYear()}`, 'i'
+    );
+  }
+
+  if (label === 'Previous year') {
+    const { start, end } = previousFiscalYearRange(y, company);
+    return new RegExp(
+      `${escapeRe(MONTHS[start.getMonth()])}\\s+${start.getDate()}\\s*[–-]\\s*` +
+      `${escapeRe(MONTHS[end.getMonth()])}\\s+${end.getDate()},\\s+${end.getFullYear()}`, 'i'
+    );
   }
 
   return /.+/i;
@@ -105,6 +168,278 @@ async function getKpiCardByLabel(page: Page, label: string) {
   return page.locator('button, [role="button"], div').filter({
     hasText: new RegExp(`^${escapeRe(label)}`, 'i')
   }).first();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Date-filter action helpers
+// ─────────────────────────────────────────────────────────────────────────────
+async function cleanupDatePicker(page: Page) {
+  await page.keyboard.press('Escape').catch(() => {});
+  await page.waitForTimeout(250);
+  await page.mouse.click(80, 80).catch(() => {});
+  await page.waitForTimeout(250);
+}
+
+async function openDatePickerWithLogs(page: Page, ss: SalesSummaryPage, stepId: string) {
+  const pickerRoot = page.locator('section').filter({
+    has: page.locator('text=Yesterday'),
+    hasText: /Month-to-date/,
+  }).first();
+
+  await logStep(page, `${stepId}: cleanup before opening picker`, 'running');
+  await cleanupDatePicker(page);
+
+  await logStep(page, `${stepId}: click date filter button`, 'running');
+  await ss.dateFilterButton.first().click({ force: true });
+
+  let opened = await pickerRoot.isVisible({ timeout: 2500 }).catch(() => false);
+  if (!opened) {
+    await logStep(page, `${stepId}: picker did not open on first click — retrying`, 'info');
+    await ss.dateFilterButton.first().click({ force: true });
+    opened = await pickerRoot.isVisible({ timeout: 5000 }).catch(() => false);
+  }
+
+  await logStep(page, `${stepId}: picker opened ${opened ? '✓' : 'FAIL'}`, opened ? 'pass' : 'fail');
+  if (!opened) throw new Error(`${stepId}: date picker did not open`);
+
+  return pickerRoot;
+}
+
+async function clickPresetOptionWithLogs(page: Page, presetLabel: string, stepId: string) {
+  const option = page.locator('div[data-lov-id*="DatePickerListItem"]')
+    .filter({ hasText: new RegExp(`^${escapeRe(presetLabel)}$`, 'i') })
+    .first()
+    .or(
+      page.locator('div[role="button"]')
+        .filter({ hasText: new RegExp(`^${escapeRe(presetLabel)}$`, 'i') })
+        .first()
+    );
+
+  await logStep(page, `${stepId}: wait for preset "${presetLabel}"`, 'running');
+  await expect(option).toBeVisible({ timeout: 4000 });
+  await logStep(page, `${stepId}: preset "${presetLabel}" visible ✓`, 'pass');
+
+  await logStep(page, `${stepId}: click preset "${presetLabel}"`, 'running');
+  await option.click({ force: true });
+  await page.waitForTimeout(500);
+  await logStep(page, `${stepId}: clicked preset "${presetLabel}" ✓`, 'pass');
+}
+
+async function selectDatePresetExpectStable(
+  page: Page,
+  ss: SalesSummaryPage,
+  presetLabel: string,
+  expectedRegex: RegExp,
+  stepId: string
+) {
+  await openDatePickerWithLogs(page, ss, stepId);
+  await clickPresetOptionWithLogs(page, presetLabel, stepId);
+
+  const btnText = await getDateButtonText(ss);
+  const ok = expectedRegex.test(btnText);
+
+  await logStep(
+    page,
+    `${stepId}: final date button text "${btnText}" matches expected stable state: ${ok ? '✓' : 'FAIL'}`,
+    ok ? 'pass' : 'fail'
+  );
+
+  await cleanupDatePicker(page);
+
+  if (!ok) {
+    throw new Error(`${stepId}: final date button text did not match expected state`);
+  }
+
+  return btnText;
+}
+
+async function selectDatePresetExpectChange(
+  page: Page,
+  ss: SalesSummaryPage,
+  presetLabel: string,
+  expectedRegex: RegExp,
+  expectedUrlRe: RegExp,
+  stepId: string
+) {
+  const beforeText = await getDateButtonText(ss);
+  const beforeUrl = page.url();
+
+  await logStep(page, `${stepId}: before text = "${beforeText}"`, 'info');
+  await logStep(page, `${stepId}: before url = ${beforeUrl}`, 'info');
+
+  await openDatePickerWithLogs(page, ss, stepId);
+  await clickPresetOptionWithLogs(page, presetLabel, stepId);
+
+  const result = await expect.poll(
+    async () => {
+      const currentText = await getDateButtonText(ss);
+      const currentUrl = page.url();
+      return {
+        textMatch: expectedRegex.test(currentText),
+        urlMatch: expectedUrlRe.test(currentUrl),
+        currentText,
+        currentUrl,
+      };
+    },
+    { timeout: 8000, intervals: [250, 500, 1000] }
+  ).toMatchObject({ textMatch: true });
+
+  const afterText = await getDateButtonText(ss);
+  const afterUrl = page.url();
+  const textOk = expectedRegex.test(afterText);
+  const urlOk = expectedUrlRe.test(afterUrl);
+
+  await logStep(page, `${stepId}: after text = "${afterText}"`, textOk ? 'pass' : 'fail');
+  await logStep(page, `${stepId}: after url = ${afterUrl}`, urlOk ? 'pass' : 'fail');
+
+  await cleanupDatePicker(page);
+
+  if (!textOk) {
+    throw new Error(`${stepId}: final date button text did not match expected preset`);
+  }
+
+  return { afterText, afterUrl, textOk, urlOk };
+}
+
+/** Validate all three KPI cards for regular date ranges (4c–4h).
+ *  - current value must be parseable
+ *  - previous comparison value must be parseable
+ *  - comparison label must contain expectedPrevLabel
+ *  - FAIL if all three current values are simultaneously zero
+ *  - FAIL if all three previous values are simultaneously zero
+ */
+async function validateKpiCardsRegular(page: Page, expectedPrevLabel: string) {
+  type R = { label: string; current: number; previous: number };
+  const results: R[] = [];
+
+  for (const label of ['Contracted sales', 'Units', 'Orders']) {
+    const card = page.locator('button, [role="button"], div')
+      .filter({ hasText: new RegExp(`^${escapeRe(label)}`, 'i') })
+      .first();
+
+    const vis = await card.isVisible({ timeout: 8000 }).catch(() => false);
+    if (!vis) {
+      await logStep(page, `  ${label}: card not visible — FAIL`, 'fail');
+      results.push({ label, current: NaN, previous: NaN });
+      continue;
+    }
+
+    const text = ((await card.textContent().catch(() => '')) ?? '').trim();
+    await logStep(page, `  ${label}: "${text.slice(0, 120)}"`, 'info');
+
+    const kpi = parseKpi(text);
+
+    const hasLabel = text.toLowerCase().includes(expectedPrevLabel.toLowerCase());
+    await logStep(
+      page,
+      `  ${label} — comparison label "${expectedPrevLabel}": ${hasLabel ? '✓' : 'FAIL — not found in card text'}`,
+      hasLabel ? 'pass' : 'fail'
+    );
+
+    await logStep(
+      page,
+      `  ${label} — current value: ${isNaN(kpi.current) ? 'FAIL (not parseable)' : kpi.current}`,
+      isNaN(kpi.current) ? 'fail' : 'pass'
+    );
+
+    await logStep(
+      page,
+      `  ${label} — previous value: ${isNaN(kpi.previous) ? 'FAIL (not parseable)' : kpi.previous}`,
+      isNaN(kpi.previous) ? 'fail' : 'pass'
+    );
+
+    results.push({ label, current: kpi.current, previous: kpi.previous });
+  }
+
+  const valid = results.filter(r => !isNaN(r.current) && !isNaN(r.previous));
+  if (valid.length === 3) {
+    const allCurZero = valid.every(r => r.current === 0);
+    await logStep(page, `All three KPI current values zero: ${allCurZero ? 'FAIL' : '✓'}`, allCurZero ? 'fail' : 'pass');
+
+    const allPrevZero = valid.every(r => r.previous === 0);
+    await logStep(page, `All three KPI previous values zero: ${allPrevZero ? 'FAIL' : '✓'}`, allPrevZero ? 'fail' : 'pass');
+  }
+}
+
+/** Validate all three KPI cards for Yesterday (4b).
+ *  - current values MAY be zero (not a failure)
+ *  - previous comparison values must be parseable
+ *  - FAIL if all three previous values are simultaneously zero
+ */
+async function validateKpiCardsYesterday(page: Page) {
+  type R = { label: string; previous: number };
+  const results: R[] = [];
+
+  for (const label of ['Contracted sales', 'Units', 'Orders']) {
+    const card = page.locator('button, [role="button"], div')
+      .filter({ hasText: new RegExp(`^${escapeRe(label)}`, 'i') })
+      .first();
+
+    const vis = await card.isVisible({ timeout: 8000 }).catch(() => false);
+    if (!vis) {
+      await logStep(page, `  ${label}: card not visible — FAIL`, 'fail');
+      results.push({ label, previous: NaN });
+      continue;
+    }
+
+    const text = ((await card.textContent().catch(() => '')) ?? '').trim();
+    await logStep(page, `  ${label}: "${text.slice(0, 120)}"`, 'info');
+
+    const kpi = parseKpi(text);
+
+    // Current may be zero for Yesterday — log only, not a failure
+    await logStep(page, `  ${label} — current: ${isNaN(kpi.current) ? '(not parseable)' : kpi.current} (zero is acceptable for Yesterday)`, 'info');
+
+    await logStep(
+      page,
+      `  ${label} — previous: ${isNaN(kpi.previous) ? 'FAIL (not parseable)' : kpi.previous}`,
+      isNaN(kpi.previous) ? 'fail' : 'pass'
+    );
+
+    results.push({ label, previous: kpi.previous });
+  }
+
+  const valid = results.filter(r => !isNaN(r.previous));
+  if (valid.length === 3) {
+    const allPrevZero = valid.every(r => r.previous === 0);
+    await logStep(page, `All three KPI previous values zero simultaneously: ${allPrevZero ? 'FAIL' : '✓'}`, allPrevZero ? 'fail' : 'pass');
+  }
+}
+
+/** Validate Orders chart heading + plot area for preset sections 4c–4h.
+ *  - heading must match: Orders • {presetLabel} (case-insensitive)
+ *  - chart plot area must be visible (section-scoped; data-lov-id as fallback)
+ *  - FAIL if heading is visible but plot area is missing
+ */
+async function validateOrdersChart(page: Page, presetLabel: string) {
+  const headingRe = new RegExp(`orders\\s*[•·]\\s*${escapeRe(presetLabel)}`, 'i');
+
+  const heading   = page.getByText(headingRe).first();
+  const headingOk = await heading.isVisible({ timeout: 5000 }).catch(() => false);
+  await logStep(
+    page,
+    `Orders chart heading "Orders • ${presetLabel}": ${headingOk ? '✓' : 'FAIL'}`,
+    headingOk ? 'pass' : 'fail'
+  );
+  if (!headingOk) return;
+
+  // Scope plot-area search to the section containing the heading
+  // TODO: verify the section wrapper selector matches the live DOM (section / div[class*="chart"] / div[class*="card"])
+  const chartSection = page.locator('section, div[class*="chart"], div[class*="card"]')
+    .filter({ has: page.getByText(headingRe) })
+    .first();
+
+  const plotArea = chartSection
+    .locator('svg, canvas, [class*="bar"], [class*="plot"], [class*="chart-area"]')
+    .first()
+    .or(page.locator('[data-lov-id="src/components/OrderBarChart.tsx:1101:8"]').first());
+
+  const plotOk = await plotArea.isVisible({ timeout: 5000 }).catch(() => false);
+  await logStep(
+    page,
+    `Orders chart plot area visible: ${plotOk ? '✓' : 'FAIL'}`,
+    plotOk ? 'pass' : 'fail'
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -298,7 +633,6 @@ async function findNotificationButton(page: Page): Promise<Locator> {
 // ─────────────────────────────────────────────────────────────────────────────
 test(`Sales Summary — ${ROLE} (${TEST_USERS.length} users)`, async ({ page }) => {
   initRun();
-  startLiveCapture(page);
 
   const S             = makeSection(page);
   const impersonation = new ImpersonationPage(page);
@@ -456,7 +790,128 @@ test(`Sales Summary — ${ROLE} (${TEST_USERS.length} users)`, async ({ page }) 
             await page.waitForTimeout(200);
           }
         });
+        // ════════════════════════════════════════════════════════════════════
+        // Small Helper for Steps 4
+        // ════════════════════════════════════════════════════════════════════
+        function rangeText(start: Date, end: Date) {
+        return `${MONTHS[start.getMonth()]} ${start.getDate()}–${MONTHS[end.getMonth()]} ${end.getDate()}, ${end.getFullYear()}`;
+      }
 
+      async function closeDatePickerIfOpen(page: Page) {
+        await page.keyboard.press('Escape').catch(() => {});
+        await page.waitForTimeout(250);
+        await page.mouse.click(100, 220).catch(() => {});
+        await page.waitForTimeout(250);
+      }
+
+      async function getOpenDatePickerPanel(page: Page) {
+        // Must be scoped to the visible picker/popover, not random page text.
+        return page.locator(
+          'section:has-text("Custom range"), [role="dialog"]:has-text("Custom range"), div[class*="popover"]:has-text("Custom range"), div[class*="panel"]:has-text("Custom range")'
+        ).filter({ has: page.getByText(/yesterday|month-to-date|previous month|quarter-to-date|previous quarter|year-to-date|previous year|custom range/i) }).first();
+      }
+
+      async function openDateFilterWithMouse(page: Page, ss: SalesSummaryPage, stepId: string) {
+        await closeDatePickerIfOpen(page);
+
+        const btn = ss.dateFilterButton.first();
+        await btn.scrollIntoViewIfNeeded().catch(() => {});
+
+        const box = await btn.boundingBox();
+        if (!box) throw new Error(`${stepId}: date filter button has no bounding box`);
+
+        const cx = box.x + box.width / 2;
+        const cy = box.y + box.height / 2;
+
+        await logStep(page, `${stepId}: move to date filter button`, 'running');
+        await page.mouse.move(cx, cy);
+        await page.waitForTimeout(200);
+
+        await logStep(page, `${stepId}: click date filter button`, 'running');
+        await page.mouse.click(cx, cy);
+        await page.waitForTimeout(700);
+
+        const panel = await getOpenDatePickerPanel(page);
+        const visible = await panel.isVisible({ timeout: 2500 }).catch(() => false);
+
+        await logStep(
+          page,
+          `${stepId}: picker opened ${visible ? '✓' : 'FAIL'}`,
+          visible ? 'pass' : 'fail'
+        );
+
+        if (!visible) {
+          throw new Error(`${stepId}: date picker panel not visibly open`);
+        }
+
+        return panel;
+      }
+
+      async function clickDatePresetInPanel(page: Page, panel: Locator, presetLabel: string, stepId: string) {
+        const preset = panel.locator('button, [role="button"], div, li')
+          .filter({ hasText: new RegExp(`^${escapeRe(presetLabel)}$`, 'i') })
+          .first();
+
+        await logStep(page, `${stepId}: wait for preset "${presetLabel}" inside open picker`, 'running');
+        const visible = await preset.isVisible({ timeout: 4000 }).catch(() => false);
+
+        await logStep(
+          page,
+          `${stepId}: preset "${presetLabel}" visible ${visible ? '✓' : 'FAIL'}`,
+          visible ? 'pass' : 'fail'
+        );
+
+        if (!visible) {
+          throw new Error(`${stepId}: preset "${presetLabel}" not visible inside picker`);
+        }
+
+        const box = await preset.boundingBox();
+        if (!box) throw new Error(`${stepId}: preset "${presetLabel}" has no bounding box`);
+
+        const cx = box.x + box.width / 2;
+        const cy = box.y + box.height / 2;
+
+        await logStep(page, `${stepId}: click preset "${presetLabel}"`, 'running');
+        await page.mouse.move(cx, cy);
+        await page.waitForTimeout(150);
+        await page.mouse.click(cx, cy);
+        await page.waitForTimeout(1200);
+
+        await logStep(page, `${stepId}: clicked preset "${presetLabel}" ✓`, 'pass');
+      }
+
+      async function getDateButton(page: Page, ss: SalesSummaryPage) {
+        const txt = ((await ss.dateFilterButton.first().textContent()) ?? '').trim();
+        return txt.replace(/\s+/g, ' ');
+      }
+
+      async function validateDateButtonExact(
+        page: Page,
+        ss: SalesSummaryPage,
+        expected: RegExp,
+        label: string
+      ) {
+        const txt = await getDateButton(page, ss);
+        const ok = expected.test(txt);
+
+        await logStep(
+          page,
+          `${label}: date button text "${txt}" ${ok ? 'matches' : 'does NOT match'} expected`,
+          ok ? 'pass' : 'fail'
+        );
+
+        if (!ok) throw new Error(`${label}: date button text mismatch → got "${txt}"`);
+      }
+
+      async function validateUrlContains(page: Page, re: RegExp, label: string) {
+        await expect.poll(
+          async () => page.url(),
+          { timeout: 8000, intervals: [250, 500, 1000] }
+        ).toMatch(re);
+
+        const url = page.url();
+        await logStep(page, `${label}: URL matches expected → ${url}`, 'pass');
+      }
         // ════════════════════════════════════════════════════════════════════
         // STEP 4a — Date filter default + hover effects
         // ════════════════════════════════════════════════════════════════════
@@ -515,412 +970,691 @@ test(`Sales Summary — ${ROLE} (${TEST_USERS.length} users)`, async ({ page }) 
           );
         });
 
-      // ════════════════════════════════════════════════════════════════════
-      // STEP 4b — Date filter: click Previous month, verify selection works
-      // ════════════════════════════════════════════════════════════════════
-      await S('Step 4b — Date filter: click Previous month, verify date text updates', async () => {
-        // close picker first if already open
-        const pickerBefore = page.locator('div[data-lov-id*="DatePickerListItem"]').first();
-        const alreadyOpen = await pickerBefore.isVisible({ timeout: 500 }).catch(() => false);
-        if (alreadyOpen) {
-          await page.keyboard.press('Escape').catch(() => {});
-          await page.waitForTimeout(500);
-        }
+        // ════════════════════════════════════════════════════════════════════
+        // STEP 4b — Date filter: Yesterday
+        // ════════════════════════════════════════════════════════════════════
+        await S('Step 4b — Date filter: Yesterday', async () => {
+        await logStep(page, `Selecting Yesterday (user: ${user.fullName}, company: ${user.company})`, 'info');
 
-        await logStep(page, `Before URL: ${page.url()}`, 'info');
+        const panel = await openDateFilterWithMouse(page, ss, '4b');
+        await clickDatePresetInPanel(page, panel, 'Yesterday', '4b');
 
-        const dateBtn = ss.dateFilterButton.first();
-
-        const btnVisible = await dateBtn.isVisible({ timeout: 3000 }).catch(() => false);
-        await logStep(
+        await validateDateButtonExact(
           page,
-          `Date filter button visible in 4b: ${btnVisible ? '✓' : 'FAIL'}`,
-          btnVisible ? 'pass' : 'fail'
-        );
-        if (!btnVisible) return;
-
-        await dateBtn.scrollIntoViewIfNeeded().catch(() => {});
-        await page.waitForTimeout(200);
-        await dateBtn.hover().catch(() => {});
-        await page.waitForTimeout(200);
-
-        // first click
-        await dateBtn.click({ force: true }).catch(() => {});
-        await page.waitForTimeout(800);
-
-        const picker = page.locator('section').filter({
-          has: page.locator('text=Yesterday'),
-          hasText: /Month-to-date/
-        }).first();
-
-        let pickerOpened = await picker.isVisible({ timeout: 1500 }).catch(() => false);
-
-        // second click if needed
-        if (!pickerOpened) {
-          await logStep(page, 'Date picker did not open on first click — retrying', 'info');
-          await dateBtn.click({ force: true }).catch(() => {});
-          await page.waitForTimeout(1000);
-          pickerOpened = await picker.isVisible({ timeout: 1500 }).catch(() => false);
-        }
-
-        await logStep(
-          page,
-          `Date picker opened in 4b: ${pickerOpened ? '✓' : 'FAIL'}`,
-          pickerOpened ? 'pass' : 'fail'
-        );
-        if (!pickerOpened) return;
-
-        const previousMonth = picker.locator('div[data-lov-id*="DatePickerListItem"]')
-          .filter({ hasText: /^Previous month$/i })
-          .first();
-
-        const optVis = await previousMonth.isVisible({ timeout: 2000 }).catch(() => false);
-        await logStep(
-          page,
-          `"Previous month" option visible: ${optVis ? '✓' : 'FAIL'}`,
-          optVis ? 'pass' : 'fail'
-        );
-        if (!optVis) return;
-
-        await previousMonth.click({ force: true }).catch(() => {});
-        await page.waitForTimeout(1500);
-
-        const urlOk = /dateRange=previous-month/i.test(page.url());
-        await logStep(
-          page,
-          `URL updated to previous-month: ${urlOk ? '✓' : 'FAIL'} | ${page.url()}`,
-          urlOk ? 'pass' : 'fail'
+          ss,
+          expectedDateRegex('Yesterday', yesterday(), user.company),
+          '4b'
         );
 
-        const headingOk = await page.getByText(/orders\s*•\s*previous month/i)
-          .first()
-          .isVisible({ timeout: 3000 })
-          .catch(() => false);
+        await validateKpiCardsYesterday(page);
 
+        const noData = await page.getByText(/no sales data/i).first().isVisible({ timeout: 2000 }).catch(() => false);
+        const heading = await page.getByText(/orders\s*[•·]\s*yesterday/i).first().isVisible({ timeout: 2000 }).catch(() => false);
+        const plot = await page.locator('svg, canvas, [class*="bar"], [class*="plot"]').first().isVisible({ timeout: 2000 }).catch(() => false);
+
+        const ok = noData || heading || plot;
         await logStep(
           page,
-          `Chart heading shows Previous month: ${headingOk ? '✓' : 'check manually'}`,
-          headingOk ? 'pass' : 'info'
+          `Yesterday chart state — noData:${noData} heading:${heading} plot:${plot} → ${ok ? '✓ (acceptable)' : 'FAIL'}`,
+          ok ? 'pass' : 'fail'
         );
+
+        await closeDatePickerIfOpen(page);
       });
 
-        
         // ════════════════════════════════════════════════════════════════════
-// STEP 4c — Previous month: KPI visibility + chart (STABLE VERSION)
-// ════════════════════════════════════════════════════════════════════
-await S('Step 4c — Previous month: KPI visibility & chart (stable)', async () => {
-  // 4b already selected Previous month
-  const urlOk = /dateRange=previous-month/i.test(page.url());
-  await logStep(
-    page,
-    `URL is still previous-month: ${urlOk ? '✓' : 'FAIL'} | ${page.url()}`,
-    urlOk ? 'pass' : 'fail'
-  );
-
-  // KPI cards visible
-  const contractedSalesVisible = await page.getByText(/contracted sales/i)
-    .first()
-    .isVisible({ timeout: 5000 })
-    .catch(() => false);
-
-  const unitsVisible = await page.getByText(/^units$/i)
-    .first()
-    .isVisible({ timeout: 5000 })
-    .catch(() => false);
-
-  const ordersVisible = await page.getByText(/^orders$/i)
-    .first()
-    .isVisible({ timeout: 5000 })
-    .catch(() => false);
-
-  await logStep(
-    page,
-    `Contracted Sales visible: ${contractedSalesVisible ? '✓' : 'FAIL'}`,
-    contractedSalesVisible ? 'pass' : 'fail'
-  );
-
-  await logStep(
-    page,
-    `Units visible: ${unitsVisible ? '✓' : 'FAIL'}`,
-    unitsVisible ? 'pass' : 'fail'
-  );
-
-  await logStep(
-    page,
-    `Orders visible: ${ordersVisible ? '✓' : 'FAIL'}`,
-    ordersVisible ? 'pass' : 'fail'
-  );
-
-  // Chart heading
-  const headingOk = await page.getByText(/orders\s*•\s*previous month/i)
-    .first()
-    .isVisible({ timeout: 5000 })
-    .catch(() => false);
-
-  await logStep(
-    page,
-    `Chart heading shows Previous month: ${headingOk ? '✓' : 'FAIL'}`,
-    headingOk ? 'pass' : 'fail'
-  );
-
-  // Chart visible
-  const chartVisible = await page
-    .locator('div[data-lov-id*="OrderBarChart"], div[class*="bar-grow"]')
-    .first()
-    .isVisible({ timeout: 5000 })
-    .catch(() => false);
-
-  await logStep(
-    page,
-    `Order chart visible: ${chartVisible ? '✓' : 'FAIL'}`,
-    chartVisible ? 'pass' : 'fail'
-  );
-});
-
-
+        // STEP 4c — Date filter: Month-to-date
         // ════════════════════════════════════════════════════════════════════
-        // STEP 4d — Custom range (debug version)
-        // ════════════════════════════════════════════════════════════════════
-        await S('Step 4d — Custom range: multi-month, single-day, outside-click close', async () => {
-          const salesSummaryHeading = page.getByRole('heading', { name: /sales summary/i }).first();
+        await S('Step 4c — Date filter: Month-to-date', async () => {
+        const y = yesterday();
+        const start = startOfMonth(y);
 
-          const pickerRoot = page.locator('section').filter({
-            hasText: /yesterday|month-to-date|custom range/i
+        await logStep(page, `Expected MTD range = ${rangeText(start, y)} (start of month → yesterday, not today)`, 'info');
+
+        const panel = await openDateFilterWithMouse(page, ss, '4c');
+        await clickDatePresetInPanel(page, panel, 'Month-to-date', '4c');
+
+        await validateUrlContains(page, /dateRange=month-to-date/i, '4c');
+        await validateDateButtonExact(page, ss, expectedDateRegex('Month-to-date', y, user.company), '4c');
+
+        await validateKpiCardsRegular(page, 'Previous MTD');
+        await validateOrdersChart(page, 'Month-to-date');
+
+        await closeDatePickerIfOpen(page);
+      });
+
+        // ─────────────────────────────────────────────────────────────────────────────
+        // STRICT KPI HELPERS — read the 3 KPI boxes more accurately
+        // Uses the visible KPI card title, then reads:
+        // - current value from h1 (MetricItem.tsx:44:8 if present)
+        // - previous value from div (MetricItem.tsx:63:12 if present)
+        // Fallback to card text parsing if exact lov-id nodes are unavailable
+        // ─────────────────────────────────────────────────────────────────────────────
+
+        async function getKpiCardStrict(page: Page, title: 'Contracted sales' | 'Units' | 'Orders') {
+          const titleNode = page.getByText(new RegExp(`^${escapeRe(title)}$`, 'i')).first();
+
+          const card = page.locator('section, div[class*="card"], div[class*="shadow"], div[class*="border"]')
+            .filter({ has: titleNode })
+            .first();
+
+          return card;
+        }
+
+        async function readKpiCardStrict(page: Page, title: 'Contracted sales' | 'Units' | 'Orders') {
+          const card = await getKpiCardStrict(page, title);
+
+          const visible = await card.isVisible({ timeout: 6000 }).catch(() => false);
+          if (!visible) {
+            return {
+              title,
+              visible: false,
+              current: NaN,
+              previous: NaN,
+              rawCurrent: '',
+              rawPrevious: '',
+              rawText: '',
+            };
+          }
+
+          const h1Current = card.locator('h1[data-lov-id="src/components/MetricItem.tsx:44:8"]').first();
+          const divPrev   = card.locator('div[data-lov-id="src/components/MetricItem.tsx:63:12"]').first();
+
+          let rawCurrent = '';
+          let rawPrevious = '';
+
+          const hasStrictCurrent = await h1Current.isVisible({ timeout: 1000 }).catch(() => false);
+          const hasStrictPrev    = await divPrev.isVisible({ timeout: 1000 }).catch(() => false);
+
+          if (hasStrictCurrent) {
+            rawCurrent = ((await h1Current.textContent()) ?? '').trim();
+          }
+          if (hasStrictPrev) {
+            rawPrevious = ((await divPrev.textContent()) ?? '').trim();
+          }
+
+          const rawText = ((await card.textContent()) ?? '').trim();
+
+          // Fallback if strict lov-id selectors are missing
+          if (!rawCurrent || !rawPrevious) {
+            const parsed = parseKpi(rawText);
+            return {
+              title,
+              visible: true,
+              current: !rawCurrent ? parsed.current : Number(rawCurrent.replace(/[^0-9.-]/g, '')),
+              previous: !rawPrevious ? parsed.previous : Number(rawPrevious.replace(/[^0-9.-]/g, '')),
+              rawCurrent,
+              rawPrevious,
+              rawText,
+            };
+          }
+
+          const currentNum = Number(rawCurrent.replace(/[^0-9.-]/g, ''));
+          const previousNum = Number(rawPrevious.replace(/[^0-9.-]/g, ''));
+
+          return {
+            title,
+            visible: true,
+            current: currentNum,
+            previous: previousNum,
+            rawCurrent,
+            rawPrevious,
+            rawText,
+          };
+        }
+
+        async function validateKpiCardsRegularStrict(page: Page, expectedPrevLabel: string, stepId: string) {
+          const labels: ('Contracted sales' | 'Units' | 'Orders')[] = ['Contracted sales', 'Units', 'Orders'];
+          const results: { title: string; current: number; previous: number }[] = [];
+
+          for (const label of labels) {
+            const card = await getKpiCardStrict(page, label);
+            const cardVisible = await card.isVisible({ timeout: 5000 }).catch(() => false);
+
+            await logStep(
+              page,
+              `${stepId}: ${label} card visible: ${cardVisible ? '✓' : 'FAIL'}`,
+              cardVisible ? 'pass' : 'fail'
+            );
+
+            if (!cardVisible) {
+              results.push({ title: label, current: NaN, previous: NaN });
+              continue;
+            }
+
+            const fullText = ((await card.textContent()) ?? '').trim();
+            const hasPrevLabel = fullText.toLowerCase().includes(expectedPrevLabel.toLowerCase());
+
+            await logStep(
+              page,
+              `${stepId}: ${label} comparison label contains "${expectedPrevLabel}": ${hasPrevLabel ? '✓' : 'FAIL'}`,
+              hasPrevLabel ? 'pass' : 'fail'
+            );
+
+            const data = await readKpiCardStrict(page, label);
+
+            const currentOk = !isNaN(data.current);
+            const previousOk = !isNaN(data.previous);
+
+            await logStep(
+              page,
+              `${stepId}: ${label} current value = ${currentOk ? data.current : 'FAIL (not parseable)'}`,
+              currentOk ? 'pass' : 'fail'
+            );
+
+            await logStep(
+              page,
+              `${stepId}: ${label} previous value = ${previousOk ? data.previous : 'FAIL (not parseable)'}`,
+              previousOk ? 'pass' : 'fail'
+            );
+
+            results.push({ title: label, current: data.current, previous: data.previous });
+          }
+
+          const validCurr = results.filter(r => !isNaN(r.current));
+          const validPrev = results.filter(r => !isNaN(r.previous));
+
+          if (validCurr.length === 3) {
+            const allCurrentZero = validCurr.every(r => r.current === 0);
+            await logStep(
+              page,
+              `${stepId}: all three current KPI values are zero: ${allCurrentZero ? 'FAIL' : '✓'}`,
+              allCurrentZero ? 'fail' : 'pass'
+            );
+            if (allCurrentZero) {
+              throw new Error(`${stepId}: all three current KPI values are 0`);
+            }
+          }
+
+          if (validPrev.length === 3) {
+            const allPreviousZero = validPrev.every(r => r.previous === 0);
+            await logStep(
+              page,
+              `${stepId}: all three previous KPI values are zero: ${allPreviousZero ? 'FAIL' : '✓'}`,
+              allPreviousZero ? 'fail' : 'pass'
+            );
+            if (allPreviousZero) {
+              throw new Error(`${stepId}: all three previous KPI values are 0`);
+            }
+          }
+        }
+
+        // ─────────────────────────────────────────────────────────────────────────────
+        // DATE PICKER HELPERS — explicit, mouse-based, panel-scoped
+        // These avoid false "picker opened" and make step log clearer
+        // ─────────────────────────────────────────────────────────────────────────────
+
+        async function closeDatePickerIfOpenStrict(page: Page) {
+          await page.keyboard.press('Escape').catch(() => {});
+          await page.waitForTimeout(250);
+          await page.mouse.click(100, 220).catch(() => {});
+          await page.waitForTimeout(250);
+        }
+
+        async function getOpenDatePickerPanelStrict(page: Page) {
+          return page.locator(
+            'section:has-text("Custom range"), [role="dialog"]:has-text("Custom range"), div[class*="popover"]:has-text("Custom range"), div[class*="panel"]:has-text("Custom range")'
+          ).filter({
+            has: page.getByText(/yesterday|month-to-date|previous month|quarter-to-date|previous quarter|year-to-date|previous year|custom range/i)
           }).first();
+        }
 
-          const customRangeOption = page.locator('div[role="button"], button').filter({
-            hasText: /^custom range$/i
-          }).first();
+        async function openDateFilterStrict(page: Page, ss: SalesSummaryPage, stepId: string) {
+          await closeDatePickerIfOpenStrict(page);
 
-          const calendarDayButtons = page.locator(
+          const btn = ss.dateFilterButton.first();
+          await btn.scrollIntoViewIfNeeded().catch(() => {});
+
+          const box = await btn.boundingBox();
+          if (!box) throw new Error(`${stepId}: date filter button has no bounding box`);
+
+          const cx = box.x + box.width / 2;
+          const cy = box.y + box.height / 2;
+
+          await logStep(page, `${stepId}: move to date filter button`, 'running');
+          await page.mouse.move(cx, cy);
+          await page.waitForTimeout(150);
+
+          await logStep(page, `${stepId}: click date filter button`, 'running');
+          await page.mouse.click(cx, cy);
+          await page.waitForTimeout(700);
+
+          const panel = await getOpenDatePickerPanelStrict(page);
+          const visible = await panel.isVisible({ timeout: 3000 }).catch(() => false);
+
+          await logStep(
+            page,
+            `${stepId}: picker opened ${visible ? '✓' : 'FAIL'}`,
+            visible ? 'pass' : 'fail'
+          );
+
+          if (!visible) {
+            throw new Error(`${stepId}: date picker panel not visibly open`);
+          }
+
+          return panel;
+        }
+
+        async function clickDatePresetStrict(page: Page, panel: Locator, presetLabel: string, stepId: string) {
+          const preset = panel.locator('button, [role="button"], div, li')
+            .filter({ hasText: new RegExp(`^${escapeRe(presetLabel)}$`, 'i') })
+            .first();
+
+          await logStep(page, `${stepId}: wait for preset "${presetLabel}" inside picker`, 'running');
+          const visible = await preset.isVisible({ timeout: 4000 }).catch(() => false);
+
+          await logStep(
+            page,
+            `${stepId}: preset "${presetLabel}" visible ${visible ? '✓' : 'FAIL'}`,
+            visible ? 'pass' : 'fail'
+          );
+
+          if (!visible) {
+            throw new Error(`${stepId}: preset "${presetLabel}" not visible inside picker`);
+          }
+
+          const box = await preset.boundingBox();
+          if (!box) throw new Error(`${stepId}: preset "${presetLabel}" has no bounding box`);
+
+          const cx = box.x + box.width / 2;
+          const cy = box.y + box.height / 2;
+
+          await logStep(page, `${stepId}: click preset "${presetLabel}"`, 'running');
+          await page.mouse.move(cx, cy);
+          await page.waitForTimeout(150);
+          await page.mouse.click(cx, cy);
+          await page.waitForTimeout(1200);
+
+          await logStep(page, `${stepId}: clicked preset "${presetLabel}" ✓`, 'pass');
+        }
+
+                // ════════════════════════════════════════════════════════════════════
+        // STEP 4d — Date filter: Previous month
+        // Business rule:
+        // - Previous month must show the FULL previous calendar month
+        // - Example: if today is Apr 5, 2026, previous month = Mar 1–Mar 31, 2026
+        // - PASS if:
+        //   1. URL includes dateRange=previous-month
+        //   2. date button text matches full previous month range
+        //   3. KPI cards parse correctly
+        //   4. all 3 current values are NOT all zero
+        //   5. all 3 previous values are NOT all zero
+        //   6. chart plot area/content is visible
+        // ════════════════════════════════════════════════════════════════════
+        await S('Step 4d — Date filter: Previous month', async () => {
+          const y = yesterday();
+          const { start, end } = previousMonthRange(y);
+
+          await logStep(
+            page,
+            `4d: expected Previous month range = ${rangeText(start, end)}`,
+            'info'
+          );
+
+          const panel = await openDateFilterStrict(page, ss, '4d');
+          await clickDatePresetStrict(page, panel, 'Previous month', '4d');
+
+          await validateUrlContains(page, /dateRange=previous-month/i, '4d');
+
+          await validateDateButtonExact(
+            page,
+            ss,
+            expectedDateRegex('Previous month', y, user.company),
+            '4d'
+          );
+
+          await validateKpiCardsRegularStrict(page, 'Previous last month', '4d');
+          await validateOrdersChart(page, 'Previous month');
+
+          await closeDatePickerIfOpenStrict(page);
+        });
+
+        // ════════════════════════════════════════════════════════════════════
+        // STEP 4e — Date filter: Quarter-to-date
+        // Business rule:
+        // - QTD must start at quarter start and end at YESTERDAY, not today
+        // - Example: if today is Apr 5, 2026, QTD = Apr 1–Apr 4, 2026
+        // - PASS if:
+        //   1. URL includes dateRange=quarter-to-date
+        //   2. button text matches quarter start → yesterday
+        //   3. KPI cards parse correctly
+        //   4. all 3 current values are NOT all zero
+        //   5. all 3 previous values are NOT all zero
+        //   6. chart plot area/content is visible
+        // ════════════════════════════════════════════════════════════════════
+        await S('Step 4e — Date filter: Quarter-to-date', async () => {
+          const y = yesterday();
+          const start = startOfQuarter(y);
+
+          await logStep(
+            page,
+            `4e: expected QTD range = ${rangeText(start, y)} (quarter start → yesterday)`,
+            'info'
+          );
+
+          const panel = await openDateFilterStrict(page, ss, '4e');
+          await clickDatePresetStrict(page, panel, 'Quarter-to-date', '4e');
+
+          await validateUrlContains(page, /dateRange=quarter-to-date/i, '4e');
+
+          await validateDateButtonExact(
+            page,
+            ss,
+            expectedDateRegex('Quarter-to-date', y, user.company),
+            '4e'
+          );
+
+          await validateKpiCardsRegularStrict(page, 'Previous QTD', '4e');
+          await validateOrdersChart(page, 'Quarter-to-date');
+
+          await closeDatePickerIfOpenStrict(page);
+        });
+
+        // ════════════════════════════════════════════════════════════════════
+        // STEP 4f — Date filter: Previous quarter
+        // Business rule:
+        // - Must show FULL previous quarter
+        // - Example: if today is Apr 5, 2026, previous quarter = Jan 1–Mar 31, 2026
+        // - PASS if:
+        //   1. URL includes dateRange=previous-quarter
+        //   2. button text matches full previous quarter range
+        //   3. KPI cards parse correctly
+        //   4. all 3 current values are NOT all zero
+        //   5. all 3 previous values are NOT all zero
+        //   6. chart plot area/content is visible
+        // ════════════════════════════════════════════════════════════════════
+        await S('Step 4f — Date filter: Previous quarter', async () => {
+          const y = yesterday();
+          const { start, end } = previousQuarterRange(y);
+
+          await logStep(
+            page,
+            `4f: expected Previous quarter range = ${rangeText(start, end)}`,
+            'info'
+          );
+
+          const panel = await openDateFilterStrict(page, ss, '4f');
+          await clickDatePresetStrict(page, panel, 'Previous quarter', '4f');
+
+          await validateUrlContains(page, /dateRange=previous-quarter/i, '4f');
+
+          await validateDateButtonExact(
+            page,
+            ss,
+            expectedDateRegex('Previous quarter', y, user.company),
+            '4f'
+          );
+
+          await validateKpiCardsRegularStrict(page, 'Previous last quarter', '4f');
+          await validateOrdersChart(page, 'Previous quarter');
+
+          await closeDatePickerIfOpenStrict(page);
+        });
+
+        // ════════════════════════════════════════════════════════════════════
+        // STEP 4g — Date filter: Year-to-date
+        // Business rule:
+        // - Must respect fiscal year start if configured
+        // - Nexus = Jan start
+        // - Caplin = Apr start
+        // - PASS if:
+        //   1. URL includes dateRange=year-to-date
+        //   2. button text matches fiscal-year start → yesterday
+        //   3. KPI cards parse correctly
+        //   4. all 3 current values are NOT all zero
+        //   5. all 3 previous values are NOT all zero
+        //   6. chart plot area/content is visible
+        // ════════════════════════════════════════════════════════════════════
+        await S('Step 4g — Date filter: Year-to-date', async () => {
+          const y = yesterday();
+          const company = user.company;
+          const start = startOfFiscalYear(y, company);
+
+          await logStep(
+            page,
+            `4g: expected YTD range = ${rangeText(start, y)} (fiscal-year aware for ${company}; year start = ${MONTHS[fiscalYearStartMonth(company)]})`,
+            'info'
+          );
+
+          const panel = await openDateFilterStrict(page, ss, '4g');
+          await clickDatePresetStrict(page, panel, 'Year-to-date', '4g');
+
+          await validateUrlContains(page, /dateRange=year-to-date/i, '4g');
+
+          await validateDateButtonExact(
+            page,
+            ss,
+            expectedDateRegex('Year-to-date', y, company),
+            '4g'
+          );
+
+          await validateKpiCardsRegularStrict(page, 'Previous YTD', '4g');
+          await validateOrdersChart(page, 'Year-to-date');
+
+          await closeDatePickerIfOpenStrict(page);
+        });
+
+        // ════════════════════════════════════════════════════════════════════
+        // STEP 4h — Date filter: Previous year
+        // Business rule:
+        // - Must respect fiscal year start if configured
+        // - Must show FULL previous fiscal year
+        // - PASS if:
+        //   1. URL includes dateRange=previous-year
+        //   2. button text matches full previous fiscal year range
+        //   3. KPI cards parse correctly
+        //   4. all 3 current values are NOT all zero
+        //   5. all 3 previous values are NOT all zero
+        //   6. chart plot area/content is visible
+        // ════════════════════════════════════════════════════════════════════
+        await S('Step 4h — Date filter: Previous year', async () => {
+          const y = yesterday();
+          const company = user.company;
+          const { start, end } = previousFiscalYearRange(y, company);
+
+          await logStep(
+            page,
+            `4h: expected Previous year range = ${rangeText(start, end)} (fiscal-year aware for ${company}; year start = ${MONTHS[fiscalYearStartMonth(company)]})`,
+            'info'
+          );
+
+          const panel = await openDateFilterStrict(page, ss, '4h');
+          await clickDatePresetStrict(page, panel, 'Previous year', '4h');
+
+          await validateUrlContains(page, /dateRange=previous-year/i, '4h');
+
+          await validateDateButtonExact(
+            page,
+            ss,
+            expectedDateRegex('Previous year', y, company),
+            '4h'
+          );
+
+          await validateKpiCardsRegularStrict(page, 'Previous last year', '4h');
+          await validateOrdersChart(page, 'Previous year');
+
+          await closeDatePickerIfOpenStrict(page);
+        });
+
+                // ════════════════════════════════════════════════════════════════════
+        // STEP 4i1 — Date filter: Custom range multi-day
+        // Business rule:
+        // - Custom range must accept a multi-day selection
+        // - After Apply:
+        //   1. date button should show a range-like format
+        //   2. all 3 KPI cards should still be visible
+        //   3. Orders chart heading/content should still be visible
+        // ════════════════════════════════════════════════════════════════════
+        await S('Step 4i1 — Date filter: Custom range multi-day', async () => {
+          const panel = await openDateFilterStrict(page, ss, '4i1');
+          await clickDatePresetStrict(page, panel, 'Custom range', '4i1');
+
+          const dayButtons = page.locator(
             '[role="gridcell"] button:not([disabled]):not([aria-disabled="true"])'
           );
 
+          await expect(dayButtons.first()).toBeVisible({ timeout: 5000 });
+
+          const count = await dayButtons.count();
+          await logStep(page, `4i1: available calendar day buttons = ${count}`, 'info');
+
+          if (count < 10) {
+            throw new Error('4i1: not enough selectable calendar days for a multi-day range');
+          }
+
+          // Pick two different visible days to force a real multi-day range
+          await logStep(page, '4i1: click start day', 'running');
+          await dayButtons.nth(1).click({ force: true });
+          await page.waitForTimeout(300);
+          await logStep(page, '4i1: start day clicked ✓', 'pass');
+
+          await logStep(page, '4i1: click end day', 'running');
+          await dayButtons.nth(6).click({ force: true });
+          await page.waitForTimeout(300);
+          await logStep(page, '4i1: end day clicked ✓', 'pass');
+
           const applyBtn = page.getByRole('button', { name: /^apply$/i }).first();
-          const cancelBtn = page.getByRole('button', { name: /^cancel$/i }).first();
+          await expect(applyBtn).toBeVisible({ timeout: 4000 });
 
-          // Broad but useful selectors for visual checks
-          const donutChart = page.locator('canvas[role="img"], svg').first();
-          const orderChartHeading = page.getByText(/orders\s*•/i).first();
+          await logStep(page, '4i1: click Apply', 'running');
+          await applyBtn.click({ force: true });
+          await page.waitForTimeout(1200);
+          await logStep(page, '4i1: Apply clicked ✓', 'pass');
 
-          async function ensurePickerClosed() {
-            const isOpen = await pickerRoot.isVisible({ timeout: 700 }).catch(() => false);
-            if (isOpen) {
-              await logStep(page, '4d debug: picker already open — closing first', 'info');
-              await page.keyboard.press('Escape').catch(() => {});
-              await page.waitForTimeout(400);
-            }
-          }
+          // Date button should now look like a range, not a single date
+          const btnText = await getDateButton(page, ss);
+          await logStep(page, `4i1: final date button text = "${btnText}"`, 'info');
 
-          async function openPickerSafely(label: string) {
-            await ensurePickerClosed();
+          const looksLikeRange =
+            /[A-Z][a-z]{2}\s+\d{1,2}\s*[–-]\s*[A-Z][a-z]{2}\s+\d{1,2},\s+\d{4}/.test(btnText) ||
+            /[A-Z][a-z]{2}\s+\d{1,2}\s*[–-]\s*\d{1,2},\s+\d{4}/.test(btnText);
 
-            await logStep(page, `${label}: click date filter button`, 'running');
-            async function openPickerSafely(label: string) {
-            await ensurePickerClosed();
-
-            const dateFilterBtn = page.locator('button').filter({
-              hasText: /[A-Z][a-z]{2}\s+\d{1,2},\s+\d{4}/
-            }).first();
-
-            const btnCount = await page.locator('button').filter({
-              hasText: /[A-Z][a-z]{2}\s+\d{1,2},\s+\d{4}/
-            }).count();
-
-            await logStep(page, `${label}: date filter button matches found = ${btnCount}`, 'info');
-            await logStep(page, `${label}: click date filter button`, 'running');
-
-            await expect(dateFilterBtn).toBeVisible({ timeout: 5000 });
-            await dateFilterBtn.scrollIntoViewIfNeeded().catch(() => {});
-            await dateFilterBtn.click({ force: true });
-
-            await logStep(page, `${label}: wait for picker root`, 'running');
-            await expect(pickerRoot).toBeVisible({ timeout: 5000 });
-
-            const pickerVisible = await pickerRoot.isVisible().catch(() => false);
-            await logStep(
-              page,
-              `${label}: picker opened ${pickerVisible ? '✓' : 'FAIL'}`,
-              pickerVisible ? 'pass' : 'fail'
-            );
-          }
-
-            await logStep(page, `${label}: wait for picker root`, 'running');
-            await expect(pickerRoot).toBeVisible({ timeout: 5000 });
-
-            const pickerVisible = await pickerRoot.isVisible().catch(() => false);
-            await logStep(
-              page,
-              `${label}: picker opened ${pickerVisible ? '✓' : 'FAIL'}`,
-              pickerVisible ? 'pass' : 'fail'
-            );
-          }
-
-          async function openCustomRangeSafely(label: string) {
-            const matchCount = await page.locator('div[role="button"], button')
-              .filter({ hasText: /^custom range$/i })
-              .count();
-
-            await logStep(page, `${label}: Custom range matches found = ${matchCount}`, 'info');
-
-            await expect(customRangeOption).toBeVisible({ timeout: 5000 });
-            await customRangeOption.scrollIntoViewIfNeeded().catch(() => {});
-            await logStep(page, `${label}: clicking Custom range`, 'running');
-            await customRangeOption.click({ force: true });
-
-            await logStep(page, `${label}: waiting for calendar day buttons`, 'running');
-            await expect(calendarDayButtons.first()).toBeVisible({ timeout: 5000 });
-
-            const count = await calendarDayButtons.count();
-            await logStep(page, `${label}: selectable calendar day buttons = ${count}`, 'info');
-          }
-
-          // ────────────────────────────────────────────────────────────────
-          // 4d1 — Wide range
-          // ────────────────────────────────────────────────────────────────
-          await logStep(page, '━━ Step 4d1 — Wide range custom date selection ━━', 'info');
-
-          await openPickerSafely('4d1');
-          await openCustomRangeSafely('4d1');
-
-          const wideCount = await calendarDayButtons.count();
-
-          if (wideCount < 10) {
-            await logStep(page, `4d1: not enough selectable day buttons (${wideCount})`, 'fail');
-          } else {
-            const startDay = calendarDayButtons.nth(1);
-            const endDay = calendarDayButtons.nth(wideCount - 2);
-
-            const startLabel = ((await startDay.textContent().catch(() => '')) ?? '').trim();
-            const endLabel = ((await endDay.textContent().catch(() => '')) ?? '').trim();
-
-            await logStep(page, `4d1: start day text = "${startLabel}"`, 'info');
-            await logStep(page, `4d1: end day text = "${endLabel}"`, 'info');
-
-            await expect(startDay).toBeVisible({ timeout: 5000 });
-            await logStep(page, '4d1: clicking wide-range start day', 'running');
-            await startDay.click({ force: true });
-            await page.waitForTimeout(300);
-
-            await expect(endDay).toBeVisible({ timeout: 5000 });
-            await logStep(page, '4d1: clicking wide-range end day', 'running');
-            await endDay.click({ force: true });
-            await page.waitForTimeout(300);
-
-            await logStep(page, '4d1: waiting for Apply button', 'running');
-            await expect(applyBtn).toBeVisible({ timeout: 5000 });
-
-            const applyVisible = await applyBtn.isVisible().catch(() => false);
-            await logStep(
-              page,
-              `4d1: Apply visible ${applyVisible ? '✓' : 'FAIL'}`,
-              applyVisible ? 'pass' : 'fail'
-            );
-
-            await logStep(page, '4d1: clicking Apply', 'running');
-            await applyBtn.click({ force: true });
-
-            await logStep(page, '4d1: waiting for dashboard refresh', 'running');
-            await ss.waitForDashboardRefresh();
-
-            const contractedSalesVisible = await page.getByText(/contracted sales/i).first()
-              .isVisible({ timeout: 5000 }).catch(() => false);
-            const unitsVisible = await page.getByText(/^units$/i).first()
-              .isVisible({ timeout: 5000 }).catch(() => false);
-            const ordersVisible = await page.getByText(/^orders$/i).first()
-              .isVisible({ timeout: 5000 }).catch(() => false);
-
-            await logStep(page, `4d1: Contracted Sales visible: ${contractedSalesVisible ? '✓' : 'FAIL'}`, contractedSalesVisible ? 'pass' : 'fail');
-            await logStep(page, `4d1: Units visible: ${unitsVisible ? '✓' : 'FAIL'}`, unitsVisible ? 'pass' : 'fail');
-            await logStep(page, `4d1: Orders visible: ${ordersVisible ? '✓' : 'FAIL'}`, ordersVisible ? 'pass' : 'fail');
-
-            const donutVisibleWide = await donutChart.isVisible({ timeout: 3000 }).catch(() => false);
-            await logStep(
-              page,
-              `4d1: donut hidden after wide range: ${!donutVisibleWide ? '✓' : 'FAIL — still visible'}`,
-              !donutVisibleWide ? 'pass' : 'fail'
-            );
-
-            const chartHeadingVisible = await orderChartHeading.isVisible({ timeout: 5000 }).catch(() => false);
-            await logStep(
-              page,
-              `4d1: order chart heading visible after wide range: ${chartHeadingVisible ? '✓' : 'FAIL'}`,
-              chartHeadingVisible ? 'pass' : 'fail'
-            );
-          }
-
-          // ────────────────────────────────────────────────────────────────
-          // 4d2 — Single day
-          // ────────────────────────────────────────────────────────────────
-          await logStep(page, '━━ Step 4d2 — Single-day custom date selection ━━', 'info');
-
-          await openPickerSafely('4d2');
-          await openCustomRangeSafely('4d2');
-
-          const singleCount = await calendarDayButtons.count();
-
-          if (singleCount < 3) {
-            await logStep(page, `4d2: not enough selectable day buttons (${singleCount})`, 'fail');
-          } else {
-            const middleIndex = Math.floor(singleCount / 2);
-            const middleDay = calendarDayButtons.nth(middleIndex);
-            const middleLabel = ((await middleDay.textContent().catch(() => '')) ?? '').trim();
-
-            await logStep(page, `4d2: middle day index = ${middleIndex}, text = "${middleLabel}"`, 'info');
-
-            await expect(middleDay).toBeVisible({ timeout: 5000 });
-            await logStep(page, '4d2: clicking same day first time', 'running');
-            await middleDay.click({ force: true });
-            await page.waitForTimeout(300);
-
-            await logStep(page, '4d2: clicking same day second time', 'running');
-            await middleDay.click({ force: true });
-            await page.waitForTimeout(300);
-
-            await expect(applyBtn).toBeVisible({ timeout: 5000 });
-            await logStep(page, '4d2: clicking Apply', 'running');
-            await applyBtn.click({ force: true });
-
-            await logStep(page, '4d2: waiting for dashboard refresh', 'running');
-            await ss.waitForDashboardRefresh();
-
-            const donutVisibleSingle = await donutChart.isVisible({ timeout: 5000 }).catch(() => false);
-            await logStep(
-              page,
-              `4d2: donut visible after single-day selection: ${donutVisibleSingle ? '✓' : 'FAIL'}`,
-              donutVisibleSingle ? 'pass' : 'fail'
-            );
-          }
-
-          // ────────────────────────────────────────────────────────────────
-          // 4d3 — Outside click closes picker
-          // ────────────────────────────────────────────────────────────────
-          await logStep(page, '━━ Step 4d3 — Outside click closes picker ━━', 'info');
-
-          await openPickerSafely('4d3');
-          await openCustomRangeSafely('4d3');
-
-          await expect(salesSummaryHeading).toBeVisible({ timeout: 5000 });
-          await logStep(page, '4d3: clicking Sales Summary heading outside picker', 'running');
-          await salesSummaryHeading.click({ force: true });
-          await page.waitForTimeout(600);
-
-          const pickerStillVisible = await pickerRoot.isVisible({ timeout: 1000 }).catch(() => false);
           await logStep(
             page,
-            `4d3: outside click closes picker: ${!pickerStillVisible ? '✓' : 'FAIL'}`,
-            !pickerStillVisible ? 'pass' : 'fail'
+            `4i1: date button shows multi-day range format: ${looksLikeRange ? '✓' : 'FAIL'}`,
+            looksLikeRange ? 'pass' : 'fail'
           );
 
-          if (pickerStillVisible) {
-            const cancelVisible = await cancelBtn.isVisible({ timeout: 1000 }).catch(() => false);
-            if (cancelVisible) {
-              await logStep(page, '4d3: picker still open — clicking Cancel for cleanup', 'info');
-              await cancelBtn.click({ force: true }).catch(() => {});
-            } else {
-              await page.keyboard.press('Escape').catch(() => {});
+          if (!looksLikeRange) {
+            throw new Error(`4i1: expected multi-day range in date button, got "${btnText}"`);
+          }
+
+          // KPI cards must still exist after Apply
+          for (const label of ['Contracted sales', 'Units', 'Orders'] as const) {
+            const cardTitle = page.getByText(new RegExp(`^${escapeRe(label)}$`, 'i')).first();
+            const card = page.locator('section, div[class*="card"], div[class*="shadow"], div[class*="border"]')
+              .filter({ has: cardTitle })
+              .first();
+
+            const visible = await card.isVisible({ timeout: 5000 }).catch(() => false);
+            await logStep(
+              page,
+              `4i1: ${label} card visible after Apply: ${visible ? '✓' : 'FAIL'}`,
+              visible ? 'pass' : 'fail'
+            );
+
+            if (!visible) {
+              throw new Error(`4i1: ${label} card not visible after applying custom multi-day range`);
             }
           }
+
+          // Orders chart should still be present in some form
+          const chartHeadingVisible = await page.getByText(/orders\s*[•·]/i).first()
+            .isVisible({ timeout: 4000 }).catch(() => false);
+
+          await logStep(
+            page,
+            `4i1: Orders chart heading visible after multi-day Apply: ${chartHeadingVisible ? '✓' : 'FAIL'}`,
+            chartHeadingVisible ? 'pass' : 'fail'
+          );
+
+          if (!chartHeadingVisible) {
+            throw new Error('4i1: Orders chart heading not visible after custom multi-day Apply');
+          }
+
+          await closeDatePickerIfOpenStrict(page);
+        });
+
+        // ════════════════════════════════════════════════════════════════════
+        // STEP 4i2 — Date filter: Custom range single-day
+        // Business rule:
+        // - Selecting the same day as start and end should behave like single-day mode
+        // - After Apply:
+        //   1. a donut/pie style visualization should be visible
+        // ════════════════════════════════════════════════════════════════════
+        await S('Step 4i2 — Date filter: Custom range single-day', async () => {
+          const panel = await openDateFilterStrict(page, ss, '4i2');
+          await clickDatePresetStrict(page, panel, 'Custom range', '4i2');
+
+          const dayButtons = page.locator(
+            '[role="gridcell"] button:not([disabled]):not([aria-disabled="true"])'
+          );
+
+          await expect(dayButtons.first()).toBeVisible({ timeout: 5000 });
+
+          await logStep(page, '4i2: click same day twice', 'running');
+          await dayButtons.nth(4).click({ force: true });
+          await page.waitForTimeout(250);
+          await dayButtons.nth(4).click({ force: true });
+          await page.waitForTimeout(250);
+          await logStep(page, '4i2: same day selected twice ✓', 'pass');
+
+          const applyBtn = page.getByRole('button', { name: /^apply$/i }).first();
+          await expect(applyBtn).toBeVisible({ timeout: 4000 });
+
+          await logStep(page, '4i2: click Apply', 'running');
+          await applyBtn.click({ force: true });
+          await page.waitForTimeout(1200);
+          await logStep(page, '4i2: Apply clicked ✓', 'pass');
+
+          const btnText = await getDateButton(page, ss);
+          await logStep(page, `4i2: final date button text = "${btnText}"`, 'info');
+
+          const donut = page.locator('svg, canvas, [class*="donut"], [class*="pie"]').first();
+          const donutVisible = await donut.isVisible({ timeout: 4000 }).catch(() => false);
+
+          await logStep(
+            page,
+            `4i2: single-day visualization (donut/pie) visible: ${donutVisible ? '✓' : 'FAIL'}`,
+            donutVisible ? 'pass' : 'fail'
+          );
+
+          if (!donutVisible) {
+            throw new Error('4i2: expected donut/pie visualization for single-day custom range');
+          }
+
+          await closeDatePickerIfOpenStrict(page);
+        });
+
+        // ════════════════════════════════════════════════════════════════════
+        // STEP 4i3 — Date filter: Custom range outside-click close
+        // Business rule:
+        // - When Custom range picker is open, clicking outside should close it
+        // ════════════════════════════════════════════════════════════════════
+        await S('Step 4i3 — Date filter: Custom range outside-click close', async () => {
+          const panel = await openDateFilterStrict(page, ss, '4i3');
+          await clickDatePresetStrict(page, panel, 'Custom range', '4i3');
+
+          const applyBtn = page.getByRole('button', { name: /^apply$/i }).first();
+          await expect(applyBtn).toBeVisible({ timeout: 4000 });
+
+          await logStep(page, '4i3: click outside picker', 'running');
+          await page.mouse.click(120, 220);
+          await page.waitForTimeout(500);
+
+          const stillOpen = await applyBtn.isVisible({ timeout: 1000 }).catch(() => false);
+
+          await logStep(
+            page,
+            `4i3: picker closes on outside click: ${!stillOpen ? '✓' : 'FAIL'}`,
+            !stillOpen ? 'pass' : 'fail'
+          );
+
+          if (stillOpen) {
+            throw new Error('4i3: custom range picker stayed open after outside click');
+          }
+
+          await closeDatePickerIfOpenStrict(page);
         });
 
         // ════════════════════════════════════════════════════════════════════
@@ -1162,7 +1896,5 @@ await S('Step 4c — Previous month: KPI visibility & chart (stable)', async () 
 
     } // end for (const user of TEST_USERS)
 
-  } finally {
-    stopLiveCapture();
-  }
+  } finally {}
 });

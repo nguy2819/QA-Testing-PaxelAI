@@ -511,10 +511,15 @@
 const SS_STEPS_COMMON = [
   { id: 's3',   num: '3',   label: 'Notification — hover effect, open box, Overdue/Upcoming/Activity tabs, close & outside click', markers: ['step 3'] },
   { id: 's4a',  num: '4a',  label: 'Date filter — default = yesterday, hover each preset option', markers: ['step 4a'] },
-  { id: 's4b',  num: '4b',  label: 'Date filter — click each preset, verify date text updates',   markers: ['step 4b'] },
-  { id: 's4c',  num: '4c',  label: 'Date filter — presets: KPI direction & chart logic',          markers: ['step 4c'] },
-  { id: 's4d',  num: '4d',  label: 'Date filter — custom range: multi-month, single-day, format', markers: ['step 4d'] },
-  { id: 's4e',  num: '4e',  label: 'Orders count — KPI box vs nav bar: Orders − Returns logic',   markers: ['step 4e'] },
+  { id: 's4b',  num: '4b',  label: 'Date filter: Yesterday — zero KPI acceptable; chart may show no-data or plot (not a failure)',                                              markers: ['step 4b'] },
+  { id: 's4c',  num: '4c',  label: 'Date filter: Month-to-date — MTD start → yesterday; prev label = "Previous MTD"; all-three KPI zero = FAIL; chart plot required',        markers: ['step 4c'] },
+  { id: 's4d',  num: '4d',  label: 'Date filter: Previous month — full prev calendar month; prev label = "Previous last month"; all-three KPI zero = FAIL; chart required',   markers: ['step 4d'] },
+  { id: 's4e',  num: '4e',  label: 'Date filter: Quarter-to-date — QTD start → yesterday; prev label = "Previous QTD"; all-three KPI zero = FAIL; chart plot required',       markers: ['step 4e'] },
+  { id: 's4f',  num: '4f',  label: 'Date filter: Previous quarter — full prev quarter; prev label = "Previous last quarter"; all-three KPI zero = FAIL; chart required',       markers: ['step 4f'] },
+  { id: 's4g',  num: '4g',  label: 'Date filter: Year-to-date — fiscal-year aware (Nexus=Jan, Caplin=Apr); prev label = "Previous YTD"; all-three KPI zero = FAIL; chart required',      markers: ['step 4g'] },
+  { id: 's4h',  num: '4h',  label: 'Date filter: Previous year — fiscal-year aware (Nexus=Jan–Dec, Caplin=Apr–Mar); prev label = "Previous last year"; KPI zero = FAIL; chart required', markers: ['step 4h'] },
+  { id: 's4i',  num: '4i',  label: 'Date filter: Custom range — multi-day updates dashboard; single-day → donut chart; outside-click closes picker',                          markers: ['step 4i'] },
+  { id: 's4j',  num: '4j',  label: 'Orders count — KPI box vs nav bar: Orders − Returns logic',                                                                               markers: ['step 4j'] },
   { id: 's5a',  num: '5a',  label: 'Product filter — sections, selections, count, Just this',     markers: ['step 5a'] },
   { id: 's5b',  num: '5b',  label: 'Product filter — NDC toggle & search by name',                markers: ['step 5b'] },
   { id: 's6',   num: '6',   label: 'Customers filter — All / Current / Returning / New',          markers: ['step 6'] },
@@ -654,9 +659,9 @@ function renderPlan(planKey) {
   const plan     = TEST_PLANS[planKey] || [];
 
   // Reset state
-  let planState        = {};
-  let activePlanStepId = null;
-  let activePlanFailed = false;
+  planState        = {};
+  activePlanStepId = null;
+  activePlanFailed = false;
 
   if (plan.length === 0) {
     planList.innerHTML = '<div class="plan-empty"><div class="pe-icon">📋</div>No plan defined for this combination.</div>';

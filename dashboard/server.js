@@ -19,7 +19,6 @@ const PORT = process.env.PORT || 3001;
 const PROJECT    = path.join(__dirname, '..');
 const RUN_DIR    = path.join(__dirname, 'run');
 const LOG_FILE   = path.join(RUN_DIR, 'current.jsonl');
-const SS_DIR     = path.join(RUN_DIR, 'screenshots');
 const APP_ROOT = path.join(__dirname, '..');
 
 const NOVNC_CANDIDATES = [
@@ -63,12 +62,11 @@ if (fs.existsSync(path.join(APP_ROOT, 'novnc'))) {
 }
 
 // Ensure run dirs exist
-fs.mkdirSync(SS_DIR, { recursive: true });
+fs.mkdirSync(RUN_DIR, { recursive: true });
 
 // ── Static files ─────────────────────────────────────────────────────────────
 app.use(express.json());
 app.use(express.static(__dirname));                          // serves index.html
-app.use('/screenshots', express.static(SS_DIR));            // serves screenshots
 app.use(cors());
 
 // ── noVNC static files — served at /novnc/ so the iframe can load vnc.html ──
@@ -154,13 +152,8 @@ app.post('/api/run', (req, res) => {
     currentProc = null;
   }
 
-  // Clear previous run files
+    // Clear previous text log
   try {
-    if (fs.existsSync(SS_DIR)) {
-      fs.readdirSync(SS_DIR).forEach(f => {
-        try { fs.unlinkSync(path.join(SS_DIR, f)); } catch {}
-      });
-    }
     fs.writeFileSync(LOG_FILE, '');
   } catch {}
 
@@ -180,7 +173,7 @@ app.post('/api/run', (req, res) => {
 
   currentProc = spawn(
     'npx',
-    ['playwright', 'test', specFile, '--reporter=line', '--workers=1', '--timeout=90000'],
+    ['playwright', 'test', specFile, '--reporter=line', '--workers=1', '--timeout=240000'],
     // detached:true creates a new process group — required so killProc(-pid) kills
     // the whole tree (npx → node → playwright → chromium) on Linux/Docker.
     { env, cwd: PROJECT, shell: true, detached: process.platform !== 'win32' },
@@ -198,7 +191,7 @@ currentProc.stderr.on('data', (data) => {
     runStatus   = 'done';
     currentProc = null;
     // Append a sentinel so the stream client knows the run finished
-    const done = { message: code === 0 ? '✅ All tests completed.' : `⚠️ Run finished with exit code ${code}.`, status: code === 0 ? 'pass' : 'fail', screenshot: '', ts: Date.now(), _done: true };
+    const done = { message: code === 0 ? '✅ All tests completed.' : `⚠️ Run finished with exit code ${code}.`, status: code === 0 ? 'pass' : 'fail', ts: Date.now(), _done: true };
     try { fs.appendFileSync(LOG_FILE, JSON.stringify(done) + '\n'); } catch {}
   });
 
@@ -211,7 +204,7 @@ app.post('/api/stop', (req, res) => {
     killProc(currentProc);
     currentProc = null;
     runStatus = 'idle';
-    const stopped = { message: '🛑 Test run stopped by user.', status: 'fail', screenshot: '', ts: Date.now(), _done: true };
+    const stopped = { message: '🛑 Test run stopped by user.', status: 'fail', ts: Date.now(), _done: true };
     try { fs.appendFileSync(LOG_FILE, JSON.stringify(stopped) + '\n'); } catch {}
   }
   res.json({ ok: true });
