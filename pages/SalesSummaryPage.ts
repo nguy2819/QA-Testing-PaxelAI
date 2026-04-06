@@ -24,9 +24,19 @@ export class SalesSummaryPage {
 
   /** Navigate via the left sidebar button */
   async navigateViaMenu(): Promise<void> {
-    await this.page.getByRole('button', { name: 'Sales summary' }).click();
+  if (/\/tenant\/dashboard/i.test(this.page.url())) {
     await this.waitForPageLoad();
+    return;
   }
+
+  const sidebar = this.page.locator('nav').first();
+  const salesSummaryBtn = sidebar.getByRole('button', { name: /^sales summary$/i });
+
+  await salesSummaryBtn.waitFor({ state: 'visible', timeout: 5000 });
+  await salesSummaryBtn.click();
+  await this.page.waitForURL(/\/tenant\/dashboard/, { timeout: 10000 });
+  await this.waitForPageLoad();
+}
 
   // ── Page-level locators ──────────────────────────────────────────────────────
 
@@ -98,9 +108,7 @@ export class SalesSummaryPage {
    * Using a regex to match any date format.
    */
   get dateFilterButton(): Locator {
-    return this.page.locator('button').filter({
-      hasText: /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},\s+\d{4}/
-    });
+  return this.page.locator('main').first().locator('[data-datepicker-button="true"]').first();
   }
 
   /**
@@ -126,12 +134,11 @@ export class SalesSummaryPage {
     CUSTOM_RANGE:    'Custom range',
   } as const;
 
-  async openDateFilter(): Promise<void> {
-    await this.dateFilterButton.click();
-    // Presets are div[role="button"] elements — wait for Yesterday to appear
-    await this.page.locator('div[role="button"]').filter({ hasText: 'Yesterday' })
-      .waitFor({ state: 'visible', timeout: 8_000 });
-  }
+ async openDateFilter(): Promise<void> {
+  await this.dateFilterButton.click();
+  await this.page.locator('div[role="button"]').filter({ hasText: 'Yesterday' })
+    .waitFor({ state: 'visible', timeout: 8_000 });
+}
 
   /**
    * Select a date preset. Use SalesSummaryPage.DATE_PRESETS for confirmed labels.

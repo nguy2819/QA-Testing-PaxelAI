@@ -1,42 +1,170 @@
-{"message":"━━ Step 1 — Login as admin ━━","status":"info","ts":1775414452418}
-{"message":"Navigating to admin sign-in… (baseURL: about:blank)","status":"running","ts":1775414452425}
-{"message":"Admin login ✓ — landed on: https://devapp.paxel.ai/admin/dashboard","status":"pass","ts":1775414461805}
-{"message":"════ Testing user: David Farris (Nexus Pharmaceuticals) ════","status":"info","ts":1775414461809}
-{"message":"━━ Step 2 — Impersonate David Farris (salesrep @ Nexus Pharmaceuticals) ━━","status":"info","ts":1775414461814}
-{"message":"Impersonating David Farris…","status":"running","ts":1775414461818}
-{"message":"Impersonation confirmed ✓","status":"pass","ts":1775414463415}
-{"message":"Navigating to Sales Summary…","status":"running","ts":1775414463419}
-{"message":"Sales Summary loaded ✓","status":"pass","ts":1775414463926}
-{"message":"━━ Step 3 — Notification button ━━","status":"info","ts":1775414463934}
-{"message":"Visible header buttons: ","status":"info","ts":1775414463969}
-{"message":"Notification button located at x:1125 ✓","status":"info","ts":1775414464089}
-{"message":"Hover: rectangular highlight around notification button ✓","status":"pass","ts":1775414464649}
-{"message":"Notification box opened ✓","status":"pass","ts":1775414465729}
-{"message":"\"Overdue\" tab clicked — content loaded ✓","status":"pass","ts":1775414466553}
-{"message":"\"Upcoming\" tab clicked — content loaded ✓","status":"pass","ts":1775414467354}
-{"message":"\"Activity\" tab clicked — content loaded ✓","status":"pass","ts":1775414468167}
-{"message":"Notification box closes on button click: ✓","status":"pass","ts":1775414468716}
-{"message":"Notification box reopens on button click: ✓","status":"pass","ts":1775414469577}
-{"message":"Notification box closes on outside click: ✓","status":"pass","ts":1775414470210}
-{"message":"━━ Step 4a — Date filter: default shows yesterday + hover effects ━━","status":"info","ts":1775414470225}
-{"message":"Today: Apr 5, 2026   Yesterday: Apr 4, 2026","status":"info","ts":1775414470232}
-{"message":"Date filter shows: \"Apr 4, 2026\"","status":"info","ts":1775414470250}
-{"message":"Default = yesterday (Apr 4, 2026): ✓","status":"pass","ts":1775414470255}
-{"message":"Date filter dropdown opened ✓","status":"pass","ts":1775414470376}
-{"message":"Hover \"Yesterday\" — effect ✓","status":"pass","ts":1775414470643}
-{"message":"Hover \"Month-to-date\" — effect ✓","status":"pass","ts":1775414470903}
-{"message":"Hover \"Previous month\" — effect ✓","status":"pass","ts":1775414471165}
-{"message":"Hover \"Quarter-to-date\" — effect ✓","status":"pass","ts":1775414471422}
-{"message":"Hover \"Previous quarter\" — effect ✓","status":"pass","ts":1775414471683}
-{"message":"Hover \"Year-to-date\" — effect ✓","status":"pass","ts":1775414471947}
-{"message":"Hover \"Previous year\" — effect ✓","status":"pass","ts":1775414472193}
-{"message":"Hover \"Custom range\" — effect ✓","status":"pass","ts":1775414472440}
-{"message":"Date filter closes on Escape: check manually","status":"info","ts":1775414472995}
-{"message":"━━ Step 4b — Date filter: Yesterday ━━","status":"info","ts":1775414472999}
-{"message":"Selecting Yesterday (user: David Farris, company: Nexus Pharmaceuticals)","status":"info","ts":1775414473004}
-{"message":"FAIL \"Step 4b — Date filter: Yesterday\": \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m | URL: https://devapp.paxel.ai/tenant/dashboard","status":"fail","ts":1775414485254}
-{"message":"━━ Step 4c — Date filter: Month-to-date ━━","status":"info","ts":1775414485682}
-{"message":"FAIL \"Step 4c — Date filter: Month-to-date\": Timeout 12000ms exceeded while waiting on the predicate | URL: https://devapp.paxel.ai/tenant/dashboard?dateRange=month-to-date","status":"fail","ts":1775414498581}
-{"message":"━━ Step 4d — Date filter: Previous month ━━","status":"info","ts":1775414499016}
-{"message":"FAIL \"Step 4d — Date filter: Previous month\": locator.textContent: Target page, context or browser has been closed | URL: https://devapp.paxel.ai/tenant/dashboard?dateRange=month-to-date","status":"fail","ts":1775414505888}
-{"message":"Exiting impersonation for David Farris…","status":"running","ts":1775414505905}
+{"message":"━━ Step 1 — Login as admin ━━","status":"info","ts":1775455528832}
+{"message":"Navigating to admin sign-in… (baseURL: about:blank)","status":"running","ts":1775455528839}
+{"message":"Admin login ✓ — landed on: https://devapp.paxel.ai/admin/dashboard","status":"pass","ts":1775455531991}
+{"message":"════ Testing user: David Farris (Nexus Pharmaceuticals) ════","status":"info","ts":1775455532006}
+{"message":"━━ Step 2 — Impersonate David Farris (salesrep @ Nexus Pharmaceuticals) ━━","status":"info","ts":1775455532019}
+{"message":"Impersonating David Farris…","status":"running","ts":1775455532030}
+{"message":"Impersonation confirmed ✓","status":"pass","ts":1775455533562}
+{"message":"Navigating to Sales Summary…","status":"running","ts":1775455533570}
+{"message":"Sales Summary loaded ✓","status":"pass","ts":1775455533680}
+{"message":"━━ Step 3 — Notification button ━━","status":"info","ts":1775455533689}
+{"message":"Visible header buttons: ","status":"info","ts":1775455533713}
+{"message":"Notification button located at x:1125 ✓","status":"info","ts":1775455533986}
+{"message":"Hover: rectangular highlight around notification button ✓","status":"pass","ts":1775455534517}
+{"message":"Notification box opened ✓","status":"pass","ts":1775455535549}
+{"message":"\"Overdue\" tab clicked — content loaded ✓","status":"pass","ts":1775455536310}
+{"message":"\"Upcoming\" tab clicked — content loaded ✓","status":"pass","ts":1775455537095}
+{"message":"\"Activity\" tab clicked — content loaded ✓","status":"pass","ts":1775455537857}
+{"message":"Notification box closes on button click: ✓","status":"pass","ts":1775455538380}
+{"message":"Notification box reopens on button click: ✓","status":"pass","ts":1775455539202}
+{"message":"Notification box closes on outside click: ✓","status":"pass","ts":1775455539824}
+{"message":"━━ Step 4a — Date filter: default shows yesterday + hover effects ━━","status":"info","ts":1775455539836}
+{"message":"Today: Apr 6, 2026   Yesterday: Apr 5, 2026","status":"info","ts":1775455539844}
+{"message":"Date filter shows: \"Apr 4, 2026\"","status":"info","ts":1775455539856}
+{"message":"Default = yesterday (Apr 5, 2026): FAIL — shown: Apr 4, 2026","status":"fail","ts":1775455539862}
+{"message":"Date filter dropdown opened ✓","status":"pass","ts":1775455539954}
+{"message":"Hover \"Yesterday\" — effect ✓","status":"pass","ts":1775455540197}
+{"message":"Hover \"Month-to-date\" — effect ✓","status":"pass","ts":1775455540441}
+{"message":"Hover \"Previous month\" — effect ✓","status":"pass","ts":1775455540669}
+{"message":"Hover \"Quarter-to-date\" — effect ✓","status":"pass","ts":1775455540902}
+{"message":"Hover \"Previous quarter\" — effect ✓","status":"pass","ts":1775455541133}
+{"message":"Hover \"Year-to-date\" — effect ✓","status":"pass","ts":1775455541366}
+{"message":"Hover \"Previous year\" — effect ✓","status":"pass","ts":1775455541592}
+{"message":"Hover \"Custom range\" — effect ✓","status":"pass","ts":1775455541819}
+{"message":"Date filter closes on Escape: check manually","status":"info","ts":1775455542349}
+{"message":"4b: browser contexts = 1","status":"info","ts":1775455542355}
+{"message":"4b: context[0] pages = 1","status":"info","ts":1775455542362}
+{"message":"4b: context[0] page url = https://devapp.paxel.ai/tenant/dashboard","status":"info","ts":1775455542367}
+{"message":"━━ Step 4b — Date filter: Yesterday ━━","status":"info","ts":1775455542372}
+{"message":"Selecting Yesterday (user: David Farris, company: Nexus Pharmaceuticals)","status":"info","ts":1775455542379}
+{"message":"4b: browser contexts = 1","status":"info","ts":1775455542384}
+{"message":"4b: controlled page brought to front ✓","status":"pass","ts":1775455542697}
+{"message":"4b: Sales Summary check → url=https://devapp.paxel.ai/tenant/dashboard isDashboardUrl=true headingVisible=true dateFilterVisible=true","status":"pass","ts":1775455542714}
+{"message":"4b: already on Sales Summary ✓","status":"pass","ts":1775455542720}
+{"message":"4b: DEBUG current URL = https://devapp.paxel.ai/tenant/dashboard","status":"info","ts":1775455542726}
+{"message":"Current URL: https://devapp.paxel.ai/tenant/dashboard","status":"info","ts":1775455542732}
+{"message":"4b: browser contexts = 1","status":"info","ts":1775455542738}
+{"message":"4b: controlled page brought to front ✓","status":"pass","ts":1775455543049}
+{"message":"4b: Sales Summary check → url=https://devapp.paxel.ai/tenant/dashboard isDashboardUrl=true headingVisible=true dateFilterVisible=true","status":"pass","ts":1775455543067}
+{"message":"4b: already on Sales Summary ✓","status":"pass","ts":1775455543073}
+{"message":"4b: move to date filter button","status":"running","ts":1775455543722}
+{"message":"4b: click date filter button","status":"running","ts":1775455543885}
+{"message":"4b: picker opened ✓","status":"pass","ts":1775455544638}
+{"message":"4b: wait for preset \"Yesterday\" inside picker","status":"running","ts":1775455544645}
+{"message":"4b: preset \"Yesterday\" visible ✓","status":"pass","ts":1775455544660}
+{"message":"4b: click preset \"Yesterday\"","status":"running","ts":1775455544686}
+{"message":"4b: clicked preset \"Yesterday\" ✓","status":"pass","ts":1775455546102}
+{"message":"4b: URL after selection → https://devapp.paxel.ai/tenant/dashboard","status":"info","ts":1775455546612}
+{"message":"4b: date button text \"Apr 4, 2026\" does NOT match expected","status":"fail","ts":1775455546624}
+{"message":"FAIL \"Step 4b — Date filter: Yesterday\": 4b: date button text mismatch → got \"Apr 4, 2026\" | URL: https://devapp.paxel.ai/tenant/dashboard","status":"fail","ts":1775455546631}
+{"message":"━━ Step 4c — Date filter: Month-to-date ━━","status":"info","ts":1775455547043}
+{"message":"4c: browser contexts = 1","status":"info","ts":1775455547050}
+{"message":"4c: controlled page brought to front ✓","status":"pass","ts":1775455547361}
+{"message":"4c: Sales Summary check → url=https://devapp.paxel.ai/tenant/dashboard isDashboardUrl=true headingVisible=true dateFilterVisible=true","status":"pass","ts":1775455547379}
+{"message":"4c: already on Sales Summary ✓","status":"pass","ts":1775455547385}
+{"message":"4c: expected MTD range = Apr 1–Apr 5, 2026 (start of month → yesterday, not today)","status":"info","ts":1775455547391}
+{"message":"4c: DEBUG current URL = https://devapp.paxel.ai/tenant/dashboard","status":"info","ts":1775455547398}
+{"message":"Current URL: https://devapp.paxel.ai/tenant/dashboard","status":"info","ts":1775455547404}
+{"message":"4c: browser contexts = 1","status":"info","ts":1775455547410}
+{"message":"4c: controlled page brought to front ✓","status":"pass","ts":1775455547720}
+{"message":"4c: Sales Summary check → url=https://devapp.paxel.ai/tenant/dashboard isDashboardUrl=true headingVisible=true dateFilterVisible=true","status":"pass","ts":1775455547738}
+{"message":"4c: already on Sales Summary ✓","status":"pass","ts":1775455547746}
+{"message":"4c: move to date filter button","status":"running","ts":1775455548072}
+{"message":"4c: click date filter button","status":"running","ts":1775455548236}
+{"message":"4c: picker opened ✓","status":"pass","ts":1775455549010}
+{"message":"4c: wait for preset \"Month-to-date\" inside picker","status":"running","ts":1775455549017}
+{"message":"4c: preset \"Month-to-date\" visible ✓","status":"pass","ts":1775455549032}
+{"message":"4c: click preset \"Month-to-date\"","status":"running","ts":1775455549057}
+{"message":"4c: clicked preset \"Month-to-date\" ✓","status":"pass","ts":1775455550478}
+{"message":"4c: URL matches expected → https://devapp.paxel.ai/tenant/dashboard?dateRange=month-to-date","status":"pass","ts":1775455550993}
+{"message":"4c: date button text \"Apr 1–4, 2026\" does NOT match expected","status":"fail","ts":1775455551006}
+{"message":"FAIL \"Step 4c — Date filter: Month-to-date\": 4c: date button text mismatch → got \"Apr 1–4, 2026\" | URL: https://devapp.paxel.ai/tenant/dashboard?dateRange=month-to-date","status":"fail","ts":1775455551012}
+{"message":"━━ Step 4d — Date filter: Previous month ━━","status":"info","ts":1775455551424}
+{"message":"4d: browser contexts = 1","status":"info","ts":1775455551432}
+{"message":"4d: controlled page brought to front ✓","status":"pass","ts":1775455551742}
+{"message":"4d: Sales Summary check → url=https://devapp.paxel.ai/tenant/dashboard?dateRange=month-to-date isDashboardUrl=true headingVisible=true dateFilterVisible=true","status":"pass","ts":1775455551764}
+{"message":"4d: already on Sales Summary ✓","status":"pass","ts":1775455551770}
+{"message":"4d: expected Previous month range = Mar 1–Mar 31, 2026","status":"info","ts":1775455551777}
+{"message":"4d: DEBUG current URL = https://devapp.paxel.ai/tenant/dashboard?dateRange=month-to-date","status":"info","ts":1775455551784}
+{"message":"Current URL: https://devapp.paxel.ai/tenant/dashboard?dateRange=month-to-date","status":"info","ts":1775455551792}
+{"message":"4d: browser contexts = 1","status":"info","ts":1775455551800}
+{"message":"4d: controlled page brought to front ✓","status":"pass","ts":1775455552114}
+{"message":"4d: Sales Summary check → url=https://devapp.paxel.ai/tenant/dashboard?dateRange=month-to-date isDashboardUrl=true headingVisible=true dateFilterVisible=true","status":"pass","ts":1775455552138}
+{"message":"4d: already on Sales Summary ✓","status":"pass","ts":1775455552144}
+{"message":"4d: move to date filter button","status":"running","ts":1775455552475}
+{"message":"4d: click date filter button","status":"running","ts":1775455552638}
+{"message":"4d: picker opened ✓","status":"pass","ts":1775455553436}
+{"message":"4d: wait for preset \"Previous month\" inside picker","status":"running","ts":1775455553444}
+{"message":"4d: preset \"Previous month\" visible ✓","status":"pass","ts":1775455553472}
+{"message":"4d: click preset \"Previous month\"","status":"running","ts":1775455553512}
+{"message":"4d: clicked preset \"Previous month\" ✓","status":"pass","ts":1775455554940}
+{"message":"4d: URL matches expected → https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-month","status":"pass","ts":1775455555453}
+{"message":"4d: date button text \"Mar 1–31, 2026\" matches expected","status":"pass","ts":1775455555467}
+{"message":"4d: Contracted sales card visible: ✓","status":"pass","ts":1775455555500}
+{"message":"4d: Contracted sales comparison label contains \"Previous last month\": ✓","status":"pass","ts":1775455555529}
+{"message":"4d: Contracted sales current value = 1108233","status":"pass","ts":1775455555662}
+{"message":"4d: Contracted sales previous value = 780979","status":"pass","ts":1775455555668}
+{"message":"4d: Units card visible: ✓","status":"pass","ts":1775455555696}
+{"message":"4d: Units comparison label contains \"Previous last month\": ✓","status":"pass","ts":1775455555723}
+{"message":"4d: Units current value = 1108233","status":"pass","ts":1775455555872}
+{"message":"4d: Units previous value = 780979","status":"pass","ts":1775455555880}
+{"message":"4d: Orders card visible: ✓","status":"pass","ts":1775455555910}
+{"message":"4d: Orders comparison label contains \"Previous last month\": ✓","status":"pass","ts":1775455555938}
+{"message":"4d: Orders current value = 1108233","status":"pass","ts":1775455556084}
+{"message":"4d: Orders previous value = 780979","status":"pass","ts":1775455556091}
+{"message":"4d: all three current KPI values are zero: ✓","status":"pass","ts":1775455556098}
+{"message":"4d: all three previous KPI values are zero: ✓","status":"pass","ts":1775455556104}
+{"message":"Orders chart heading \"Orders • Previous month\": ✓","status":"pass","ts":1775455556124}
+{"message":"Orders chart plot area visible: FAIL","status":"fail","ts":1775455556185}
+{"message":"FAIL \"Step 4d — Date filter: Previous month\": Orders chart plot area not visible for Previous month | URL: https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-month","status":"fail","ts":1775455556192}
+{"message":"━━ Step 4e — Date filter: Quarter-to-date ━━","status":"info","ts":1775455556605}
+{"message":"4e: browser contexts = 1","status":"info","ts":1775455556613}
+{"message":"4e: controlled page brought to front ✓","status":"pass","ts":1775455556923}
+{"message":"4e: Sales Summary check → url=https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-month isDashboardUrl=true headingVisible=true dateFilterVisible=true","status":"pass","ts":1775455556944}
+{"message":"4e: already on Sales Summary ✓","status":"pass","ts":1775455556950}
+{"message":"4e: expected QTD range = Apr 1–Apr 5, 2026 (quarter start → yesterday)","status":"info","ts":1775455556956}
+{"message":"4e: DEBUG current URL = https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-month","status":"info","ts":1775455556962}
+{"message":"Current URL: https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-month","status":"info","ts":1775455556968}
+{"message":"4e: browser contexts = 1","status":"info","ts":1775455556973}
+{"message":"4e: controlled page brought to front ✓","status":"pass","ts":1775455557286}
+{"message":"4e: Sales Summary check → url=https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-month isDashboardUrl=true headingVisible=true dateFilterVisible=true","status":"pass","ts":1775455557313}
+{"message":"4e: already on Sales Summary ✓","status":"pass","ts":1775455557318}
+{"message":"4e: move to date filter button","status":"running","ts":1775455557660}
+{"message":"4e: click date filter button","status":"running","ts":1775455557843}
+{"message":"4e: picker opened ✓","status":"pass","ts":1775455558636}
+{"message":"4e: wait for preset \"Quarter-to-date\" inside picker","status":"running","ts":1775455558643}
+{"message":"4e: preset \"Quarter-to-date\" visible ✓","status":"pass","ts":1775455558666}
+{"message":"4e: click preset \"Quarter-to-date\"","status":"running","ts":1775455558700}
+{"message":"4e: clicked preset \"Quarter-to-date\" ✓","status":"pass","ts":1775455560128}
+{"message":"4e: URL matches expected → https://devapp.paxel.ai/tenant/dashboard?dateRange=quarter-to-date","status":"pass","ts":1775455560640}
+{"message":"4e: date button text \"Apr 1–4, 2026\" does NOT match expected","status":"fail","ts":1775455560654}
+{"message":"FAIL \"Step 4e — Date filter: Quarter-to-date\": 4e: date button text mismatch → got \"Apr 1–4, 2026\" | URL: https://devapp.paxel.ai/tenant/dashboard?dateRange=quarter-to-date","status":"fail","ts":1775455560661}
+{"message":"━━ Step 4f — Date filter: Previous quarter ━━","status":"info","ts":1775455561074}
+{"message":"4f: browser contexts = 1","status":"info","ts":1775455561081}
+{"message":"4f: controlled page brought to front ✓","status":"pass","ts":1775455561392}
+{"message":"4f: Sales Summary check → url=https://devapp.paxel.ai/tenant/dashboard?dateRange=quarter-to-date isDashboardUrl=true headingVisible=true dateFilterVisible=true","status":"pass","ts":1775455561411}
+{"message":"4f: already on Sales Summary ✓","status":"pass","ts":1775455561417}
+{"message":"4f: expected Previous quarter range = Jan 1–Mar 31, 2026","status":"info","ts":1775455561423}
+{"message":"4f: DEBUG current URL = https://devapp.paxel.ai/tenant/dashboard?dateRange=quarter-to-date","status":"info","ts":1775455561431}
+{"message":"Current URL: https://devapp.paxel.ai/tenant/dashboard?dateRange=quarter-to-date","status":"info","ts":1775455561437}
+{"message":"4f: browser contexts = 1","status":"info","ts":1775455561443}
+{"message":"4f: controlled page brought to front ✓","status":"pass","ts":1775455561751}
+{"message":"4f: Sales Summary check → url=https://devapp.paxel.ai/tenant/dashboard?dateRange=quarter-to-date isDashboardUrl=true headingVisible=true dateFilterVisible=true","status":"pass","ts":1775455561779}
+{"message":"4f: already on Sales Summary ✓","status":"pass","ts":1775455561786}
+{"message":"4f: move to date filter button","status":"running","ts":1775455562106}
+{"message":"4f: click date filter button","status":"running","ts":1775455562272}
+{"message":"4f: picker opened ✓","status":"pass","ts":1775455563054}
+{"message":"4f: wait for preset \"Previous quarter\" inside picker","status":"running","ts":1775455563062}
+{"message":"4f: preset \"Previous quarter\" visible ✓","status":"pass","ts":1775455563087}
+{"message":"4f: click preset \"Previous quarter\"","status":"running","ts":1775455563119}
+{"message":"4f: clicked preset \"Previous quarter\" ✓","status":"pass","ts":1775455564546}
+{"message":"4f: URL matches expected → https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-quarter","status":"pass","ts":1775455565060}
+{"message":"4f: date button text \"Jan 1–Mar 31, 2026\" matches expected","status":"pass","ts":1775455565076}
+{"message":"4f: Contracted sales card visible: ✓","status":"pass","ts":1775455565104}
+{"message":"4f: Contracted sales comparison label contains \"Previous last quarter\": ✓","status":"pass","ts":1775455565135}
+{"message":"4f: Contracted sales current value = 2612761","status":"pass","ts":1775455565350}
+{"message":"4f: Contracted sales previous value = 2194465","status":"pass","ts":1775455565356}
+{"message":"4f: Units card visible: ✓","status":"pass","ts":1775455565383}
+{"message":"4f: Units comparison label contains \"Previous last quarter\": ✓","status":"pass","ts":1775455565410}
+{"message":"🛑 Test run stopped by user.","status":"fail","ts":1775455565488,"_done":true}
+{"message":"⚠️ Run finished with exit code null.","status":"fail","ts":1775455565589,"_done":true}

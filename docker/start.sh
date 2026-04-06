@@ -5,6 +5,12 @@
 
 set -e
 
+# ── cleanup old browser processes from previous runs ───────────────────────────
+echo "[0/5] Cleaning old Chrome/Chromium processes ..."
+pkill -f "chrome|chromium|Chrome for Testing" || true
+pkill -f "playwright" || true
+sleep 1
+
 # ── helpers ────────────────────────────────────────────────────────────────────
 wait_for_port() {
   local port=$1 label=$2 tries=0 max=40

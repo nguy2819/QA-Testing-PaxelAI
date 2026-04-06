@@ -37,6 +37,17 @@ export default defineConfig({
     video:      'retain-on-failure',
     trace:      'on-first-retry',
     viewport:   { width: 1440, height: 900 },
+
+    launchOptions: {
+    args: [
+      '--no-first-run',
+      '--no-default-browser-check',
+      '--disable-session-crashed-bubble',
+      '--disable-features=Translate,AutomationControlled',
+      '--homepage=about:blank',
+      '--incognito',
+    ],
+  },
   },
 
   projects: [
