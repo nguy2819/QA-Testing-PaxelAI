@@ -307,16 +307,50 @@
     .clear-btn:hover { color: var(--text); border-color: var(--purple-200); }
 
     /* ── Run progression status bar ─────────────────────────────────── */
-    .run-status-bar {
-      padding: 5px 16px; background: var(--purple-50);
+      .run-status-bar {
+      padding: 8px 16px;
+      background: var(--purple-50);
       border-bottom: 1.5px solid var(--border);
-      display: flex; align-items: center; gap: 8px; flex-shrink: 0;
-      font-size: 11px; overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex-shrink: 0;
+      font-size: 11px;
     }
-    .run-status-lbl  { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); flex-shrink: 0; }
-    .run-status-now  { color: var(--purple-700); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
-    .run-status-sep  { color: var(--border); flex-shrink: 0; font-size: 14px; }
-    .run-status-next { color: var(--muted); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+
+    .run-status-row {
+      display: grid;
+      grid-template-columns: 42px 1fr;
+      gap: 8px;
+      align-items: start;
+      min-width: 0;
+    }
+
+    .run-status-lbl {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: var(--muted);
+    }
+
+    .run-status-now,
+    .run-status-next {
+      min-width: 0;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      line-height: 1.35;
+    }
+
+    .run-status-now {
+      color: var(--purple-700);
+      font-weight: 600;
+    }
+
+    .run-status-next {
+      color: var(--muted);
+      font-weight: 500;
+    }
 
     /* ── Test Plan nav link ───────────────────────────────────────────── */
     .test-plan-link {
@@ -480,11 +514,14 @@
 
     <!-- Run progression status: Running now / Next -->
     <div class="run-status-bar" id="runStatusBar" style="display:none">
-      <span class="run-status-lbl">Now</span>
-      <span class="run-status-now" id="runStatusNow">—</span>
-      <span class="run-status-sep">|</span>
-      <span class="run-status-lbl">Next</span>
-      <span class="run-status-next" id="runStatusNext">—</span>
+      <div class="run-status-row">
+        <span class="run-status-lbl">Now</span>
+        <span class="run-status-now" id="runStatusNow">—</span>
+      </div>
+      <div class="run-status-row">
+        <span class="run-status-lbl">Next</span>
+        <span class="run-status-next" id="runStatusNext">—</span>
+      </div>
     </div>
 
     <!-- Test plan steps -->
@@ -619,6 +656,8 @@ let liveFeedTimer     = null;
 let currentRunPage    = null;
 let currentRunRole    = null;
 let currentRunUser    = null;
+let currentSequenceIndex = -1;
+let pendingAutoAdvance = null;
 
 // Plan tracking
 let planState         = {};  // id → 'pending'|'running'|'pass'|'fail'
@@ -665,24 +704,22 @@ function setEnv(env) {
 // Select a page + role — show plan but do NOT start the test
 // ─────────────────────────────────────────────────────────────────────────────
 function selectPage(pageKey, role) {
-  if (isRunning) return; // don't switch while running
+  if (isRunning) return;
+
   selectedPage   = pageKey;
   selectedRole   = role;
   currentPlanKey = `${pageKey}-${role}`;
 
-  // Highlight selected role button, clear others
-  document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('selected', 'running'));
-  const btn = document.getElementById(`btn-${pageKey}-${role}`);
-  if (btn) btn.classList.add('selected');
+  setSelectedButton(pageKey, role);
 
-  // Render plan
   renderPlan(currentPlanKey);
 
-  // Enable Run button, update title
   document.getElementById('runBtn').disabled   = false;
   document.getElementById('pauseBtn').disabled = true;
   document.getElementById('stopBtn').disabled  = true;
-  document.getElementById('rightPanelTitle').textContent = `Test Plan — ${pageName(pageKey)} / ${roleName(role)}`;
+  document.getElementById('rightPanelTitle').textContent = 'Test Plan';
+
+  updateRunStatusBar();
 }
 
 function pageName(key) {
@@ -695,6 +732,70 @@ function pageName(key) {
 
 function roleName(role) {
   return { salesrep: 'Sales Rep', director: 'Director', executive: 'Executive' }[role] || role;
+}
+
+function formatSequenceItem(item) {
+  if (!item) return '—';
+  return `${pageName(item.page)} / ${roleName(item.role)} / ${item.user}`;
+}
+
+function findSequenceIndex(page, role, user) {
+  return FULL_SEQUENCE.findIndex(
+    x => x.page === page && x.role === role && x.user === user
+  );
+}
+
+function getNextSequenceItem() {
+  if (currentSequenceIndex < 0) return null;
+  return FULL_SEQUENCE[currentSequenceIndex + 1] || null;
+}
+
+function updateRunStatusBar() {
+  const bar = document.getElementById('runStatusBar');
+  const nowEl = document.getElementById('runStatusNow');
+  const nextEl = document.getElementById('runStatusNext');
+
+  const hasCurrent =
+    currentRunPage || currentRunRole || currentRunUser;
+
+  if (!hasCurrent && !selectedPage && !selectedRole) {
+    bar.style.display = 'none';
+    nowEl.textContent = '—';
+    nextEl.textContent = '—';
+    return;
+  }
+
+  bar.style.display = 'flex';
+
+  const nowItem = currentSequenceIndex >= 0
+    ? FULL_SEQUENCE[currentSequenceIndex]
+    : (selectedPage && selectedRole
+        ? { page: selectedPage, role: selectedRole, user: 'Waiting for first user…' }
+        : null);
+
+  nowEl.textContent = formatSequenceItem(nowItem);
+
+  const nextItem = getNextSequenceItem();
+  nextEl.textContent = nextItem ? formatSequenceItem(nextItem) : 'End of full sequence';
+}
+
+function setRunningButton(page, role) {
+  document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('selected', 'running'));
+  const btn = document.getElementById(`btn-${page}-${role}`);
+  if (btn) btn.classList.add('running');
+}
+
+function setSelectedButton(page, role) {
+  document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('selected', 'running'));
+  const btn = document.getElementById(`btn-${page}-${role}`);
+  if (btn) btn.classList.add('selected');
+}
+
+function queueNextPageFromCurrentPage() {
+  if (!selectedPage) return null;
+  const idx = PAGE_SEQUENCE.indexOf(selectedPage);
+  if (idx === -1 || idx >= PAGE_SEQUENCE.length - 1) return null;
+  return PAGE_SEQUENCE[idx + 1];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -777,18 +878,22 @@ async function startRun() {
   if (eventSource) { eventSource.close(); eventSource = null; }
 
   // Reset log + counts (but keep plan structure visible — reset statuses to pending)
-  clearLogOnly();
+    clearLogOnly();
   resetPlanStatuses();
 
-  // Mark running state
   isRunning      = true;
   isPaused       = false;
   pauseQueue     = [];
+  pendingAutoAdvance = null;
+
   currentRunPage = selectedPage;
   currentRunRole = selectedRole;
   currentRunUser = null;
+  currentSequenceIndex = -1;
+
   updateRunStatusBar();
   setControlState('running');
+  setRunningButton(selectedPage, selectedRole);
 
   // Mark selected role button as running
   document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('selected', 'running'));
@@ -881,32 +986,33 @@ function processStep(entry) {
 
   // ── Detect "STARTING ROLE: <role>" emitted by every spec ────────────────────
   // Updates the active purple button in the dashboard to match the running role.
-  const roleMatch = msgLower.match(/starting role:\s*(salesrep|director|executive)/);
+    const roleMatch = msgLower.match(/starting role:\s*(salesrep|director|executive)/);
   if (roleMatch) {
     const newRole = roleMatch[1];
     selectedRole   = newRole;
     currentPlanKey = `${selectedPage}-${newRole}`;
-    // Track for run status bar
     currentRunRole = newRole;
     currentRunPage = selectedPage;
-    currentRunUser = null;  // user will be set by next "Testing user:" marker
-    // Advance the button highlight
-    document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('selected', 'running'));
-    if (selectedPage) {
-      document.getElementById(`btn-${selectedPage}-${newRole}`)?.classList.add('running');
-    }
-    // Swap plan panel to the new role's plan
+    currentRunUser = null;
+
+    setRunningButton(selectedPage, newRole);
+
     renderPlan(currentPlanKey);
-    document.getElementById('rightPanelTitle').textContent =
-      `Test Plan — ${pageName(selectedPage)} / ${roleName(newRole)}`;
+    document.getElementById('rightPanelTitle').textContent = 'Test Plan';
     updateRunStatusBar();
   }
 
   // ── Detect "Testing user: X (company)" emitted by every spec ──────────────
   // Extracts the current user name and updates the run progression display.
-  const userMatch = (message || '').match(/testing user:\s*([^(]+)\s*\(/i);
+    const userMatch = (message || '').match(/testing user:\s*([^(]+)\s*\(/i);
   if (userMatch) {
     currentRunUser = userMatch[1].trim();
+
+    const idx = findSequenceIndex(currentRunPage, currentRunRole, currentRunUser);
+    if (idx !== -1) {
+      currentSequenceIndex = idx;
+    }
+
     updateRunStatusBar();
   }
 
@@ -946,30 +1052,32 @@ function processStep(entry) {
   if (status === 'info')    { counts.info++;    updateCounts(); }
 
   // ── Done sentinel ────────────────────────────────────────────────────────────
-  if (_done) {
+    if (_done) {
     if (activePlanStepId) {
       finalizePlanStep(activePlanStepId, activePlanFailed ? 'fail' : 'pass');
       activePlanStepId = null;
     }
+
     stopLiveFeed();
     document.getElementById('liveBadge').classList.remove('show');
     endRun();
 
-    // ── Auto-advance to next page in canonical sequence (always on) ──────────
-    // No toggle needed — the Stop button can interrupt at any time.
-    if (selectedPage) {
-      const idx = PAGE_SEQUENCE.indexOf(selectedPage);
-      if (idx !== -1 && idx < PAGE_SEQUENCE.length - 1) {
-        const nextPage = PAGE_SEQUENCE[idx + 1];
-        appendLog(`⏭ Auto-advancing to: ${pageName(nextPage)} / Sales Rep…`, 'info', Date.now());
-        setTimeout(() => {
-          selectPage(nextPage, 'salesrep');
-          startRun();
-        }, 1500);
-      } else {
-        appendLog('✅ Full sequence complete — all 5 pages, all 3 roles tested.', 'pass', Date.now());
-        updateRunStatusBar();
-      }
+    const nextPage = queueNextPageFromCurrentPage();
+
+    if (nextPage) {
+      appendLog(`⏭ Moving to next page in canonical order: ${pageName(nextPage)} / Sales Rep`, 'info', Date.now());
+
+      pendingAutoAdvance = { page: nextPage, role: 'salesrep' };
+
+      setTimeout(() => {
+        if (isRunning) return; // safety
+        selectPage(pendingAutoAdvance.page, pendingAutoAdvance.role);
+        pendingAutoAdvance = null;
+        startRun();
+      }, 1200);
+    } else {
+      appendLog('✅ Full sequence complete — all pages finished.', 'pass', Date.now());
+      updateRunStatusBar();
     }
   }
 }
@@ -983,13 +1091,10 @@ function endRun() {
   clearInterval(elapsedTimer);
   setControlState('done');
 
-  // Keep the last active role button highlighted as 'selected' (purple),
-  // reflecting the final role that was tested. This matches the requirement
-  // that the active button must stay purple after the test finishes.
-  document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('running'));
   if (selectedPage && selectedRole) {
-    document.getElementById(`btn-${selectedPage}-${selectedRole}`)?.classList.add('selected');
+    setSelectedButton(selectedPage, selectedRole);
   }
+
   updateRunStatusBar();
 }
 
