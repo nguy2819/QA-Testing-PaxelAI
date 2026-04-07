@@ -24,9 +24,18 @@ const ROLE_USERS_LIST = {
 } as const;
 
 type Role = keyof typeof ROLE_USERS_LIST;
-const ROLE       = ((process.env.ROLE as Role) || 'salesrep');
-const TEST_USERS = ROLE_USERS_LIST[ROLE] ?? ROLE_USERS_LIST.salesrep;
-// 
+
+/** Roles to run in sequence.
+ *  - If ROLE env var is a valid single role  → run only that role (targeted run).
+ *  - Otherwise (ROLE='all', unset, or 'all') → run all three in order. */
+const ROLES_TO_RUN: Role[] = (() => {
+  const r = process.env.ROLE as string | undefined;
+  if (r && r !== 'all' && Object.prototype.hasOwnProperty.call(ROLE_USERS_LIST, r)) {
+    return [r as Role];
+  }
+  return ['salesrep', 'director', 'executive'] as Role[];
+})();
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Add a few helper functions
@@ -233,86 +242,8 @@ async function validateKpiCardsYesterday(page: Page) {
   }
 }
 
-/** Validate Orders chart heading + plot area for preset sections 4c–4h.
- *  - heading must match: Orders • {presetLabel} (case-insensitive)
- *  - chart plot area must be visible (section-scoped; data-lov-id as fallback)
- *  - FAIL if heading is visible but plot area is missing
- */
-async function validateOrdersChart(page: Page, presetLabel: string) {
-  const headingRe = new RegExp(`orders\\s*[•·]\\s*${escapeRe(presetLabel)}`, 'i');
-
-  const heading = page.getByText(headingRe).first();
-  const headingOk = await heading.isVisible({ timeout: 5000 }).catch(() => false);
-
-  await logStep(
-    page,
-    `Orders chart heading "Orders • ${presetLabel}": ${headingOk ? '✓' : 'FAIL'}`,
-    headingOk ? 'pass' : 'fail'
-  );
-
-  if (!headingOk) {
-    throw new Error(`Orders chart heading not visible for ${presetLabel}`);
-  }
-
-  // Find the chart card/section that contains the heading
-  const chartSection = page
-    .locator('section, div[class*="chart"], div[class*="card"], div[class*="shadow"], div[class*="border"]')
-    .filter({ has: page.getByText(headingRe) })
-    .first();
-
-  const sectionVisible = await chartSection.isVisible({ timeout: 3000 }).catch(() => false);
-
-  await logStep(
-    page,
-    `Orders chart section visible: ${sectionVisible ? '✓' : 'FAIL'}`,
-    sectionVisible ? 'pass' : 'fail'
-  );
-
-  if (!sectionVisible) {
-    throw new Error(`Orders chart section not visible for ${presetLabel}`);
-  }
-
-  // Main bar container from live DOM inspection
-  const barContainer = chartSection.locator('[data-lov-id="src/components/OrderBarChart.tsx:1101:8"]').first();
-  const containerVisible = await barContainer.isVisible({ timeout: 3000 }).catch(() => false);
-
-  await logStep(
-    page,
-    `Orders chart bar container visible: ${containerVisible ? '✓' : 'FAIL'}`,
-    containerVisible ? 'pass' : 'fail'
-  );
-
-  if (!containerVisible) {
-    throw new Error(`Orders chart bar container not visible for ${presetLabel}`);
-  }
-
-  // Count visible child divs inside the bar container
-  const childBars = barContainer.locator(':scope > div');
-  const childCount = await childBars.count().catch(() => 0);
-
-  let visibleBars = 0;
-
-  for (let i = 0; i < childCount; i++) {
-    const bar = childBars.nth(i);
-    const visible = await bar.isVisible().catch(() => false);
-    if (!visible) continue;
-
-    const box = await bar.boundingBox().catch(() => null);
-    if (box && box.height > 8 && box.width > 1) {
-      visibleBars++;
-    }
-  }
-
-  await logStep(
-    page,
-    `Orders chart visible bar-like columns = ${visibleBars}`,
-    visibleBars > 0 ? 'pass' : 'fail'
-  );
-
-  if (visibleBars === 0) {
-    throw new Error(`Orders chart has no visible colored bars for ${presetLabel}`);
-  }
-}
+// (outer validateOrdersChart removed — the authoritative version is defined
+//  inside the test body where it can close over page-scoped helpers)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Date helpers
@@ -501,9 +432,9 @@ async function findNotificationButton(page: Page): Promise<Locator> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// THE TEST — one login, loop over all 3 users for the role, exit after each
+// THE TEST — one login → role loop → user loop → exit after each user
 // ─────────────────────────────────────────────────────────────────────────────
-test(`Sales Summary — ${ROLE} (${TEST_USERS.length} users)`, async ({ page }) => {
+test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page }) => {
   initRun();
 
   const S             = makeSection(page);
@@ -513,7 +444,7 @@ test(`Sales Summary — ${ROLE} (${TEST_USERS.length} users)`, async ({ page }) 
   try {
 
     // ══════════════════════════════════════════════════════════════════════════
-    // STEP 1 — Login (once for all users)
+    // STEP 1 — Login (once for all roles / users)
     // ══════════════════════════════════════════════════════════════════════════
     await S('Step 1 — Login as admin', async () => {
       await logStep(page, `Navigating to admin sign-in… (baseURL: ${page.url() || 'none yet'})`, 'running');
@@ -523,9 +454,13 @@ test(`Sales Summary — ${ROLE} (${TEST_USERS.length} users)`, async ({ page }) 
     });
 
     // ══════════════════════════════════════════════════════════════════════════
-    // User loop — impersonate → test all steps → exit → repeat
+    // Role loop → User loop — impersonate → test all steps → exit → repeat
     // ══════════════════════════════════════════════════════════════════════════
-    for (const user of TEST_USERS) {
+    for (const role of ROLES_TO_RUN) {
+      const roleUsers = ROLE_USERS_LIST[role];
+      await logStep(page, `════ STARTING ROLE: ${role} — ${roleUsers.length} users ════`, 'info');
+
+      for (const user of roleUsers) {
 
       await logStep(page, `════ Testing user: ${user.fullName} (${user.company}) ════`, 'info');
 
@@ -536,7 +471,7 @@ test(`Sales Summary — ${ROLE} (${TEST_USERS.length} users)`, async ({ page }) 
         // ════════════════════════════════════════════════════════════════════
         // STEP 2 — Impersonate + navigate
         // ════════════════════════════════════════════════════════════════════
-        await S(`Step 2 — Impersonate ${user.fullName} (${ROLE} @ ${user.company})`, async () => {
+        await S(`Step 2 — Impersonate ${user.fullName} (${role} @ ${user.company})`, async () => {
           await logStep(page, `Impersonating ${user.fullName}…`, 'running');
           await impersonation.impersonateUser(user);
           isImpersonated = true;
@@ -555,9 +490,28 @@ test(`Sales Summary — ${ROLE} (${TEST_USERS.length} users)`, async ({ page }) 
 
         // ════════════════════════════════════════════════════════════════════
         // STEP 3 — Notification button
+        // Executive rule: notification button must NOT be visible.
+        //   PASS → button absent; FAIL → button is visible for executive.
+        // Sales Rep / Director: full notification interaction test.
         // ════════════════════════════════════════════════════════════════════
         await S('Step 3 — Notification button', async () => {
 
+          if (role === 'executive') {
+            // ── Executive: verify notification button is absent ──────────────
+            const notifBtn = await findNotificationButton(page);
+            const isVisible = await notifBtn.isVisible({ timeout: 3_000 }).catch(() => false);
+            await logStep(
+              page,
+              `Step 3 — Executive: Notification button NOT visible: ${!isVisible ? '✓ PASS' : 'FAIL — visible for executive'}`,
+              !isVisible ? 'pass' : 'fail'
+            );
+            if (isVisible) {
+              throw new Error('Executive user should not have a Notification button visible');
+            }
+            return;
+          }
+
+          // ── Sales Rep / Director: full notification interaction test ──────
           // Log all visible header buttons (with bounding boxes) for debugging
           const allBtns = await page.locator(
             'header button, [class*="header"] button, [class*="topbar"] button, [class*="navbar"] button'
@@ -1113,6 +1067,7 @@ test(`Sales Summary — ${ROLE} (${TEST_USERS.length} users)`, async ({ page }) 
         async function validateOrdersChart(page: Page, presetLabel: string) {
           const headingRe = new RegExp(`orders\\s*[•·]\\s*${escapeRe(presetLabel)}`, 'i');
 
+          // 1. Verify the Orders chart heading is visible
           const heading   = page.getByText(headingRe).first();
           const headingOk = await heading.isVisible({ timeout: 5000 }).catch(() => false);
 
@@ -1126,25 +1081,91 @@ test(`Sales Summary — ${ROLE} (${TEST_USERS.length} users)`, async ({ page }) 
             throw new Error(`Orders chart heading not visible for ${presetLabel}`);
           }
 
-          const chartSection = page.locator('section, div[class*="chart"], div[class*="card"]')
+          // 2. Locate the chart card/section that contains the heading
+          const chartSection = page
+            .locator('section, div[class*="chart"], div[class*="card"], div[class*="shadow"], div[class*="border"]')
             .filter({ has: page.getByText(headingRe) })
             .first();
 
-          const plotArea = chartSection
-            .locator('svg, canvas, [class*="bar"], [class*="plot"], [class*="chart-area"]')
-            .first()
-            .or(page.locator('[data-lov-id="src/components/OrderBarChart.tsx:1101:8"]').first());
-
-          const plotOk = await plotArea.isVisible({ timeout: 5000 }).catch(() => false);
+          const sectionVisible = await chartSection.isVisible({ timeout: 3000 }).catch(() => false);
 
           await logStep(
             page,
-            `Orders chart plot area visible: ${plotOk ? '✓' : 'FAIL'}`,
-            plotOk ? 'pass' : 'fail'
+            `Orders chart section visible: ${sectionVisible ? '✓' : 'FAIL'}`,
+            sectionVisible ? 'pass' : 'fail'
           );
 
-          if (!plotOk) {
-            throw new Error(`Orders chart plot area not visible for ${presetLabel}`);
+          if (!sectionVisible) {
+            throw new Error(`Orders chart section not visible for ${presetLabel}`);
+          }
+
+          // 3. Count visible bar-like columns inside the chart section.
+          //    Three strategies applied in order; first one with bars > 0 wins.
+          let visibleBars = 0;
+
+          // Strategy A: data-lov-id container (exact DOM match from live inspection)
+          const lovContainer = chartSection
+            .locator('[data-lov-id="src/components/OrderBarChart.tsx:1101:8"]')
+            .first();
+          const hasLovContainer = await lovContainer.isVisible({ timeout: 1500 }).catch(() => false);
+
+          if (hasLovContainer) {
+            const children = lovContainer.locator(':scope > div');
+            const count = await children.count().catch(() => 0);
+            for (let i = 0; i < count; i++) {
+              const bar = children.nth(i);
+              const visible = await bar.isVisible().catch(() => false);
+              if (!visible) continue;
+              const box = await bar.boundingBox().catch(() => null);
+              if (box && box.height > 8 && box.width > 1) visibleBars++;
+            }
+            await logStep(page, `Orders chart: found ${visibleBars} bar columns via data-lov-id`, 'info');
+          }
+
+          // Strategy B: class-based bar/column container
+          if (visibleBars === 0) {
+            const classContainer = chartSection
+              .locator('div[class*="bar"], div[class*="column"], div[class*="plot"]')
+              .first();
+            const hasClassContainer = await classContainer.isVisible({ timeout: 1000 }).catch(() => false);
+            if (hasClassContainer) {
+              const children = classContainer.locator(':scope > div, :scope > span');
+              const count = await children.count().catch(() => 0);
+              for (let i = 0; i < count; i++) {
+                const bar = children.nth(i);
+                const visible = await bar.isVisible().catch(() => false);
+                if (!visible) continue;
+                const box = await bar.boundingBox().catch(() => null);
+                if (box && box.height > 8 && box.width > 1) visibleBars++;
+              }
+              await logStep(page, `Orders chart: found ${visibleBars} bar columns via class selector`, 'info');
+            }
+          }
+
+          // Strategy C: scan all divs in chart section for narrow tall elements (bar columns)
+          if (visibleBars === 0) {
+            const allDivs = chartSection.locator('div');
+            const count = await allDivs.count().catch(() => 0);
+            for (let i = 0; i < Math.min(count, 80); i++) {
+              const div = allDivs.nth(i);
+              const visible = await div.isVisible().catch(() => false);
+              if (!visible) continue;
+              const box = await div.boundingBox().catch(() => null);
+              if (box && box.height > 10 && box.width > 1 && box.width < 80) {
+                visibleBars++;
+              }
+            }
+            await logStep(page, `Orders chart: found ${visibleBars} bar-like elements via div scan`, 'info');
+          }
+
+          await logStep(
+            page,
+            `Orders chart plot area visible: ${visibleBars > 0 ? '✓' : 'FAIL'} (${visibleBars} visible bars)`,
+            visibleBars > 0 ? 'pass' : 'fail'
+          );
+
+          if (visibleBars === 0) {
+            throw new Error(`Orders chart has no visible colored bars for ${presetLabel}`);
           }
         }
               
@@ -1519,97 +1540,242 @@ test(`Sales Summary — ${ROLE} (${TEST_USERS.length} users)`, async ({ page }) 
 
         // ════════════════════════════════════════════════════════════════════
         // STEP 4i1 — Date filter: Custom range multi-day
-        // Business rule:
-        // - accepts multi-day range
-        // - button text becomes range
-        // - KPI cards remain visible
-        // - Orders heading remains visible
+        // Requirements:
+        // A. Open Custom range cleanly
+        // B. Random valid multi-day selection (start ≠ end, both clickable)
+        // C. Apply button state: disabled before full selection, enabled after
+        // D. Apply → picker closes, dashboard updates
+        // E. Date button shows exact multi-day range
+        // F. KPI prev label = "Previous period:" (data-lov-id MetricItem.tsx:60:12)
+        // G. KPI current values non-zero (data-lov-id MetricItem.tsx:44:8)
+        // H. KPI previous values non-zero (data-lov-id MetricItem.tsx:63:12)
+        // I. Orders section title contains "Orders" (data-lov-id Sections.tsx:4527:39)
+        // J. Orders chart bar count > 0
         // ════════════════════════════════════════════════════════════════════
         await S('Step 4i1 — Date filter: Custom range multi-day', async () => {
           await ensureSingleVisiblePage(page, '4i1');
           await ensureOnSalesSummary(page, ss, '4i1');
 
+          // ── A. Open Custom range ─────────────────────────────────────────
           const panel = await openDateFilterStrict(page, ss, '4i1');
           await clickDatePresetStrict(page, panel, 'Custom range', '4i1');
 
           const dayButtons = page.locator(
             '[role="gridcell"] button:not([disabled]):not([aria-disabled="true"])'
           );
-
           await expect(dayButtons.first()).toBeVisible({ timeout: 5000 });
 
           const count = await dayButtons.count();
           await logStep(page, `4i1: available calendar day buttons = ${count}`, 'info');
 
-          if (count < 10) {
+          if (count < 4) {
             throw new Error('4i1: not enough selectable calendar days for a multi-day range');
           }
 
-          await logStep(page, '4i1: click start day', 'running');
-          await dayButtons.nth(1).click({ force: true });
-          await page.waitForTimeout(300);
-          await logStep(page, '4i1: start day clicked ✓', 'pass');
+          // ── B. Random multi-day selection (start + end, at least 2 apart) ─
+          const maxStart = Math.max(0, count - 4);
+          const startIdx = Math.floor(Math.random() * (maxStart + 1));
+          const minEnd   = startIdx + 2;
+          const maxEnd   = Math.min(count - 1, startIdx + 5);
+          const endIdx   = minEnd + Math.floor(Math.random() * (maxEnd - minEnd + 1));
 
-          await logStep(page, '4i1: click end day', 'running');
-          await dayButtons.nth(6).click({ force: true });
-          await page.waitForTimeout(300);
-          await logStep(page, '4i1: end day clicked ✓', 'pass');
+          const startDayText = ((await dayButtons.nth(startIdx).textContent()) ?? '').trim();
+          const endDayText   = ((await dayButtons.nth(endIdx).textContent()) ?? '').trim();
+          await logStep(page, `4i1: randomly chosen start="${startDayText}" (idx ${startIdx}) end="${endDayText}" (idx ${endIdx})`, 'info');
 
+          // ── C. Apply disabled before any selection ────────────────────────
           const applyBtn = page.getByRole('button', { name: /^apply$/i }).first();
-          await expect(applyBtn).toBeVisible({ timeout: 4000 });
+          const applyBeforeAny = await applyBtn.isDisabled({ timeout: 2000 }).catch(() => true);
+          await logStep(
+            page,
+            `4i1: Apply disabled before selection: ${applyBeforeAny ? '✓' : 'WARN — already enabled before clicks'}`,
+            applyBeforeAny ? 'pass' : 'info'
+          );
 
-          await logStep(page, '4i1: click Apply', 'running');
+          // Click start day
+          await logStep(page, `4i1: clicking start day "${startDayText}"`, 'running');
+          await dayButtons.nth(startIdx).click({ force: true });
+          await page.waitForTimeout(350);
+          await logStep(page, `4i1: start day "${startDayText}" clicked ✓`, 'pass');
+
+          // Apply should still be disabled after start-only
+          const applyAfterStart = await applyBtn.isDisabled({ timeout: 1000 }).catch(() => false);
+          await logStep(
+            page,
+            `4i1: Apply still disabled after start-only: ${applyAfterStart ? '✓' : 'WARN — enabled after start only'}`,
+            applyAfterStart ? 'pass' : 'info'
+          );
+
+          // Click end day
+          await logStep(page, `4i1: clicking end day "${endDayText}"`, 'running');
+          await dayButtons.nth(endIdx).click({ force: true });
+          await page.waitForTimeout(350);
+          await logStep(page, `4i1: end day "${endDayText}" clicked ✓`, 'pass');
+
+          // Apply must NOW be enabled
+          const applyEnabled = await applyBtn.isEnabled({ timeout: 3000 }).catch(() => false);
+          await logStep(
+            page,
+            `4i1: Apply enabled after full range selection: ${applyEnabled ? '✓' : 'FAIL'}`,
+            applyEnabled ? 'pass' : 'fail'
+          );
+          if (!applyEnabled) {
+            throw new Error('4i1: Apply button did not become enabled after selecting multi-day range');
+          }
+
+          // ── D. Click Apply, confirm picker closes ─────────────────────────
+          await logStep(page, '4i1: clicking Apply', 'running');
           await applyBtn.click({ force: true });
-          await page.waitForTimeout(1200);
+          await page.waitForTimeout(1500);
           await logStep(page, '4i1: Apply clicked ✓', 'pass');
 
-          const btnText = await getDateButton(page, ss);
-          await logStep(page, `4i1: final date button text = "${btnText}"`, 'info');
+          const pickerStillOpen = await applyBtn.isVisible({ timeout: 600 }).catch(() => false);
+          await logStep(
+            page,
+            `4i1: picker closed after Apply: ${!pickerStillOpen ? '✓' : 'WARN — Apply still visible'}`,
+            !pickerStillOpen ? 'pass' : 'info'
+          );
+
+          // ── E. Date button text validation ────────────────────────────────
+          const dateBtn4i1 = page.locator('[data-lov-id="src/components/DatePickerButton.tsx:53:6"]').first();
+          const dateBtnVis4i1 = await dateBtn4i1.isVisible({ timeout: 1000 }).catch(() => false);
+          const dateBtnFinal4i1 = dateBtnVis4i1 ? dateBtn4i1 : ss.dateFilterButton.first();
+          const btnText4i1 = ((await dateBtnFinal4i1.textContent()) ?? '').trim().replace(/\s+/g, ' ');
+          await logStep(page, `4i1: date button text = "${btnText4i1}"`, 'info');
 
           const looksLikeRange =
-            /[A-Z][a-z]{2}\s+\d{1,2}\s*[–-]\s*[A-Z][a-z]{2}\s+\d{1,2},\s+\d{4}/.test(btnText) ||
-            /[A-Z][a-z]{2}\s+\d{1,2}\s*[–-]\s*\d{1,2},\s+\d{4}/.test(btnText);
-
+            /[A-Z][a-z]{2}\s+\d{1,2}\s*[–-]\s*[A-Z][a-z]{2}\s+\d{1,2},\s+\d{4}/.test(btnText4i1) ||
+            /[A-Z][a-z]{2}\s+\d{1,2}\s*[–-]\s*\d{1,2},\s+\d{4}/.test(btnText4i1);
           await logStep(
             page,
-            `4i1: date button shows multi-day range format: ${looksLikeRange ? '✓' : 'FAIL'}`,
+            `4i1: date button shows multi-day range: ${looksLikeRange ? '✓' : 'FAIL — got: "' + btnText4i1 + '"'}`,
             looksLikeRange ? 'pass' : 'fail'
           );
-
           if (!looksLikeRange) {
-            throw new Error(`4i1: expected multi-day range in date button, got "${btnText}"`);
+            throw new Error(`4i1: expected multi-day range in date button, got "${btnText4i1}"`);
           }
 
-          for (const label of ['Contracted sales', 'Units', 'Orders'] as const) {
-            const titleNode = page.getByText(new RegExp(`^${escapeRe(label)}$`, 'i')).first();
-            const card = page.locator('section, div[class*="card"], div[class*="shadow"], div[class*="border"]')
-              .filter({ has: titleNode })
-              .first();
-
-            const visible = await card.isVisible({ timeout: 5000 }).catch(() => false);
-
+          // ── F. KPI previous-period label must be "Previous period:" ───────
+          for (const kpiTitle of ['Contracted sales', 'Units', 'Orders'] as const) {
+            const titleNode4i1 = page.getByText(new RegExp(`^${escapeRe(kpiTitle)}$`, 'i')).first();
+            const card4i1 = page.locator('section, div[class*="card"], div[class*="shadow"], div[class*="border"]')
+              .filter({ has: titleNode4i1 }).first();
+            const prevLabelEl = card4i1.locator('[data-lov-id="src/components/MetricItem.tsx:60:12"]').first();
+            const labelText   = ((await prevLabelEl.textContent().catch(() => '')) ?? '').trim();
+            const ok = /previous period/i.test(labelText);
             await logStep(
               page,
-              `4i1: ${label} card visible after Apply: ${visible ? '✓' : 'FAIL'}`,
-              visible ? 'pass' : 'fail'
+              `4i1: ${kpiTitle} prev label = "${labelText}" — "Previous period:": ${ok ? '✓' : 'FAIL'}`,
+              ok ? 'pass' : 'fail'
             );
-
-            if (!visible) {
-              throw new Error(`4i1: ${label} card not visible after applying custom multi-day range`);
-            }
           }
 
-          const chartHeadingVisible = await page.getByText(/orders\s*[•·]/i).first()
-            .isVisible({ timeout: 4000 }).catch(() => false);
+          // ── G. KPI current values non-zero ────────────────────────────────
+          for (const kpiTitle of ['Contracted sales', 'Units', 'Orders'] as const) {
+            const titleNode4i1g = page.getByText(new RegExp(`^${escapeRe(kpiTitle)}$`, 'i')).first();
+            const card4i1g = page.locator('section, div[class*="card"], div[class*="shadow"], div[class*="border"]')
+              .filter({ has: titleNode4i1g }).first();
+            const currentEl = card4i1g.locator('[data-lov-id="src/components/MetricItem.tsx:44:8"]').first();
+            const rawCurrent = ((await currentEl.textContent().catch(() => '')) ?? '').trim();
+            const valCurrent = parseFloat(rawCurrent.replace(/[^0-9.-]/g, '')) || 0;
+            await logStep(
+              page,
+              `4i1: ${kpiTitle} current = "${rawCurrent}" (${valCurrent}) — non-zero: ${valCurrent !== 0 ? '✓' : 'FAIL'}`,
+              valCurrent !== 0 ? 'pass' : 'fail'
+            );
+          }
 
-          await logStep(
-            page,
-            `4i1: Orders chart heading visible after multi-day Apply: ${chartHeadingVisible ? '✓' : 'FAIL'}`,
-            chartHeadingVisible ? 'pass' : 'fail'
-          );
+          // ── H. KPI previous values non-zero ──────────────────────────────
+          for (const kpiTitle of ['Contracted sales', 'Units', 'Orders'] as const) {
+            const titleNode4i1h = page.getByText(new RegExp(`^${escapeRe(kpiTitle)}$`, 'i')).first();
+            const card4i1h = page.locator('section, div[class*="card"], div[class*="shadow"], div[class*="border"]')
+              .filter({ has: titleNode4i1h }).first();
+            const prevEl = card4i1h.locator('[data-lov-id="src/components/MetricItem.tsx:63:12"]').first();
+            const rawPrev = ((await prevEl.textContent().catch(() => '')) ?? '').trim();
+            const valPrev = parseFloat(rawPrev.replace(/[^0-9.-]/g, '')) || 0;
+            await logStep(
+              page,
+              `4i1: ${kpiTitle} previous = "${rawPrev}" (${valPrev}) — non-zero: ${valPrev !== 0 ? '✓' : 'FAIL'}`,
+              valPrev !== 0 ? 'pass' : 'fail'
+            );
+          }
 
-          if (!chartHeadingVisible) {
-            throw new Error('4i1: Orders chart heading not visible after custom multi-day Apply');
+          // ── I. Orders section title ────────────────────────────────────────
+          const sectionTitleEl4i1 = page.locator('[data-lov-id="src/components/Sections.tsx:4527:39"]').first();
+          const sectionTitleVis4i1 = await sectionTitleEl4i1.isVisible({ timeout: 3000 }).catch(() => false);
+          if (sectionTitleVis4i1) {
+            const sectionText4i1 = ((await sectionTitleEl4i1.textContent().catch(() => '')) ?? '').trim();
+            await logStep(page, `4i1: Orders section title = "${sectionText4i1}"`, 'info');
+            const hasOrders4i1 = /orders/i.test(sectionText4i1);
+            await logStep(
+              page,
+              `4i1: Orders section title contains "Orders": ${hasOrders4i1 ? '✓' : 'FAIL'}`,
+              hasOrders4i1 ? 'pass' : 'fail'
+            );
+          } else {
+            // Fallback: chart heading with "Orders •"
+            const fallbackHeading = page.getByText(/orders\s*[•·]/i).first();
+            const fallbackText    = ((await fallbackHeading.textContent().catch(() => '')) ?? '').trim();
+            const fallbackOk      = await fallbackHeading.isVisible({ timeout: 3000 }).catch(() => false);
+            await logStep(
+              page,
+              `4i1: Orders heading (fallback) = "${fallbackText}" — visible: ${fallbackOk ? '✓' : 'FAIL'}`,
+              fallbackOk ? 'pass' : 'fail'
+            );
+          }
+
+          // ── J. Orders chart bar visibility ────────────────────────────────
+          const chartSection4i1 = page
+            .locator('section, div[class*="chart"], div[class*="card"], div[class*="shadow"], div[class*="border"]')
+            .filter({ has: page.getByText(/orders\s*[•·]/i) })
+            .first();
+          const sectionOk4i1 = await chartSection4i1.isVisible({ timeout: 3000 }).catch(() => false);
+          await logStep(page, `4i1: Orders chart section visible: ${sectionOk4i1 ? '✓' : 'FAIL'}`, sectionOk4i1 ? 'pass' : 'fail');
+
+          if (sectionOk4i1) {
+            let visibleBars4i1 = 0;
+            // Strategy A: data-lov-id
+            const lovContainer4i1 = chartSection4i1.locator('[data-lov-id="src/components/OrderBarChart.tsx:1101:8"]').first();
+            if (await lovContainer4i1.isVisible({ timeout: 1500 }).catch(() => false)) {
+              const children4i1A = lovContainer4i1.locator(':scope > div');
+              const cnt4i1A = await children4i1A.count().catch(() => 0);
+              for (let i = 0; i < cnt4i1A; i++) {
+                const box = await children4i1A.nth(i).boundingBox().catch(() => null);
+                if (box && box.height > 8 && box.width > 1) visibleBars4i1++;
+              }
+              await logStep(page, `4i1: bars via data-lov-id = ${visibleBars4i1}`, 'info');
+            }
+            // Strategy B: class-based
+            if (visibleBars4i1 === 0) {
+              const classContainer4i1 = chartSection4i1.locator('div[class*="bar"], div[class*="column"], div[class*="plot"]').first();
+              if (await classContainer4i1.isVisible({ timeout: 1000 }).catch(() => false)) {
+                const children4i1B = classContainer4i1.locator(':scope > div, :scope > span');
+                const cnt4i1B = await children4i1B.count().catch(() => 0);
+                for (let i = 0; i < cnt4i1B; i++) {
+                  const box = await children4i1B.nth(i).boundingBox().catch(() => null);
+                  if (box && box.height > 8 && box.width > 1) visibleBars4i1++;
+                }
+                await logStep(page, `4i1: bars via class selector = ${visibleBars4i1}`, 'info');
+              }
+            }
+            // Strategy C: div scan
+            if (visibleBars4i1 === 0) {
+              const allDivs4i1 = chartSection4i1.locator('div');
+              const divCount4i1 = await allDivs4i1.count().catch(() => 0);
+              for (let i = 0; i < Math.min(divCount4i1, 80); i++) {
+                const box = await allDivs4i1.nth(i).boundingBox().catch(() => null);
+                if (box && box.height > 10 && box.width > 1 && box.width < 80) visibleBars4i1++;
+              }
+              await logStep(page, `4i1: bars via div scan = ${visibleBars4i1}`, 'info');
+            }
+            await logStep(
+              page,
+              `4i1: Orders chart plot area visible: ${visibleBars4i1 > 0 ? '✓' : 'FAIL'} (${visibleBars4i1} visible bars)`,
+              visibleBars4i1 > 0 ? 'pass' : 'fail'
+            );
+            if (visibleBars4i1 === 0) {
+              throw new Error('4i1: Orders chart has no visible colored bars for custom multi-day range');
+            }
           }
 
           await closeDatePickerIfOpenStrict(page);
@@ -1617,53 +1783,189 @@ test(`Sales Summary — ${ROLE} (${TEST_USERS.length} users)`, async ({ page }) 
 
         // ════════════════════════════════════════════════════════════════════
         // STEP 4i2 — Date filter: Custom range single-day
-        // Business rule:
-        // - same day as start/end should show single-day behavior
-        // - donut/pie style visualization should be visible
+        // Requirements:
+        // A. Open Custom range cleanly
+        // B. Random single-day selection
+        // C. Apply → picker closes, dashboard updates
+        // D. Date button shows exact selected day
+        // E. KPI prev label = "Previous [Weekday]" based on selected day
+        // F. KPI current values non-zero (data-lov-id MetricItem.tsx:44:8)
+        // G. KPI previous values non-zero (data-lov-id MetricItem.tsx:63:12)
+        // H. Orders section title contains "Orders" (data-lov-id Sections.tsx:4527:39)
+        // I. Single-day donut/radial chart visible
+        // J. Orders visualization heading visible
         // ════════════════════════════════════════════════════════════════════
         await S('Step 4i2 — Date filter: Custom range single-day', async () => {
           await ensureSingleVisiblePage(page, '4i2');
           await ensureOnSalesSummary(page, ss, '4i2');
 
-          const panel = await openDateFilterStrict(page, ss, '4i2');
-          await clickDatePresetStrict(page, panel, 'Custom range', '4i2');
+          // ── A. Open Custom range ─────────────────────────────────────────
+          const panel4i2 = await openDateFilterStrict(page, ss, '4i2');
+          await clickDatePresetStrict(page, panel4i2, 'Custom range', '4i2');
 
-          const dayButtons = page.locator(
+          const dayButtons4i2 = page.locator(
             '[role="gridcell"] button:not([disabled]):not([aria-disabled="true"])'
           );
+          await expect(dayButtons4i2.first()).toBeVisible({ timeout: 5000 });
 
-          await expect(dayButtons.first()).toBeVisible({ timeout: 5000 });
+          const count4i2 = await dayButtons4i2.count();
+          await logStep(page, `4i2: available calendar day buttons = ${count4i2}`, 'info');
 
-          await logStep(page, '4i2: click same day twice', 'running');
-          await dayButtons.nth(4).click({ force: true });
-          await page.waitForTimeout(250);
-          await dayButtons.nth(4).click({ force: true });
-          await page.waitForTimeout(250);
-          await logStep(page, '4i2: same day selected twice ✓', 'pass');
+          if (count4i2 < 1) {
+            throw new Error('4i2: no selectable calendar days found');
+          }
 
-          const applyBtn = page.getByRole('button', { name: /^apply$/i }).first();
-          await expect(applyBtn).toBeVisible({ timeout: 4000 });
+          // ── B. Random single-day selection ────────────────────────────────
+          const randomIdx4i2 = Math.floor(Math.random() * Math.min(count4i2, 20));
+          const dayText4i2   = ((await dayButtons4i2.nth(randomIdx4i2).textContent()) ?? '').trim();
+          await logStep(page, `4i2: randomly chosen day = "${dayText4i2}" (idx ${randomIdx4i2})`, 'info');
 
-          await logStep(page, '4i2: click Apply', 'running');
-          await applyBtn.click({ force: true });
-          await page.waitForTimeout(1200);
-          await logStep(page, '4i2: Apply clicked ✓', 'pass');
+          await logStep(page, `4i2: clicking day "${dayText4i2}"`, 'running');
+          await dayButtons4i2.nth(randomIdx4i2).click({ force: true });
+          await page.waitForTimeout(400);
+          await logStep(page, `4i2: day "${dayText4i2}" clicked ✓`, 'pass');
 
-          const btnText = await getDateButton(page, ss);
-          await logStep(page, `4i2: final date button text = "${btnText}"`, 'info');
-
-          const donut = page.locator('svg, canvas, [class*="donut"], [class*="pie"]').first();
-          const donutVisible = await donut.isVisible({ timeout: 4000 }).catch(() => false);
-
+          // Some pickers need same day clicked twice for single-day selection
+          const applyBtn4i2 = page.getByRole('button', { name: /^apply$/i }).first();
+          let applyEnabled4i2 = await applyBtn4i2.isEnabled({ timeout: 1000 }).catch(() => false);
+          if (!applyEnabled4i2) {
+            await logStep(page, `4i2: Apply not yet enabled — clicking same day again for single-day`, 'info');
+            await dayButtons4i2.nth(randomIdx4i2).click({ force: true });
+            await page.waitForTimeout(400);
+            applyEnabled4i2 = await applyBtn4i2.isEnabled({ timeout: 1500 }).catch(() => false);
+          }
           await logStep(
             page,
-            `4i2: single-day visualization (donut/pie) visible: ${donutVisible ? '✓' : 'FAIL'}`,
-            donutVisible ? 'pass' : 'fail'
+            `4i2: Apply enabled for single-day: ${applyEnabled4i2 ? '✓' : 'WARN — applying anyway'}`,
+            applyEnabled4i2 ? 'pass' : 'info'
           );
 
-          if (!donutVisible) {
-            throw new Error('4i2: expected donut/pie visualization for single-day custom range');
+          // ── C. Click Apply ────────────────────────────────────────────────
+          await expect(applyBtn4i2).toBeVisible({ timeout: 4000 });
+          await logStep(page, '4i2: clicking Apply', 'running');
+          await applyBtn4i2.click({ force: true });
+          await page.waitForTimeout(1500);
+          await logStep(page, '4i2: Apply clicked ✓', 'pass');
+
+          // ── D. Date button text ────────────────────────────────────────────
+          const dateBtn4i2 = page.locator('[data-lov-id="src/components/DatePickerButton.tsx:53:6"]').first();
+          const dateBtnVis4i2 = await dateBtn4i2.isVisible({ timeout: 1000 }).catch(() => false);
+          const dateBtnFinal4i2 = dateBtnVis4i2 ? dateBtn4i2 : ss.dateFilterButton.first();
+          const btnText4i2 = ((await dateBtnFinal4i2.textContent()) ?? '').trim().replace(/\s+/g, ' ');
+          await logStep(page, `4i2: date button text = "${btnText4i2}"`, 'info');
+
+          // ── E. Weekday label logic ─────────────────────────────────────────
+          // Parse selected date from button text → compute expected "Previous [Weekday]"
+          const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+          let expectedPrevDayLabel = '';
+          const dateMatch4i2 = btnText4i2.match(/([A-Za-z]+)\s+(\d{1,2}),?\s*(\d{4})/);
+          if (dateMatch4i2) {
+            const monthIdx4i2 = MONTHS.indexOf(dateMatch4i2[1].slice(0, 3));
+            const dayNum4i2   = parseInt(dateMatch4i2[2], 10);
+            const year4i2     = parseInt(dateMatch4i2[3], 10);
+            if (monthIdx4i2 >= 0) {
+              const d4i2 = new Date(year4i2, monthIdx4i2, dayNum4i2);
+              expectedPrevDayLabel = `Previous ${WEEKDAYS[d4i2.getDay()]}`;
+              await logStep(page, `4i2: parsed date → weekday = ${WEEKDAYS[d4i2.getDay()]} → expecting KPI label "${expectedPrevDayLabel}"`, 'info');
+            }
           }
+
+          if (expectedPrevDayLabel) {
+            for (const kpiTitle of ['Contracted sales', 'Units', 'Orders'] as const) {
+              const titleNode4i2e = page.getByText(new RegExp(`^${escapeRe(kpiTitle)}$`, 'i')).first();
+              const card4i2e = page.locator('section, div[class*="card"], div[class*="shadow"], div[class*="border"]')
+                .filter({ has: titleNode4i2e }).first();
+              const prevLabelEl4i2 = card4i2e.locator('[data-lov-id="src/components/MetricItem.tsx:60:12"]').first();
+              const labelText4i2   = ((await prevLabelEl4i2.textContent().catch(() => '')) ?? '').trim();
+              const ok4i2e = labelText4i2.toLowerCase().includes(expectedPrevDayLabel.toLowerCase());
+              await logStep(
+                page,
+                `4i2: ${kpiTitle} prev label = "${labelText4i2}" — matches "${expectedPrevDayLabel}": ${ok4i2e ? '✓' : 'FAIL'}`,
+                ok4i2e ? 'pass' : 'fail'
+              );
+            }
+          }
+
+          // ── F. KPI current values non-zero ────────────────────────────────
+          for (const kpiTitle of ['Contracted sales', 'Units', 'Orders'] as const) {
+            const titleNode4i2f = page.getByText(new RegExp(`^${escapeRe(kpiTitle)}$`, 'i')).first();
+            const card4i2f = page.locator('section, div[class*="card"], div[class*="shadow"], div[class*="border"]')
+              .filter({ has: titleNode4i2f }).first();
+            const currentEl4i2 = card4i2f.locator('[data-lov-id="src/components/MetricItem.tsx:44:8"]').first();
+            const rawCurr4i2   = ((await currentEl4i2.textContent().catch(() => '')) ?? '').trim();
+            const valCurr4i2   = parseFloat(rawCurr4i2.replace(/[^0-9.-]/g, '')) || 0;
+            await logStep(
+              page,
+              `4i2: ${kpiTitle} current = "${rawCurr4i2}" (${valCurr4i2}) — non-zero: ${valCurr4i2 !== 0 ? '✓' : 'FAIL'}`,
+              valCurr4i2 !== 0 ? 'pass' : 'fail'
+            );
+          }
+
+          // ── G. KPI previous values non-zero ──────────────────────────────
+          for (const kpiTitle of ['Contracted sales', 'Units', 'Orders'] as const) {
+            const titleNode4i2g = page.getByText(new RegExp(`^${escapeRe(kpiTitle)}$`, 'i')).first();
+            const card4i2g = page.locator('section, div[class*="card"], div[class*="shadow"], div[class*="border"]')
+              .filter({ has: titleNode4i2g }).first();
+            const prevEl4i2 = card4i2g.locator('[data-lov-id="src/components/MetricItem.tsx:63:12"]').first();
+            const rawPrev4i2 = ((await prevEl4i2.textContent().catch(() => '')) ?? '').trim();
+            const valPrev4i2 = parseFloat(rawPrev4i2.replace(/[^0-9.-]/g, '')) || 0;
+            await logStep(
+              page,
+              `4i2: ${kpiTitle} previous = "${rawPrev4i2}" (${valPrev4i2}) — non-zero: ${valPrev4i2 !== 0 ? '✓' : 'FAIL'}`,
+              valPrev4i2 !== 0 ? 'pass' : 'fail'
+            );
+          }
+
+          // ── H. Orders section title ────────────────────────────────────────
+          const sectionTitleEl4i2 = page.locator('[data-lov-id="src/components/Sections.tsx:4527:39"]').first();
+          const sectionTitleVis4i2 = await sectionTitleEl4i2.isVisible({ timeout: 3000 }).catch(() => false);
+          if (sectionTitleVis4i2) {
+            const sectionText4i2 = ((await sectionTitleEl4i2.textContent().catch(() => '')) ?? '').trim();
+            await logStep(page, `4i2: Orders section title = "${sectionText4i2}"`, 'info');
+            const hasOrders4i2 = /orders/i.test(sectionText4i2);
+            await logStep(
+              page,
+              `4i2: Orders section title contains "Orders": ${hasOrders4i2 ? '✓' : 'FAIL'}`,
+              hasOrders4i2 ? 'pass' : 'fail'
+            );
+          } else {
+            const fallbackHeading4i2 = page.getByText(/orders\s*[•·]/i).first();
+            const fallbackText4i2    = ((await fallbackHeading4i2.textContent().catch(() => '')) ?? '').trim();
+            const fallbackOk4i2      = await fallbackHeading4i2.isVisible({ timeout: 3000 }).catch(() => false);
+            await logStep(
+              page,
+              `4i2: Orders heading (fallback) = "${fallbackText4i2}" — visible: ${fallbackOk4i2 ? '✓' : 'FAIL'}`,
+              fallbackOk4i2 ? 'pass' : 'fail'
+            );
+          }
+
+          // ── I. Single-day chart: donut/radial visualization ───────────────
+          const donutByClass = page.locator(
+            '[class*="donut"], [class*="Donut"], [class*="pie"], [class*="Pie"], [class*="radial"], [class*="Radial"]'
+          ).first();
+          const donutBySvg = page.locator('svg').filter({
+            has: page.locator('circle[r], path[d*="A"]')
+          }).first();
+          const donutVisible4i2 =
+            await donutByClass.isVisible({ timeout: 4000 }).catch(() => false) ||
+            await donutBySvg.isVisible({ timeout: 2000 }).catch(() => false);
+          await logStep(
+            page,
+            `4i2: single-day donut/radial chart visible: ${donutVisible4i2 ? '✓' : 'FAIL'}`,
+            donutVisible4i2 ? 'pass' : 'fail'
+          );
+          if (!donutVisible4i2) {
+            throw new Error('4i2: expected donut/radial chart for single-day custom range, none found');
+          }
+
+          // ── J. Orders visualization heading visible ────────────────────────
+          const ordersVizVisible4i2 = await page.getByText(/orders\s*[•·]/i).first()
+            .isVisible({ timeout: 3000 }).catch(() => false);
+          await logStep(
+            page,
+            `4i2: Orders visualization heading visible: ${ordersVizVisible4i2 ? '✓' : 'FAIL'}`,
+            ordersVizVisible4i2 ? 'pass' : 'fail'
+          );
 
           await closeDatePickerIfOpenStrict(page);
         });
@@ -1703,9 +2005,10 @@ test(`Sales Summary — ${ROLE} (${TEST_USERS.length} users)`, async ({ page }) 
         });
 
         // ════════════════════════════════════════════════════════════════════
-        // STEP 4e — Orders count logic
+        // STEP 4j — Orders count logic
+        // NOTE: labelled 4j (not 4e) to avoid collision with the 4e QTD step
         // ════════════════════════════════════════════════════════════════════
-        await S('Step 4e — Orders count: KPI box == Orders − Returns', async () => {
+        await S('Step 4j — Orders count: KPI box == Orders − Returns', async () => {
           const kpiCard = page.locator('button').filter({ hasText: /^orders/i }).first();
           const kpiTxt  = (await kpiCard.textContent() ?? '').trim();
           const kpiVal  = parseKpi(kpiTxt).current;
@@ -1916,15 +2219,15 @@ test(`Sales Summary — ${ROLE} (${TEST_USERS.length} users)`, async ({ page }) 
         });
 
         // Role-specific extra checks
-        if (ROLE === 'director') {
+        if (role === 'director') {
           await S('Director-specific — Show team button & rep filter', async () => {
             const showTeam = await ss.showTeamButton.isVisible({ timeout: 5_000 }).catch(() => false);
             await logStep(page, `"Show team" button visible for director: ${showTeam?'✓':'FAIL'}`, showTeam?'pass':'fail');
           });
         } else {
-          await S(`${ROLE} — "Show team" should NOT be visible`, async () => {
+          await S(`${role} — "Show team" should NOT be visible`, async () => {
             const showTeam = await ss.showTeamButton.isVisible({ timeout: 3_000 }).catch(() => false);
-            await logStep(page, `"Show team" hidden for ${ROLE}: ${!showTeam?'✓':'FAIL'}`, !showTeam?'pass':'fail');
+            await logStep(page, `"Show team" hidden for ${role}: ${!showTeam?'✓':'FAIL'}`, !showTeam?'pass':'fail');
           });
         }
 
@@ -1939,7 +2242,8 @@ test(`Sales Summary — ${ROLE} (${TEST_USERS.length} users)`, async ({ page }) 
         }
       }
 
-    } // end for (const user of TEST_USERS)
+      } // end for (const user of roleUsers)
+    } // end for (const role of ROLES_TO_RUN)
 
   } finally {}
 });
