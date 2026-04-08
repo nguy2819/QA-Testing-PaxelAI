@@ -35,6 +35,6 @@ RUN npm ci
 
 COPY . .
 
-EXPOSE 3001
+EXPOSE 10000
 
 CMD ["/bin/bash", "/app/docker/start.sh"]

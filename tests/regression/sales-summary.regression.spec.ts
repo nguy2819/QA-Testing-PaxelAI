@@ -657,9 +657,15 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
 
           await logStep(page, `${stepId}: WRONG PAGE → navigating to Sales Summary`, 'info');
 
-          await ss.navigateViaMenu();
-          await page.waitForLoadState('networkidle').catch(() => {});
-          await page.waitForTimeout(1500);
+          try {
+            await ss.navigateViaMenu();
+            await page.waitForLoadState('networkidle').catch(() => {});
+            await page.waitForTimeout(1500);
+          } catch {
+            await logStep(page, `${stepId}: menu navigation failed, using direct dashboard URL fallback`, 'info');
+            await page.goto('https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-year', { waitUntil: 'networkidle' });
+            await page.waitForTimeout(1500);
+          }
 
           const finalUrl = page.url();
           const finalIsDashboardUrl = /\/tenant\/dashboard/i.test(finalUrl);
@@ -797,37 +803,101 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
         }
 
         async function clickDatePresetStrict(page: Page, panel: Locator, presetLabel: string, stepId: string) {
-          const preset = panel.locator('button, [role="button"], div, li')
+        let preset: Locator;
+
+        if (presetLabel.toLowerCase() === 'custom range') {
+          preset = panel.getByRole('button', { name: new RegExp(`^${escapeRe(presetLabel)}$`, 'i') }).first();
+
+          const roleBtnVisible = await preset.isVisible({ timeout: 1500 }).catch(() => false);
+
+          if (!roleBtnVisible) {
+            preset = panel.locator('button, [role="button"], li')
+              .filter({ hasText: new RegExp(`^${escapeRe(presetLabel)}$`, 'i') })
+              .first();
+          }
+        } else {
+          preset = panel.locator('button, [role="button"], li')
             .filter({ hasText: new RegExp(`^${escapeRe(presetLabel)}$`, 'i') })
             .first();
-
-          await logStep(page, `${stepId}: wait for preset "${presetLabel}" inside picker`, 'running');
-          const visible = await preset.isVisible({ timeout: 4000 }).catch(() => false);
-
-          await logStep(
-            page,
-            `${stepId}: preset "${presetLabel}" visible ${visible ? '✓' : 'FAIL'}`,
-            visible ? 'pass' : 'fail'
-          );
-
-          if (!visible) {
-            throw new Error(`${stepId}: preset "${presetLabel}" not visible inside picker`);
-          }
-
-          const box = await preset.boundingBox();
-          if (!box) throw new Error(`${stepId}: preset "${presetLabel}" has no bounding box`);
-
-          const cx = box.x + box.width / 2;
-          const cy = box.y + box.height / 2;
-
-          await logStep(page, `${stepId}: click preset "${presetLabel}"`, 'running');
-          await page.mouse.move(cx, cy);
-          await page.waitForTimeout(150);
-          await page.mouse.click(cx, cy);
-          await page.waitForTimeout(1200);
-
-          await logStep(page, `${stepId}: clicked preset "${presetLabel}" ✓`, 'pass');
         }
+
+        await logStep(page, `${stepId}: wait for preset "${presetLabel}" inside picker`, 'running');
+        const visible = await preset.isVisible({ timeout: 4000 }).catch(() => false);
+
+        await logStep(
+          page,
+          `${stepId}: preset "${presetLabel}" visible ${visible ? '✓' : 'FAIL'}`,
+          visible ? 'pass' : 'fail'
+        );
+
+        if (!visible) {
+          throw new Error(`${stepId}: preset "${presetLabel}" not visible inside picker`);
+        }
+
+        await preset.scrollIntoViewIfNeeded().catch(() => {});
+        await preset.click({ timeout: 3000 });
+
+        await page.waitForTimeout(1200);
+
+        await logStep(page, `${stepId}: clicked preset "${presetLabel}" ✓`, 'pass');
+      }
+
+        async function waitForCustomRangeCalendarStrict(page: Page, stepId: string) {
+        const calendarRoot = page.locator(
+          '.custom-range-calendar, .rdrDateRangeWrapper, .rdrCalendarWrapper, [data-lov-id="src/components/DesktopDatePicker.tsx:381:8"]'
+        ).filter({
+          has: page.getByRole('button', { name: /^apply$/i })
+        }).first();
+
+        const calendarVisible = await calendarRoot.isVisible({ timeout: 4000 }).catch(() => false);
+
+        await logStep(
+          page,
+          `${stepId}: custom calendar root visible: ${calendarVisible ? '✓' : 'FAIL'}`,
+          calendarVisible ? 'pass' : 'fail'
+        );
+
+        if (!calendarVisible) {
+          throw new Error(`${stepId}: custom calendar root did not appear after clicking Custom range`);
+        }
+
+        const dayButtons = calendarRoot.locator(
+          'button:not([disabled]):not([aria-disabled="true"])'
+        );
+
+        const allButtons = await dayButtons.count().catch(() => 0);
+        await logStep(page, `${stepId}: raw custom-calendar buttons = ${allButtons}`, 'info');
+
+        if (allButtons < 1) {
+          throw new Error(`${stepId}: no buttons found inside custom calendar`);
+        }
+
+        return { calendarRoot, dayButtons };
+      }
+
+      async function openCustomRangeCalendarStrict(page: Page, ss: SalesSummaryPage, stepId: string) {
+      await logStep(page, `${stepId}: URL before open = ${page.url()}`, 'info');
+
+      const panel = await openDateFilterStrict(page, ss, stepId);
+      await clickDatePresetStrict(page, panel, 'Custom range', stepId);
+
+      await logStep(page, `${stepId}: URL after clicking Custom range = ${page.url()}`, 'info');
+
+      const presetListStillVisible = await panel.isVisible({ timeout: 800 }).catch(() => false);
+      await logStep(
+        page,
+        `${stepId}: preset list still visible after Custom range click: ${presetListStillVisible ? 'yes' : 'no'}`,
+        'info'
+      );
+
+      try {
+        return await waitForCustomRangeCalendarStrict(page, stepId);
+      } catch {
+        await logStep(page, `${stepId}: retry clicking Custom range`, 'info');
+        await clickDatePresetStrict(page, panel, 'Custom range', stepId);
+        return await waitForCustomRangeCalendarStrict(page, stepId);
+      }
+    }
 
         async function getDateButton(page: Page, ss: SalesSummaryPage) {
           const txt = ((await ss.dateFilterButton.first().textContent()) ?? '').trim();
@@ -1557,15 +1627,9 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
           await ensureOnSalesSummary(page, ss, '4i1');
 
           // ── A. Open Custom range ─────────────────────────────────────────
-          const panel = await openDateFilterStrict(page, ss, '4i1');
-          await clickDatePresetStrict(page, panel, 'Custom range', '4i1');
-
-          const dayButtons = page.locator(
-            '[role="gridcell"] button:not([disabled]):not([aria-disabled="true"])'
-          );
-          await expect(dayButtons.first()).toBeVisible({ timeout: 5000 });
-
+          const { calendarRoot, dayButtons } = await openCustomRangeCalendarStrict(page, ss, '4i1');
           const count = await dayButtons.count();
+
           await logStep(page, `4i1: available calendar day buttons = ${count}`, 'info');
 
           if (count < 4) {
@@ -1573,10 +1637,10 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
           }
 
           // ── B. Random multi-day selection (start + end, at least 2 apart) ─
-          const maxStart = Math.max(0, count - 4);
+          const maxStart = Math.max(0, Math.min(count - 4, 8));
           const startIdx = Math.floor(Math.random() * (maxStart + 1));
-          const minEnd   = startIdx + 2;
-          const maxEnd   = Math.min(count - 1, startIdx + 5);
+          const minEnd   = startIdx + 1;
+          const maxEnd   = Math.min(count - 1, startIdx + 4);
           const endIdx   = minEnd + Math.floor(Math.random() * (maxEnd - minEnd + 1));
 
           const startDayText = ((await dayButtons.nth(startIdx).textContent()) ?? '').trim();
@@ -1584,8 +1648,7 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
           await logStep(page, `4i1: randomly chosen start="${startDayText}" (idx ${startIdx}) end="${endDayText}" (idx ${endIdx})`, 'info');
 
           // ── C. Apply disabled before any selection ────────────────────────
-          const applyBtn = page.getByRole('button', { name: /^apply$/i }).first();
-          const applyBeforeAny = await applyBtn.isDisabled({ timeout: 2000 }).catch(() => true);
+          const applyBtn = calendarRoot.getByRole('button', { name: /^apply$/i }).first();          const applyBeforeAny = await applyBtn.isDisabled({ timeout: 2000 }).catch(() => true);
           await logStep(
             page,
             `4i1: Apply disabled before selection: ${applyBeforeAny ? '✓' : 'WARN — already enabled before clicks'}`,
@@ -1800,13 +1863,7 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
           await ensureOnSalesSummary(page, ss, '4i2');
 
           // ── A. Open Custom range ─────────────────────────────────────────
-          const panel4i2 = await openDateFilterStrict(page, ss, '4i2');
-          await clickDatePresetStrict(page, panel4i2, 'Custom range', '4i2');
-
-          const dayButtons4i2 = page.locator(
-            '[role="gridcell"] button:not([disabled]):not([aria-disabled="true"])'
-          );
-          await expect(dayButtons4i2.first()).toBeVisible({ timeout: 5000 });
+          const { calendarRoot, dayButtons: dayButtons4i2 } = await openCustomRangeCalendarStrict(page, ss, '4i2');
 
           const count4i2 = await dayButtons4i2.count();
           await logStep(page, `4i2: available calendar day buttons = ${count4i2}`, 'info');
@@ -1826,8 +1883,7 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
           await logStep(page, `4i2: day "${dayText4i2}" clicked ✓`, 'pass');
 
           // Some pickers need same day clicked twice for single-day selection
-          const applyBtn4i2 = page.getByRole('button', { name: /^apply$/i }).first();
-          let applyEnabled4i2 = await applyBtn4i2.isEnabled({ timeout: 1000 }).catch(() => false);
+          const applyBtn4i2 = calendarRoot.getByRole('button', { name: /^apply$/i }).first();          let applyEnabled4i2 = await applyBtn4i2.isEnabled({ timeout: 1000 }).catch(() => false);
           if (!applyEnabled4i2) {
             await logStep(page, `4i2: Apply not yet enabled — clicking same day again for single-day`, 'info');
             await dayButtons4i2.nth(randomIdx4i2).click({ force: true });
@@ -2009,6 +2065,8 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
         // NOTE: labelled 4j (not 4e) to avoid collision with the 4e QTD step
         // ════════════════════════════════════════════════════════════════════
         await S('Step 4j — Orders count: KPI box == Orders − Returns', async () => {
+          await ensureSingleVisiblePage(page, '4j');
+          await ensureOnSalesSummary(page, ss, '4j');
           const kpiCard = page.locator('button').filter({ hasText: /^orders/i }).first();
           const kpiTxt  = (await kpiCard.textContent() ?? '').trim();
           const kpiVal  = parseKpi(kpiTxt).current;

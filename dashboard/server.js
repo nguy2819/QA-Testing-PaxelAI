@@ -261,7 +261,7 @@ app.get('/api/status', (req, res) => {
 const server = http.createServer(app);
 server.on('upgrade', vncProxy.upgrade);   // forward browser WS upgrades to :6080
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`\n  🧪 Paxel.AI QA Dashboard`);
-  console.log(`  ➜  http://localhost:${PORT}\n`);
+  console.log(`  ➜  http://0.0.0.0:${PORT}\n`);
 });

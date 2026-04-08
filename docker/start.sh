@@ -60,6 +60,7 @@ x11vnc \
   -shared \
   -forever \
   -rfbport 5900 \
+  -localhost \
   -xkb \
   -noxdamage \
   &
@@ -72,8 +73,8 @@ echo "[4/5] Starting websockify + noVNC on port 6080 ..."
 # localhost:5900  upstream VNC TCP target
 websockify \
   --web /app/novnc \
-  6080 \
-  localhost:5900 \
+  127.0.0.1:6080 \
+  127.0.0.1:5900 \
   &
 wait_for_port 6080 "websockify/noVNC"
 
@@ -81,9 +82,9 @@ wait_for_port 6080 "websockify/noVNC"
 echo ""
 echo "✅ VNC stack is fully up"
 echo "   DISPLAY   : :99 (Xvfb 1440x900)"
-echo "   VNC TCP   : localhost:5900"
-echo "   noVNC UI  : http://localhost:6080/vnc.html"
-echo "   Dashboard : http://localhost:3001"
+echo "   VNC TCP   : 127.0.0.1:5900"
+echo "   noVNC WS  : 127.0.0.1:6080"
+echo "   Dashboard : Node on \$PORT"
 echo ""
 
 # ── 6. Node server ─────────────────────────────────────────────────────────────
