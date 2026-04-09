@@ -40,11 +40,19 @@ wait_for_display() {
   echo "  ✅ DISPLAY=:99 is ready"
 }
 
+# Clean stale lock (important on Render restarts)
+rm -f /tmp/.X99-lock
+
 # ── 1. Virtual display ─────────────────────────────────────────────────────────
-echo "[1/5] Starting Xvfb on DISPLAY=:99 ..."
-Xvfb :99 -screen 0 1440x900x24 -ac &
-export DISPLAY=:99
-wait_for_display
+# Only start Xvfb if not already running
+if xdpyinfo -display :99 >/dev/null 2>&1; then
+  echo "⚠️ Xvfb already running on :99, skipping..."
+else
+  echo "[1/5] Starting Xvfb on DISPLAY=:99 ..."
+  Xvfb :99 -screen 0 1440x900x24 -ac &
+  export DISPLAY=:99
+  wait_for_display
+fi
 
 # ── 2. Window manager ──────────────────────────────────────────────────────────
 echo "[2/5] Starting fluxbox ..."
