@@ -674,9 +674,9 @@ function getApiBase() {
 // ─────────────────────────────────────────────────────────────────────────────
 function getVncUrl() {
   // Use a relative path so this works both locally (Docker) and on Render.
-  // `path=websockify` tells noVNC to open its WebSocket at /websockify on
+  // `path=/websockify` tells noVNC to open its WebSocket at /websockify on
   // the same origin — Express proxies that to websockify on :6080 internally.
-  const params = 'autoconnect=true&reconnect=true&resize=scale&path=websockify';
+  const params = 'autoconnect=true&reconnect=true&resize=scale&path=/websockify';
   return `/novnc/vnc.html?${params}`;
 }
 function startLiveFeed() {
