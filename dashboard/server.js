@@ -101,7 +101,9 @@ const vncProxy = createProxyMiddleware({
   xfwd: false,
 });
 
-app.use('/websockify', vncProxy);
+app.get('/websockify', (_req, res) => {
+  res.status(426).send('Upgrade Required');
+});
 
 // ── Spec map ──────────────────────────────────────────────────────────────────
 const SPEC_MAP = {
@@ -263,13 +265,13 @@ app.get('/api/status', (req, res) => {
 const server = http.createServer(app);
 
 server.on('upgrade', (req, socket, head) => {
-  if (req.url && req.url.startsWith('/websockify')) {
-    req.headers.origin = '';
-    req.headers.host = '127.0.0.1:6080';
-    vncProxy.upgrade(req, socket, head);
-  } else {
+  if (!req.url || !req.url.startsWith('/websockify')) {
     socket.destroy();
+    return;
   }
+
+  req.headers.origin = '';
+  vncProxy.upgrade(req, socket, head);
 });
 
 server.listen(PORT, '0.0.0.0', () => {
