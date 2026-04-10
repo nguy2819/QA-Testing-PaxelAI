@@ -81,9 +81,8 @@ echo "[4/5] Starting websockify + noVNC on port 6080 ..."
 # localhost:5900  upstream VNC TCP target
 websockify \
   --web /app/novnc \
-  --allow-origin="*" \
-  6080 \
-  localhost:5900 \
+  127.0.0.1:6080 \
+  127.0.0.1:5900 \
   &
 wait_for_port 6080 "websockify/noVNC"
 

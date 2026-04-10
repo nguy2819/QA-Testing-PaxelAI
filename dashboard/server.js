@@ -259,13 +259,13 @@ app.get('/api/status', (req, res) => {
 // are handled. app.listen() doesn't expose the underlying net.Server in a way
 // that lets us attach the WS upgrade handler reliably.
 const server = http.createServer(app);
+
 server.on('upgrade', (req, socket, head) => {
-  // 🔥 Fix Render WebSocket issues
   req.headers.origin = '';
   req.headers.host = 'localhost';
-
   vncProxy.upgrade(req, socket, head);
 });
+
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`\n  🧪 Paxel.AI QA Dashboard`);
   console.log(`  ➜  http://0.0.0.0:${PORT}\n`);
