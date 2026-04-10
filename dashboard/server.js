@@ -94,11 +94,13 @@ if (NOVNC_DIR) {
 // public port, so we forward the WS upgrade through Express instead of
 // pointing the browser directly at :6080.
 const vncProxy = createProxyMiddleware({
-  target: 'http://localhost:6080',
+  target: 'ws://127.0.0.1:6080',
   ws: true,
   changeOrigin: true,
-  logLevel: 'silent',
+  logLevel: 'debug',
+  xfwd: false,
 });
+
 app.use('/websockify', vncProxy);
 
 // ── Spec map ──────────────────────────────────────────────────────────────────
@@ -261,9 +263,13 @@ app.get('/api/status', (req, res) => {
 const server = http.createServer(app);
 
 server.on('upgrade', (req, socket, head) => {
-  req.headers.origin = '';
-  req.headers.host = 'localhost';
-  vncProxy.upgrade(req, socket, head);
+  if (req.url && req.url.startsWith('/websockify')) {
+    req.headers.origin = '';
+    req.headers.host = '127.0.0.1:6080';
+    vncProxy.upgrade(req, socket, head);
+  } else {
+    socket.destroy();
+  }
 });
 
 server.listen(PORT, '0.0.0.0', () => {
