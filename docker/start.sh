@@ -55,8 +55,11 @@ else
 fi
 
 # ── 2. Window manager ──────────────────────────────────────────────────────────
+export XDG_CURRENT_DESKTOP=fluxbox
+export DESKTOP_SESSION=fluxbox
 echo "[2/5] Starting fluxbox ..."
 fluxbox -display :99 >/dev/null 2>&1 &
+while true; do pkill xmessage || true; sleep 2; done &
 sleep 1   # fluxbox has no port to probe; 1 s is enough
 
 # ── 3. VNC server ──────────────────────────────────────────────────────────────
