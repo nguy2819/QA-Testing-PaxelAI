@@ -18,11 +18,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && dpkg-reconfigure -f noninteractive tzdata \
     && rm -rf /var/lib/apt/lists/*
 
-# Put noVNC in a stable app-owned path
 RUN git clone --depth=1 https://github.com/novnc/noVNC.git /app/novnc \
     && rm -rf /app/novnc/.git
 
-# Verify binaries and noVNC files exist at build time
 RUN which Xvfb || { echo "MISSING: Xvfb"; exit 1; } && \
     which x11vnc || { echo "MISSING: x11vnc"; exit 1; } && \
     which fluxbox || { echo "MISSING: fluxbox"; exit 1; } && \
@@ -30,10 +28,13 @@ RUN which Xvfb || { echo "MISSING: Xvfb"; exit 1; } && \
     test -f /app/novnc/vnc.html || { echo "MISSING: /app/novnc/vnc.html"; exit 1; }
 
 WORKDIR /app
+
 COPY package*.json ./
 RUN npm ci
 
 COPY . .
+
+RUN sed -i 's/\r$//' /app/docker/start.sh && chmod +x /app/docker/start.sh
 
 EXPOSE 10000
 
