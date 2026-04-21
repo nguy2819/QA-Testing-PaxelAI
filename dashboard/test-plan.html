@@ -844,29 +844,37 @@
           </div>
         </div>
 
-        <!-- Step 4j — Orders count (formerly 4e) -->
+        <!-- Step 4j Show customer type info button — popup content (Current / Returning new / New) and close behaviors (outside click / X / GOT IT)-->
         <div class="step-card">
-          <div class="step-card-header" onclick="toggleStep(this)">
-            <div class="step-num">4j</div>
-            <div class="step-title-wrap">
-              <div class="step-title">Orders count — KPI box = Orders − Returns logic</div>
-              <div class="step-subtitle">Verify the Orders KPI equals the Orders filter count minus the Returns filter count</div>
-              <div class="step-tags"><span class="step-tag kpi">KPI</span></div>
+        <div class="step-card-header" onclick="toggleStep(this)">
+          <div class="step-num">4j</div>
+          <div class="step-title-wrap">
+            <div class="step-title">Show customer type info button</div>
+            <div class="step-subtitle">
+              Open the customer type info popup from the Buyers section and verify content + 3 close behaviors
             </div>
-            <div class="step-toggle">▸</div>
+            <div class="step-tags">
+              <span class="step-tag kpi">UI</span>
+              <span class="step-tag filter">Popup</span>
+            </div>
           </div>
-          <div class="step-body">
-            <ul>
-              <li>Read the Orders KPI card value (e.g. 42).</li>
-              <li>Click the Orders nav tab to open the order type filter.</li>
-              <li>Select "Orders" → record the count shown in the nav bar.</li>
-              <li>Select "Returns" → record the count.</li>
-              <li>Verify: Orders count − Returns count = Orders KPI value.</li>
-              <li>Reset filter to "All" at the end.</li>
-            </ul>
-            <div class="note">⚠ Order type filter selector may need DOM discovery — currently detected via text matching "Order type / All orders / All types". Previously numbered 4e; renumbered 4j to make room for the new Date Filter sections 4b–4i.</div>
+          <div class="step-toggle">▸</div>
+        </div>
+        <div class="step-body">
+          <ul>
+            <li>Open the date filter, pick a random single day, and Apply so the dashboard refreshes.</li>
+            <li>Locate the customer type info button inside the Buyers section using the live DOM selector (data-lov-id from Sections.tsx).</li>
+            <li>Click the info button → popup opens.</li>
+            <li>Verify the popup content includes these customer type descriptions: <strong>Current</strong>, <strong>Returning new</strong>, <strong>New</strong>.</li>
+            <li>Close behavior A: click outside the popup → popup closes.</li>
+            <li>Close behavior B: click the <strong>X</strong> button → popup closes.</li>
+            <li>Close behavior C: click the <strong>GOT IT</strong> button → popup closes.</li>
+          </ul>
+          <div class="note">
+            ⚠ Use the live DOM <code>data-lov-id</code> for the info button. The selector should be treated as the source of truth, not the old Orders count logic.
           </div>
         </div>
+      </div>
 
         <!-- Step 5a -->
         <div class="step-card">
