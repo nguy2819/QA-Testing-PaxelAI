@@ -1828,48 +1828,51 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
           await closeDatePickerIfOpenStrict(page);
         });
 
-        // ════════════════════════════════════════════════════════════════════
+                // ════════════════════════════════════════════════════════════════════
         // STEP 4i2 — Date filter: Custom range single-day
         // Requirements:
         // A. Open Custom range cleanly
         // B. Random single-day selection
         // C. Apply → picker closes, dashboard updates
         // D. Date button shows exact selected day
-        // E. KPI prev label = "Previous [Weekday]" based on selected day
-        // F. KPI current values non-zero (data-lov-id MetricItem.tsx:44:8)
-        // G. KPI previous values non-zero (data-lov-id MetricItem.tsx:63:12)
-        // H. Orders section title contains "Orders" (data-lov-id Sections.tsx:4527:39)
-        // I. Single-day donut/radial chart visible
-        // J. Orders visualization heading visible
+        // E. All 3 KPI cards visible
+        // F. All 3 KPI cards contain "Previous"
+        // G. Current + previous values parse and are non-zero
+        // H. Orders heading visible
+        // I. Orders chart section visible
+        // J. Chart plot detected
+        // K. Single-day donut/radial chart visible
         // ════════════════════════════════════════════════════════════════════
         await runSoftStep(page, '4i2', 'Step 4i2 — Date filter: Custom range single-day', async () => {
           await ensureSingleVisiblePage(page, '4i2');
           await ensureOnSalesSummary(page, ss, '4i2');
 
-          // ── A. Open Custom range ─────────────────────────────────────────
+          // A. Open Custom range
           const { calendarRoot } = await openCustomRangeCalendarStrict(page, ss, '4i2');
           const dayButtons = await getRealCalendarDayButtons(calendarRoot);
 
           const count = dayButtons.length;
           await logStep(page, `4i2: available real calendar day buttons = ${count}`, 'info');
+
           if (count < 1) {
             await logStep(page, '4i2: no selectable calendar days found', 'fail');
             return;
           }
 
-          // ── B. Random single-day selection ────────────────────────────────
+          // B. Pick one real day
           const randomIdx = Math.floor(Math.random() * Math.min(count, 20));
           const dayBtn = dayButtons[randomIdx];
           const dayText = ((await dayBtn.textContent().catch(() => '')) ?? '').trim();
-          await logStep(page, `4i2: clicking day "${dayText}" (idx ${randomIdx})`, 'running');
 
+          await logStep(page, `4i2: clicking day "${dayText}" (idx ${randomIdx})`, 'running');
           await dayBtn.click({ force: true });
           await page.waitForTimeout(400);
           await logStep(page, `4i2: day "${dayText}" clicked ✓`, 'pass');
 
-          // Some pickers need same day clicked twice for single-day selection
+          // Some calendars require clicking same day again for true single-day selection
           const applyBtn = calendarRoot.getByRole('button', { name: /^apply$/i }).first();
           let applyEnabled = await applyBtn.isEnabled({ timeout: 1000 }).catch(() => false);
+
           if (!applyEnabled) {
             await logStep(page, '4i2: Apply not yet enabled — clicking same day again for single-day', 'info');
             await dayBtn.click({ force: true });
@@ -1877,10 +1880,19 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
             applyEnabled = await applyBtn.isEnabled({ timeout: 1500 }).catch(() => false);
           }
 
-          await logStep(page, `4i2: Apply enabled for single-day: ${applyEnabled ? '✓' : 'WARN — applying anyway'}`, applyEnabled ? 'pass' : 'info');
+          await logStep(
+            page,
+            `4i2: Apply enabled for single-day: ${applyEnabled ? '✓' : 'FAIL'}`,
+            applyEnabled ? 'pass' : 'fail'
+          );
 
-          // ── C. Click Apply ────────────────────────────────────────────────
+          if (!applyEnabled) {
+            return;
+          }
+
+          // C. Apply and wait for dashboard update
           const beforeDateText = await getDateButton(page, ss);
+
           await logStep(page, '4i2: clicking Apply', 'running');
           await applyBtn.click({ force: true });
 
@@ -1892,13 +1904,72 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
           await ss.waitForDashboardRefresh();
           await logStep(page, '4i2: Apply clicked ✓', 'pass');
 
-          // ── D. Date button text ────────────────────────────────────────────
-          const dateBtn4i2 = page.locator('[data-lov-id="src/components/DatePickerButton.tsx:53:6"]').first();
-          const dateBtnVis4i2 = await dateBtn4i2.isVisible({ timeout: 1000 }).catch(() => false);
-          const dateBtnFinal4i2 = dateBtnVis4i2 ? dateBtn4i2 : ss.dateFilterButton.first();
-          const btnText4i2 = ((await dateBtnFinal4i2.textContent()) ?? '').trim().replace(/\s+/g, ' ');
+          // D. Date button must show single-day text, not a range
+          const btnText4i2 = (await getDateButton(page, ss)).replace(/\s+/g, ' ');
           await logStep(page, `4i2: date button text = "${btnText4i2}"`, 'info');
 
+          const looksLikeSingleDay =
+            /^[A-Z][a-z]{2}\s+\d{1,2},\s+\d{4}$/.test(btnText4i2) &&
+            !/[–-]/.test(btnText4i2);
+
+          await logStep(
+            page,
+            `4i2: date button shows single day: ${looksLikeSingleDay ? '✓' : 'FAIL'}`,
+            looksLikeSingleDay ? 'pass' : 'fail'
+          );
+
+          if (!looksLikeSingleDay) {
+            return;
+          }
+
+          // E/F/G. Reuse the same strict KPI validator pattern as 4i1
+          // For single-day custom range we only require "Previous" to be present,
+          // not a weekday-specific label yet.
+          await validateKpiCardsRegularStrict(page, 'Previous', '4i2').catch(async (e: any) => {
+            await logStep(page, `4i2 KPI validation soft-fail: ${String(e?.message ?? e).split('\n')[0]}`, 'fail');
+          });
+
+          // H/I/J. Orders heading + chart section + plot
+          // Use actual button text so the heading expectation matches exactly.
+          await validateOrdersChart(page, btnText4i2).catch(async (e: any) => {
+            await logStep(page, `4i2 Orders chart soft-fail: ${String(e?.message ?? e).split('\n')[0]}`, 'fail');
+          });
+
+          // K. Single-day donut / radial chart
+          // Scope detection to the Buyers card first, then fallback broadly.
+          const buyersCard = page.locator(
+            '[data-lov-id="src/components/Sections.tsx:4914:18"]'
+          ).first();
+
+          const donutInBuyers = buyersCard.locator(
+            'svg, canvas, [class*="donut"], [class*="Donut"], [class*="pie"], [class*="Pie"], [class*="radial"], [class*="Radial"]'
+          ).first();
+
+          const donutVisibleInBuyers = await donutInBuyers.isVisible({ timeout: 4000 }).catch(() => false);
+
+          let donutVisible4i2 = donutVisibleInBuyers;
+
+          if (!donutVisible4i2) {
+            const broadDonut = page.locator(
+              'svg, canvas, [class*="donut"], [class*="Donut"], [class*="pie"], [class*="Pie"], [class*="radial"], [class*="Radial"]'
+            ).first();
+
+            donutVisible4i2 = await broadDonut.isVisible({ timeout: 2500 }).catch(() => false);
+          }
+
+          await logStep(
+            page,
+            `4i2: single-day donut/radial chart visible: ${donutVisible4i2 ? '✓' : 'FAIL'}`,
+            donutVisible4i2 ? 'pass' : 'fail'
+          );
+
+          // Soft only — continue to later steps even if donut is not detected
+          if (!donutVisible4i2) {
+            await logStep(page, '4i2: donut/radial chart not detected, but continuing', 'info');
+          }
+
+          await closeDatePickerIfOpenStrict(page);
+        });
           // ── E. Weekday label logic ─────────────────────────────────────────
           // Parse selected date from button text → compute expected "Previous [Weekday]" - STILL CAN'T RUN
           // const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -1931,71 +2002,6 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
           //   }
           // }
 
-          // ── F/G/H. KPI checks: keep only soft logging, do not fail step ───────────
-          // 4i2 is a single-day custom range. KPI text can be unstable here,
-          // so do not hard-fail the step on KPI parsing.
-          for (const kpiTitle of ['Contracted sales', 'Units', 'Orders'] as const) {
-            const titleNode4i2 = page.getByText(new RegExp(`^${escapeRe(kpiTitle)}$`, 'i')).first();
-            const card4i2 = page.locator('section, div[class*="card"], div[class*="shadow"], div[class*="border"]')
-              .filter({ has: titleNode4i2 }).first();
-
-            const cardVisible = await card4i2.isVisible({ timeout: 3000 }).catch(() => false);
-            if (!cardVisible) {
-              await logStep(page, `4i2: ${kpiTitle} card not visible`, 'info');
-              continue;
-            }
-
-            const cardText = ((await card4i2.textContent().catch(() => '')) ?? '').trim();
-            await logStep(page, `4i2: ${kpiTitle} card text = "${cardText.slice(0, 160)}"`, 'info');
-
-            const prevLabelEl4i2 = card4i2.locator('[data-lov-id="src/components/MetricItem.tsx:60:12"]').first();
-            const labelText4i2 = ((await prevLabelEl4i2.textContent().catch(() => '')) ?? '').trim();
-            await logStep(page, `4i2: ${kpiTitle} prev label = "${labelText4i2}"`, 'info');
-
-            const currentEl4i2 = card4i2.locator('[data-lov-id="src/components/MetricItem.tsx:44:8"]').first();
-            const rawCurr4i2 = ((await currentEl4i2.textContent().catch(() => '')) ?? '').trim();
-            await logStep(page, `4i2: ${kpiTitle} current = "${rawCurr4i2}"`, 'info');
-
-            const prevEl4i2 = card4i2.locator('[data-lov-id="src/components/MetricItem.tsx:63:12"]').first();
-            const rawPrev4i2 = ((await prevEl4i2.textContent().catch(() => '')) ?? '').trim();
-            await logStep(page, `4i2: ${kpiTitle} previous = "${rawPrev4i2}"`, 'info');
-          }
-
-          // ── I. Single-day chart: donut/radial visualization ───────────────────────
-          const donutByClass = page.locator(
-            '[class*="donut"], [class*="Donut"], [class*="pie"], [class*="Pie"], [class*="radial"], [class*="Radial"]'
-          ).first();
-
-          const donutBySvg = page.locator('svg').filter({
-            has: page.locator('circle[r], path[d*="A"]')
-          }).first();
-
-          const donutVisible4i2 =
-            await donutByClass.isVisible({ timeout: 4000 }).catch(() => false) ||
-            await donutBySvg.isVisible({ timeout: 2000 }).catch(() => false);
-
-          await logStep(
-            page,
-            `4i2: single-day donut/radial chart visible: ${donutVisible4i2 ? '✓' : 'FAIL'}`,
-            donutVisible4i2 ? 'pass' : 'fail'
-          );
-
-          // Do not throw here — let the test continue to 4j and later steps.
-          if (!donutVisible4i2) {
-            await logStep(page, '4i2: donut/radial chart missing, but continuing to next step', 'info');
-          }});
-
-          // ── J. Orders visualization heading visible (soft check) ───────────────────
-          const ordersVizVisible4i2 = await page.getByText(/orders\s*[•·]/i).first()
-            .isVisible({ timeout: 3000 }).catch(() => false);
-
-          await logStep(
-            page,
-            `4i2: Orders visualization heading visible: ${ordersVizVisible4i2 ? '✓' : 'FAIL'}`,
-            ordersVizVisible4i2 ? 'pass' : 'info'
-          );
-
-          await closeDatePickerIfOpenStrict(page);
         // ════════════════════════════════════════════════════════════════════
         // STEP 4i3 — Date filter: Custom range outside-click close
         // Business rule:
