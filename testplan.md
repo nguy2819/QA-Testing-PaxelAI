@@ -8,9 +8,23 @@
 - click outside -> panel closes PASS
 
 # Sales Summary
-## Date filter
-Date picker opens - default = Yesterday -> PASS
-each preset changes the date button text correctly -> PASS
-custom range works
-custom single-day vs multi-day behavior
-picker closes on outside click
+
+A. KPI cards:
+Contracted sales
+Units
+Orders
+(This part compares with sales_comparisons)
+
+B. Table
+The list of clients / amount / units at the bottom
+(This part compares with sales_summary_table)
+
+C. Chart
+Orders chart / Buyers donut / daily data
+(This part compares with sales_charts)
+
+Test correctly:
+- Click preset date
+- Wait for correct API 
+- Read real JSON 
+- Compare UI with tha JSON

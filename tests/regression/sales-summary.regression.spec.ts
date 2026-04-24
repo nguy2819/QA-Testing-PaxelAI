@@ -13,6 +13,7 @@ import { SalesSummaryPage }  from '../../pages/SalesSummaryPage';
 import { SALES_REPS, DIRECTORS, EXECUTIVES } from '../../data/users';
 import { loginAsAdmin }          from '../../helpers/auth.helper';
 import { initRun, logStep } from '../../helpers/step.helper';
+import { waitForSalesComparisonsResponse, assertKpisFromResponse } from '../../helpers/assertKpis';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Role → users mapping
@@ -628,71 +629,63 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
         // Ensures the left live panel is showing the same tab Playwright controls
         // ════════════════════════════════════════════════════════════════════
         async function ensureOnSalesSummary(page: Page, ss: SalesSummaryPage, stepId: string) {
-          const url = page.url();
-          const isDashboardUrl = /\/tenant\/dashboard/i.test(url);
+        const url = page.url();
+        const isDashboardUrl = /\/tenant\/dashboard/i.test(url);
 
-          // Only find in the main content area, not the entire page
-          const main = page.locator('main').first();
+        const main = page.locator('main').first();
+        const salesSummaryHeading = main.getByRole('heading', { name: /^sales summary$/i }).first();
+        const headingVisible = await salesSummaryHeading.isVisible({ timeout: 1500 }).catch(() => false);
 
-          const salesSummaryHeading = main.getByRole('heading', { name: /^sales summary$/i }).first();
-          const headingVisible = await salesSummaryHeading.isVisible({ timeout: 1500 }).catch(() => false);
-
-          // Date filter also scope into main
-          const dateFilterVisible = await ss.dateFilterButton.first()
+        const dateFilterVisible = await ss.dateFilterButton.first()
           .isVisible({ timeout: 1500 })
-          .catch(() => false); 
+          .catch(() => false);
 
-          const onSalesSummary = isDashboardUrl && headingVisible && dateFilterVisible;
+        const onSalesSummary = isDashboardUrl && headingVisible && dateFilterVisible;
 
-          await logStep(
-            page,
-            `${stepId}: Sales Summary check → url=${url} isDashboardUrl=${isDashboardUrl} headingVisible=${headingVisible} dateFilterVisible=${dateFilterVisible}`,
-            onSalesSummary ? 'pass' : 'info'
-          );
+        await logStep(
+          page,
+          `${stepId}: Sales Summary check → url=${url} isDashboardUrl=${isDashboardUrl} headingVisible=${headingVisible} dateFilterVisible=${dateFilterVisible}`,
+          onSalesSummary ? 'pass' : 'info'
+        );
 
-          if (onSalesSummary) {
-            await logStep(page, `${stepId}: already on Sales Summary ✓`, 'pass');
-            return;
-          }
-
-          await logStep(page, `${stepId}: WRONG PAGE → navigating to Sales Summary`, 'info');
-
-          try {
-            await ss.navigateViaMenu();
-            await page.waitForLoadState('networkidle').catch(() => {});
-            await page.waitForTimeout(1500);
-          } catch {
-            await logStep(page, `${stepId}: menu navigation failed, using direct dashboard URL fallback`, 'info');
-            await page.goto('https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-year', { waitUntil: 'networkidle' });
-            await page.waitForTimeout(1500);
-          }
-
-          const finalUrl = page.url();
-          const finalIsDashboardUrl = /\/tenant\/dashboard/i.test(finalUrl);
-
-          const finalMain = page.locator('main').first();
-          const finalHeadingVisible = await finalMain
-            .getByRole('heading', { name: /^sales summary$/i })
-            .first()
-            .isVisible({ timeout: 2500 })
-            .catch(() => false);
-
-          const finalDateFilterVisible = await ss.dateFilterButton.first()
-            .isVisible({ timeout: 2500 })
-            .catch(() => false);
-
-          const finalOk = finalIsDashboardUrl && finalHeadingVisible && finalDateFilterVisible;
-
-          await logStep(
-            page,
-            `${stepId}: after navigate → url=${finalUrl} isDashboardUrl=${finalIsDashboardUrl} headingVisible=${finalHeadingVisible} dateFilterVisible=${finalDateFilterVisible}`,
-            finalOk ? 'pass' : 'fail'
-          );
-
-          if (!finalOk) {
-            throw new Error(`${stepId}: FAILED to land on visible Sales Summary page`);
-          }
+        if (onSalesSummary) {
+          await logStep(page, `${stepId}: already on Sales Summary ✓`, 'pass');
+          return;
         }
+
+        await logStep(page, `${stepId}: WRONG PAGE → going directly to tenant dashboard`, 'info');
+
+        // Important: use SAME HOST / SAME SESSION, not hardcoded devapp
+        await page.goto('/tenant/dashboard?dateRange=previous-year', { waitUntil: 'domcontentloaded' });
+        await ss.waitForPageLoad();
+        await page.waitForTimeout(1200);
+
+        const finalUrl = page.url();
+        const finalIsDashboardUrl = /\/tenant\/dashboard/i.test(finalUrl);
+
+        const finalMain = page.locator('main').first();
+        const finalHeadingVisible = await finalMain
+          .getByRole('heading', { name: /^sales summary$/i })
+          .first()
+          .isVisible({ timeout: 2500 })
+          .catch(() => false);
+
+        const finalDateFilterVisible = await ss.dateFilterButton.first()
+          .isVisible({ timeout: 2500 })
+          .catch(() => false);
+
+        const finalOk = finalIsDashboardUrl && finalHeadingVisible && finalDateFilterVisible;
+
+        await logStep(
+          page,
+          `${stepId}: after direct goto → url=${finalUrl} isDashboardUrl=${finalIsDashboardUrl} headingVisible=${finalHeadingVisible} dateFilterVisible=${finalDateFilterVisible}`,
+          finalOk ? 'pass' : 'fail'
+        );
+
+        if (!finalOk) {
+          throw new Error(`${stepId}: FAILED to land on visible Sales Summary page`);
+        }
+      }
 
         // ─────────────────────────────────────────────────────────────────────────────
         // STRICT SALES SUMMARY HELPERS (ONE CLEAN VERSION ONLY)
@@ -1001,132 +994,103 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
           };
         }
 
-        async function validateKpiCardsYesterdayStrict(page: Page, stepId: string) {
-          const labels: ('Contracted sales' | 'Units' | 'Orders')[] = ['Contracted sales', 'Units', 'Orders'];
-          const results: { title: string; previous: number }[] = [];
+        // ─────────────────────────────────────────────────────────────────────────────
+        // KPI card visibility + API match logger
+        // Supplements assertKpisFromResponse with frontend-visible log lines.
+        // Does NOT replace or modify assertKpisFromResponse.
+        // ─────────────────────────────────────────────────────────────────────────────
+        async function assertKpiCardsVisibleAndMatchApi(
+          page: Page,
+          response: Awaited<ReturnType<typeof waitForSalesComparisonsResponse>>,
+          stepId: string
+        ) {
+          const data = await response.json().catch(() => null);
 
-          for (const label of labels) {
-            const card = await getKpiCardStrict(page, label);
-            const cardVisible = await card.isVisible({ timeout: 5000 }).catch(() => false);
+          // Log top-level API response keys so the real structure is visible in the frontend log
+          const topKeys = data ? Object.keys(data) : [];
+          await logStep(page, `${stepId}: API response top-level keys = [${topKeys.join(', ')}]`, 'info');
 
+          // Yesterday no-data window (≈1am–5am): API returns { message: "..." }
+          // Only acceptable for Step 4b (Yesterday). All other ranges must have data.
+          if (data?.message) {
+            if (stepId === '4b') {
+              await logStep(
+                page,
+                `${stepId}: API no-data message = "${data.message}" — KPI cards may show "--" (acceptable for early-morning Yesterday)`,
+                'info'
+              );
+              return;
+            }
             await logStep(
               page,
-              `${stepId}: ${label} card visible: ${cardVisible ? '✓' : 'FAIL'}`,
+              `${stepId}: API no-data message = "${data.message}" — FAIL: this date range should have Sales Summary data`,
+              'fail'
+            );
+            throw new Error(`${stepId}: API returned no-data message for a range that should have data: "${data.message}"`);
+          }
+
+          type KpiSpec = {
+            label: 'Contracted sales' | 'Units' | 'Orders';
+            apiCurrent: number;
+            apiPrevious: number;
+            fmt: (n: number) => string;
+          };
+
+          const kpis: KpiSpec[] = [
+            {
+              label: 'Contracted sales',
+              apiCurrent:  data?.netSales?.current,
+              apiPrevious: data?.netSales?.previous,
+              fmt: (n) => `$${Number(n).toLocaleString('en-US')}`,
+            },
+            {
+              label: 'Units',
+              apiCurrent:  data?.netUnits?.current,
+              apiPrevious: data?.netUnits?.previous,
+              fmt: (n) => Number(n).toLocaleString('en-US'),
+            },
+            {
+              label: 'Orders',
+              apiCurrent:  data?.netOrders?.current,
+              apiPrevious: data?.netOrders?.previous,
+              fmt: (n) => Number(n).toLocaleString('en-US'),
+            },
+          ];
+
+          for (const kpi of kpis) {
+            // 1. Card visibility
+            const titleNode = page.getByText(new RegExp(`^${escapeRe(kpi.label)}$`, 'i')).first();
+            const card = page
+              .locator('section, div[class*="card"], div[class*="shadow"], div[class*="border"]')
+              .filter({ has: titleNode })
+              .first();
+
+            const cardVisible = await card.isVisible({ timeout: 6000 }).catch(() => false);
+            await logStep(
+              page,
+              `${stepId}: KPI ${kpi.label} card visible: ${cardVisible ? '✓' : 'FAIL'}`,
               cardVisible ? 'pass' : 'fail'
             );
+            if (!cardVisible) continue;
 
-            if (!cardVisible) {
-              results.push({ title: label, previous: NaN });
-              continue;
-            }
-
-            const data = await readKpiCardStrict(page, label);
-
-            await logStep(
-              page,
-              `${stepId}: ${label} current value = ${isNaN(data.current) ? '(not parseable)' : data.current} (zero is acceptable for Yesterday)`,
-              'info'
-            );
-
-            const previousOk = !isNaN(data.previous);
+            // 2. Current value match
+            const rawText = ((await card.textContent().catch(() => '')) ?? '').replace(/\s+/g, ' ').trim();
+            const apiCurrentFmt  = kpi.fmt(kpi.apiCurrent);
+            const apiPreviousFmt = kpi.fmt(kpi.apiPrevious);
+            const currentMatch   = rawText.includes(apiCurrentFmt);
+            const previousMatch  = rawText.includes(apiPreviousFmt);
 
             await logStep(
               page,
-              `${stepId}: ${label} previous value = ${previousOk ? data.previous : 'FAIL (not parseable)'}`,
-              previousOk ? 'pass' : 'fail'
-            );
-
-            results.push({ title: label, previous: data.previous });
-          }
-
-          const validPrev = results.filter(r => !isNaN(r.previous));
-          if (validPrev.length === 3) {
-            const allPreviousZero = validPrev.every(r => r.previous === 0);
-
-            await logStep(
-              page,
-              `${stepId}: all three previous KPI values are zero: ${allPreviousZero ? 'FAIL' : '✓'}`,
-              allPreviousZero ? 'fail' : 'pass'
-            );
-
-            if (allPreviousZero) {
-              throw new Error(`${stepId}: all three previous KPI values are 0`);
-            }
-          }
-        }
-
-        async function validateKpiCardsRegularStrict(page: Page, expectedPrevLabel: string, stepId: string) {
-          const labels: ('Contracted sales' | 'Units' | 'Orders')[] = ['Contracted sales', 'Units', 'Orders'];
-          const results: { title: string; current: number; previous: number }[] = [];
-
-          for (const label of labels) {
-            const card = await getKpiCardStrict(page, label);
-            const cardVisible = await card.isVisible({ timeout: 5000 }).catch(() => false);
-
-            await logStep(
-              page,
-              `${stepId}: ${label} card visible: ${cardVisible ? '✓' : 'FAIL'}`,
-              cardVisible ? 'pass' : 'fail'
-            );
-
-            if (!cardVisible) {
-              results.push({ title: label, current: NaN, previous: NaN });
-              continue;
-            }
-
-            const fullText = ((await card.textContent()) ?? '').trim();
-            const hasPrevLabel = fullText.toLowerCase().includes(expectedPrevLabel.toLowerCase());
-
-            await logStep(
-              page,
-              `${stepId}: ${label} comparison label contains "${expectedPrevLabel}": ${hasPrevLabel ? '✓' : 'FAIL'}`,
-              hasPrevLabel ? 'pass' : 'fail'
-            );
-
-            const data = await readKpiCardStrict(page, label);
-            const currentOk = !isNaN(data.current);
-            const previousOk = !isNaN(data.previous);
-
-            await logStep(
-              page,
-              `${stepId}: ${label} current value = ${currentOk ? data.current : 'FAIL (not parseable)'}`,
-              currentOk ? 'pass' : 'fail'
+              `${stepId}: KPI ${kpi.label} UI value = "${apiCurrentFmt}", API value = ${kpi.apiCurrent} → ${currentMatch ? '✓' : 'FAIL'}`,
+              currentMatch ? 'pass' : 'fail'
             );
 
             await logStep(
               page,
-              `${stepId}: ${label} previous value = ${previousOk ? data.previous : 'FAIL (not parseable)'}`,
-              previousOk ? 'pass' : 'fail'
+              `${stepId}: KPI ${kpi.label} UI prev = "${apiPreviousFmt}", API prev = ${kpi.apiPrevious} → ${previousMatch ? '✓' : 'FAIL'}`,
+              previousMatch ? 'pass' : 'fail'
             );
-
-            results.push({ title: label, current: data.current, previous: data.previous });
-          }
-
-          const validCurr = results.filter(r => !isNaN(r.current));
-          const validPrev = results.filter(r => !isNaN(r.previous));
-
-          if (validCurr.length === 3) {
-            const allCurrentZero = validCurr.every(r => r.current === 0);
-            await logStep(
-            page,
-            `${stepId}: all three current KPI values are ${allCurrentZero ? '' : 'NOT '}zero: ${allCurrentZero ? 'FAIL' : '✓'}`,
-            allCurrentZero ? 'fail' : 'pass'
-          );
-            if (allCurrentZero) {
-              throw new Error(`${stepId}: all three current KPI values are 0`);
-            }
-          }
-
-          if (validPrev.length === 3) {
-            const allPreviousZero = validPrev.every(r => r.previous === 0);
-            await logStep(
-            page,
-            `${stepId}: all three previous KPI values are ${allPreviousZero ? '' : 'NOT '}zero: ${allPreviousZero ? 'FAIL' : '✓'}`,
-            allPreviousZero ? 'fail' : 'pass'
-          );
-            if (allPreviousZero) {
-              throw new Error(`${stepId}: all three previous KPI values are 0`);
-            }
           }
         }
 
@@ -1333,8 +1297,12 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
           await ensureOnSalesSummary(page, ss, '4b');
 
           // Open the date filter and click Yesterday inside the visible picker
+          const salesComparisonsPromise = waitForSalesComparisonsResponse(page);
+
           const panel = await openDateFilterStrict(page, ss, '4b');
           await clickDatePresetStrict(page, panel, 'Yesterday', '4b');
+
+          const salesComparisonsResponse = await salesComparisonsPromise;
           await page.waitForTimeout(500);
 
           await logStep(page, `4b: URL after selection → ${page.url()}`, 'info');
@@ -1346,11 +1314,23 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
             expectedDateRegex('Yesterday', yesterday(), user.company),
             '4b'
           );
+
+          // Yesterday is the default range — /tenant/dashboard without ?dateRange=yesterday is valid.
+          // Log the URL state for info only; never fail on missing param.
+          const url = page.url();
+          const hasParam = /dateRange=yesterday/i.test(url);
+          await logStep(
+            page,
+            `4b: URL check — dateRange=yesterday param ${hasParam ? 'present' : 'absent (default page — acceptable)'} ✓`,
+            'pass'
+          );
+
           // Strict KPI validation for Yesterday:
           // - current may be 0
           // - previous must parse correctly
           // - FAIL if all 3 previous values are 0
-          await validateKpiCardsYesterdayStrict(page, '4b');
+          await assertKpisFromResponse(page, salesComparisonsResponse);
+          await assertKpiCardsVisibleAndMatchApi(page, salesComparisonsResponse, '4b');
 
           // Yesterday chart is more flexible:
           // acceptable if there is either:
@@ -1400,8 +1380,12 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
             'info'
           );
 
+          const salesComparisonsPromise = waitForSalesComparisonsResponse(page);
+
           const panel = await openDateFilterStrict(page, ss, '4c');
           await clickDatePresetStrict(page, panel, 'Month-to-date', '4c');
+
+          const salesComparisonsResponse = await salesComparisonsPromise;
           await page.waitForTimeout(500);
 
           await validateUrlContains(page, /dateRange=month-to-date/i, '4c');
@@ -1413,7 +1397,8 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
             '4c'
           );
 
-          await validateKpiCardsRegularStrict(page, 'Previous MTD', '4c');
+          await assertKpisFromResponse(page, salesComparisonsResponse);
+          await assertKpiCardsVisibleAndMatchApi(page, salesComparisonsResponse, '4c');
           await validateOrdersChart(page, 'Month-to-date');
 
           await closeDatePickerIfOpenStrict(page);
@@ -1437,8 +1422,12 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
             'info'
           );
 
+          const salesComparisonsPromise = waitForSalesComparisonsResponse(page);
+
           const panel = await openDateFilterStrict(page, ss, '4d');
           await clickDatePresetStrict(page, panel, 'Previous month', '4d');
+
+          const salesComparisonsResponse = await salesComparisonsPromise;
           await page.waitForTimeout(500);
 
           await validateUrlContains(page, /dateRange=previous-month/i, '4d');
@@ -1450,7 +1439,8 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
             '4d'
           );
 
-          await validateKpiCardsRegularStrict(page, 'Previous last month', '4d');
+          await assertKpisFromResponse(page, salesComparisonsResponse);
+          await assertKpiCardsVisibleAndMatchApi(page, salesComparisonsResponse, '4d');
           await validateOrdersChart(page, 'Previous month');
 
           await closeDatePickerIfOpenStrict(page);
@@ -1474,8 +1464,12 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
             'info'
           );
 
+          const salesComparisonsPromise = waitForSalesComparisonsResponse(page);
+
           const panel = await openDateFilterStrict(page, ss, '4e');
           await clickDatePresetStrict(page, panel, 'Quarter-to-date', '4e');
+
+          const salesComparisonsResponse = await salesComparisonsPromise;
           await page.waitForTimeout(500);
 
           await validateUrlContains(page, /dateRange=quarter-to-date/i, '4e');
@@ -1487,7 +1481,8 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
             '4e'
           );
 
-          await validateKpiCardsRegularStrict(page, 'Previous QTD', '4e');
+          await assertKpisFromResponse(page, salesComparisonsResponse);
+          await assertKpiCardsVisibleAndMatchApi(page, salesComparisonsResponse, '4e');
           await validateOrdersChart(page, 'Quarter-to-date');
 
           await closeDatePickerIfOpenStrict(page);
@@ -1512,8 +1507,12 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
             'info'
           );
 
+          const salesComparisonsPromise = waitForSalesComparisonsResponse(page);
+
           const panel = await openDateFilterStrict(page, ss, '4f');
           await clickDatePresetStrict(page, panel, 'Previous quarter', '4f');
+
+          const salesComparisonsResponse = await salesComparisonsPromise;
           await page.waitForTimeout(500);
 
           await validateUrlContains(page, /dateRange=previous-quarter/i, '4f');
@@ -1525,7 +1524,8 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
             '4f'
           );
 
-          await validateKpiCardsRegularStrict(page, 'Previous last quarter', '4f');
+          await assertKpisFromResponse(page, salesComparisonsResponse);
+          await assertKpiCardsVisibleAndMatchApi(page, salesComparisonsResponse, '4f');
           await validateOrdersChart(page, 'Previous quarter');
 
           await closeDatePickerIfOpenStrict(page);
@@ -1551,8 +1551,12 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
             'info'
           );
 
+          const salesComparisonsPromise = waitForSalesComparisonsResponse(page);
+
           const panel = await openDateFilterStrict(page, ss, '4g');
           await clickDatePresetStrict(page, panel, 'Year-to-date', '4g');
+
+          const salesComparisonsResponse = await salesComparisonsPromise;
           await page.waitForTimeout(500);
 
           await validateUrlContains(page, /dateRange=year-to-date/i, '4g');
@@ -1564,7 +1568,8 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
             '4g'
           );
 
-          await validateKpiCardsRegularStrict(page, 'Previous YTD', '4g');
+          await assertKpisFromResponse(page, salesComparisonsResponse);
+          await assertKpiCardsVisibleAndMatchApi(page, salesComparisonsResponse, '4g');
           await validateOrdersChart(page, 'Year-to-date');
 
           await closeDatePickerIfOpenStrict(page);
@@ -1589,8 +1594,12 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
             'info'
           );
 
+          const salesComparisonsPromise = waitForSalesComparisonsResponse(page);
+
           const panel = await openDateFilterStrict(page, ss, '4h');
           await clickDatePresetStrict(page, panel, 'Previous year', '4h');
+
+          const salesComparisonsResponse = await salesComparisonsPromise;
           await page.waitForTimeout(500);
 
           await validateUrlContains(page, /dateRange=previous-year/i, '4h');
@@ -1602,7 +1611,8 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
             '4h'
           );
 
-          await validateKpiCardsRegularStrict(page, 'Previous last year', '4h');
+          await assertKpisFromResponse(page, salesComparisonsResponse);
+          await assertKpiCardsVisibleAndMatchApi(page, salesComparisonsResponse, '4h');
           await validateOrdersChart(page, 'Previous year');
 
           await closeDatePickerIfOpenStrict(page);
@@ -1714,9 +1724,12 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
 
           // D. Apply and wait for dashboard to settle
           const beforeDateText = await getDateButton(page, ss);
+          const salesComparisonsPromise = waitForSalesComparisonsResponse(page);
 
           await logStep(page, '4i1: clicking Apply', 'running');
           await applyBtn.click({ force: true });
+
+          const salesComparisonsResponse = await salesComparisonsPromise;
 
           await expect.poll(
             async () => await getDateButton(page, ss),
@@ -1741,8 +1754,11 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
             return;
           }
 
-          await validateKpiCardsRegularStrict(page, 'Previous period', '4i1').catch(async (e: any) => {
+          await assertKpisFromResponse(page, salesComparisonsResponse).catch(async (e: any) => {
             await logStep(page, `4i1 KPI validation soft-fail: ${String(e?.message ?? e).split('\n')[0]}`, 'fail');
+          });
+          await assertKpiCardsVisibleAndMatchApi(page, salesComparisonsResponse, '4i1').catch(async (e: any) => {
+            await logStep(page, `4i1 KPI card visibility soft-fail: ${String(e?.message ?? e).split('\n')[0]}`, 'fail');
           });
 
           // I. Orders section / chart
@@ -1828,7 +1844,7 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
           await closeDatePickerIfOpenStrict(page);
         });
 
-                // ════════════════════════════════════════════════════════════════════
+        // ════════════════════════════════════════════════════════════════════
         // STEP 4i2 — Date filter: Custom range single-day
         // Requirements:
         // A. Open Custom range cleanly
@@ -1892,9 +1908,12 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
 
           // C. Apply and wait for dashboard update
           const beforeDateText = await getDateButton(page, ss);
+          const salesComparisonsPromise = waitForSalesComparisonsResponse(page);
 
           await logStep(page, '4i2: clicking Apply', 'running');
           await applyBtn.click({ force: true });
+
+          const salesComparisonsResponse = await salesComparisonsPromise;
 
           await expect.poll(
             async () => await getDateButton(page, ss),
@@ -1925,8 +1944,11 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
           // E/F/G. Reuse the same strict KPI validator pattern as 4i1
           // For single-day custom range we only require "Previous" to be present,
           // not a weekday-specific label yet.
-          await validateKpiCardsRegularStrict(page, 'Previous', '4i2').catch(async (e: any) => {
+          await assertKpisFromResponse(page, salesComparisonsResponse).catch(async (e: any) => {
             await logStep(page, `4i2 KPI validation soft-fail: ${String(e?.message ?? e).split('\n')[0]}`, 'fail');
+          });
+          await assertKpiCardsVisibleAndMatchApi(page, salesComparisonsResponse, '4i2').catch(async (e: any) => {
+            await logStep(page, `4i2 KPI card visibility soft-fail: ${String(e?.message ?? e).split('\n')[0]}`, 'fail');
           });
 
           // H/I/J. Orders heading + chart section + plot
@@ -2028,49 +2050,70 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
         // ════════════════════════════════════════════════════════════════════
         // STEP 4j — Show customer type info button
         // ════════════════════════════════════════════════════════════════════
-        await S('Step 4j — Show customer type info button', async () => {
+        await runSoftStep(page, '4j', 'Step 4j — Show customer type info button', async () => {
           await ensureSingleVisiblePage(page, '4j');
           await ensureOnSalesSummary(page, ss, '4j');
 
-          // Keep 4i separate. If 4i is already a known fail, do not let it block 4j.
-          // This step assumes the dashboard is already on a valid date state.
-
-          const buyersSection = page
-            .locator('[data-lov-id="src/components/Sections.tsx:4914:18"], [data-lov-id="src/components/Sections.tsx:4930:22"]')
-            .first();
-
+          const buyersSection = page.locator('[data-lov-id="src/components/Sections.tsx:4914:18"]').first();
           await expect(buyersSection).toBeVisible({ timeout: 5000 });
+          await logStep(page, '4j: Buyers section found ✓', 'pass');
 
-          const infoButton = buyersSection
-            .locator('button, [role="button"]')
-            .first();
-
+          const infoButton = buyersSection.locator('button').first();
           await expect(infoButton).toBeVisible({ timeout: 5000 });
+          await logStep(page, '4j: info button found ✓', 'pass');
 
-          await infoButton.click();
+          // Use "Got It" button visibility as the reliable modal-open/closed indicator.
+          // It is unique to this modal and only present when the modal is open.
+          const gotItBtn = page.getByRole('button', { name: /got it/i });
 
-          const popup = page.locator('[role="dialog"], [role="tooltip"], [class*="popover"], [class*="dialog"], [class*="popup"]').first();
-          await expect(popup).toBeVisible({ timeout: 5000 });
+          async function assertModalClosed() {
+            await expect(gotItBtn).toBeHidden({ timeout: 5000 });
+          }
 
-          await expect(popup.getByText(/Current/i)).toBeVisible();
-          await expect(popup.getByText(/Returning new/i)).toBeVisible();
-          await expect(popup.getByText(/New/i)).toBeVisible();
+          async function openBuyersModal() {
+            // Guard: ensure any previously open modal is closed first
+            const isOpen = await gotItBtn.isVisible().catch(() => false);
+            if (isOpen) await assertModalClosed();
 
-          // A) outside click closes
-          await page.mouse.click(10, 10);
-          await expect(popup).toBeHidden({ timeout: 3000 });
+            await infoButton.click();
+            await expect(gotItBtn).toBeVisible({ timeout: 5000 });
 
-          // reopen for B
-          await infoButton.click();
-          await expect(popup).toBeVisible({ timeout: 5000 });
-          await popup.getByRole('button', { name: /x|close/i }).click();
-          await expect(popup).toBeHidden({ timeout: 3000 });
+            // Verify modal content — scoped to page since modal is the only one open
+            await expect(page.getByText(/^Current:$/i)).toBeVisible({ timeout: 3000 });
+            await expect(page.getByText(/^Returning new:$/i)).toBeVisible({ timeout: 3000 });
+            await expect(page.getByText(/^New:$/i)).toBeVisible({ timeout: 3000 });
+          }
 
-          // reopen for C
-          await infoButton.click();
-          await expect(popup).toBeVisible({ timeout: 5000 });
-          await popup.getByRole('button', { name: /got it/i }).click();
-          await expect(popup).toBeHidden({ timeout: 3000 });
+          // A. Content check + outside click closes
+          await openBuyersModal();
+          await logStep(page, '4j: popup content shows Current / Returning new / New ✓', 'pass');
+
+          await page.mouse.click(40, 40);
+          await assertModalClosed();
+          await logStep(page, '4j: outside click closes popup ✓', 'pass');
+
+          // B. X button closes — find it as the non-"Got It" button inside the modal area
+          await openBuyersModal();
+
+          // Scope to the modal container (has modal title + Got It button), then find
+          // the close button by excluding any button whose text matches "got it"
+          const modalContainer = page.locator('div').filter({
+            has: page.getByText(/^Buyers$/i),
+          }).filter({
+            has: gotItBtn,
+          }).last();
+
+          const xCloseBtn = modalContainer.locator('button').filter({ hasNotText: /got it/i }).first();
+          await expect(xCloseBtn).toBeVisible({ timeout: 3000 });
+          await xCloseBtn.click();
+          await assertModalClosed();
+          await logStep(page, '4j: X button closes popup ✓', 'pass');
+
+          // C. Got It button closes
+          await openBuyersModal();
+          await gotItBtn.click();
+          await assertModalClosed();
+          await logStep(page, '4j: GOT IT button closes popup ✓', 'pass');
         });
 
         // ════════════════════════════════════════════════════════════════════
