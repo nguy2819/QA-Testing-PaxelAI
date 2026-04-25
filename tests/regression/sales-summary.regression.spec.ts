@@ -1033,26 +1033,34 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
             label: 'Contracted sales' | 'Units' | 'Orders';
             apiCurrent: number;
             apiPrevious: number;
+            apiIsNegative: boolean | undefined;
+            apiPercentDiff: number | undefined;
             fmt: (n: number) => string;
           };
 
           const kpis: KpiSpec[] = [
             {
-              label: 'Contracted sales',
-              apiCurrent:  data?.netSales?.current,
-              apiPrevious: data?.netSales?.previous,
+              label:          'Contracted sales',
+              apiCurrent:     data?.netSales?.current,
+              apiPrevious:    data?.netSales?.previous,
+              apiIsNegative:  data?.netSales?.isNegative,
+              apiPercentDiff: data?.netSales?.percentDifference,
               fmt: (n) => `$${Number(n).toLocaleString('en-US')}`,
             },
             {
-              label: 'Units',
-              apiCurrent:  data?.netUnits?.current,
-              apiPrevious: data?.netUnits?.previous,
+              label:          'Units',
+              apiCurrent:     data?.netUnits?.current,
+              apiPrevious:    data?.netUnits?.previous,
+              apiIsNegative:  data?.netUnits?.isNegative,
+              apiPercentDiff: data?.netUnits?.percentDifference,
               fmt: (n) => Number(n).toLocaleString('en-US'),
             },
             {
-              label: 'Orders',
-              apiCurrent:  data?.netOrders?.current,
-              apiPrevious: data?.netOrders?.previous,
+              label:          'Orders',
+              apiCurrent:     data?.netOrders?.current,
+              apiPrevious:    data?.netOrders?.previous,
+              apiIsNegative:  data?.netOrders?.isNegative,
+              apiPercentDiff: data?.netOrders?.percentDifference,
               fmt: (n) => Number(n).toLocaleString('en-US'),
             },
           ];
@@ -1091,6 +1099,64 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
               `${stepId}: KPI ${kpi.label} UI prev = "${apiPreviousFmt}", API prev = ${kpi.apiPrevious} → ${previousMatch ? '✓' : 'FAIL'}`,
               previousMatch ? 'pass' : 'fail'
             );
+
+            // 3. Direction and percent validation
+            const cur  = Number(kpi.apiCurrent);
+            const prev = Number(kpi.apiPrevious);
+
+            if (!isNaN(cur) && !isNaN(prev)) {
+              if (cur > prev) {
+                const dirOk = kpi.apiIsNegative === false;
+                await logStep(
+                  page,
+                  `${stepId}: KPI ${kpi.label} direction current > previous → isNegative=${kpi.apiIsNegative} ${dirOk ? '✓' : 'FAIL'}`,
+                  dirOk ? 'pass' : 'fail'
+                );
+
+                if (prev !== 0) {
+                  const calcPct  = Math.round(Math.abs(((cur - prev) / prev) * 100));
+                  const apiPct   = kpi.apiPercentDiff;
+                  const pctMatch = apiPct !== undefined && apiPct !== null ? apiPct === calcPct : null;
+                  await logStep(
+                    page,
+                    `${stepId}: KPI ${kpi.label} percent calculated = ${calcPct}%, API = ${apiPct ?? 'N/A'}% → ${pctMatch === null ? 'API field not present' : pctMatch ? '✓' : 'FAIL'}`,
+                    pctMatch === true ? 'pass' : pctMatch === false ? 'fail' : 'info'
+                  );
+                }
+
+              } else if (cur < prev) {
+                const dirOk = kpi.apiIsNegative === true;
+                await logStep(
+                  page,
+                  `${stepId}: KPI ${kpi.label} direction current < previous → isNegative=${kpi.apiIsNegative} ${dirOk ? '✓' : 'FAIL'}`,
+                  dirOk ? 'pass' : 'fail'
+                );
+
+                if (prev !== 0) {
+                  const calcPct  = Math.round(Math.abs(((cur - prev) / prev) * 100));
+                  const apiPct   = kpi.apiPercentDiff;
+                  const pctMatch = apiPct !== undefined && apiPct !== null ? apiPct === calcPct : null;
+                  await logStep(
+                    page,
+                    `${stepId}: KPI ${kpi.label} percent calculated = ${calcPct}%, API = ${apiPct ?? 'N/A'}% → ${pctMatch === null ? 'API field not present' : pctMatch ? '✓' : 'FAIL'}`,
+                    pctMatch === true ? 'pass' : pctMatch === false ? 'fail' : 'info'
+                  );
+                }
+
+              } else {
+                await logStep(
+                  page,
+                  `${stepId}: KPI ${kpi.label} direction = neutral (current === previous, no change)`,
+                  'info'
+                );
+              }
+            } else {
+              await logStep(
+                page,
+                `${stepId}: KPI ${kpi.label} direction/percent skipped — values not numeric`,
+                'info'
+              );
+            }
           }
         }
 
