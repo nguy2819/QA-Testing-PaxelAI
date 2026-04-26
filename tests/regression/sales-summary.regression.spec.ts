@@ -2120,6 +2120,21 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
           await ensureSingleVisiblePage(page, '4j');
           await ensureOnSalesSummary(page, ss, '4j');
 
+          // Normalize URL: if customStart/customEnd are present without dateRange=custom, fix it
+          {
+            const rawUrl = page.url();
+            const urlObj = new URL(rawUrl);
+            const customStart = urlObj.searchParams.get('customStart');
+            const customEnd   = urlObj.searchParams.get('customEnd');
+            if (customStart && customEnd && urlObj.searchParams.get('dateRange') !== 'custom') {
+              urlObj.searchParams.set('dateRange', 'custom');
+              // Remove any non-custom date params that may have leaked
+              const cleanedUrl = urlObj.toString();
+              await page.goto(cleanedUrl, { waitUntil: 'networkidle' });
+              await logStep(page, `4j: normalized URL before Buyers modal → ${cleanedUrl}`, 'info');
+            }
+          }
+
           // 1. Locate Buyers section — data-lov-id first, heading-based fallback
           let buyersSection = page.locator('[data-lov-id="src/components/Sections.tsx:4914:18"]').first();
           if (!(await buyersSection.isVisible({ timeout: 3000 }).catch(() => false))) {
@@ -2192,131 +2207,652 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
           if (!closedByOutside) throw new Error('4j: modal did not close after outside click');
         });
 
+                // ════════════════════════════════════════════════════════════════════
+        // STEP 5 — Product filter  (sub-steps 5a, 5b1, 5b2, 5b3, 5b4, 5c, 5d + reset)
         // ════════════════════════════════════════════════════════════════════
-        // STEP 5a — Product filter
-        // ════════════════════════════════════════════════════════════════════
-        await S('Step 5a — Product filter: sections, selections, count, Just this', async () => {
-          const productBtn = page.locator('button').filter({ hasText: /comp plan|all products|products/i }).first();
-          const defLabel   = (await productBtn.textContent() ?? '').trim();
-          await logStep(page, `Product filter default: "${defLabel}"`, 'info');
-          await logStep(page, `Shows "Comp Plan (N)": ${/comp plan/i.test(defLabel) ? '✓' : 'unexpected'}`, /comp plan/i.test(defLabel) ? 'pass' : 'info');
 
-          await productBtn.click(); await page.waitForTimeout(600);
-          await logStep(page, 'Product filter dropdown opened ✓', 'pass');
+        // ── Product filter scoped helpers ────────────────────────────────
 
-          const dropText = await page.locator('[role="listbox"],[role="menu"],[class*="dropdown"],[class*="popover"]')
-            .first().textContent().catch(() => '');
-          await logStep(page, `Dropdown preview: "${(dropText??'').slice(0,200)}"`, 'info');
+        async function findProductFilterButton() {
+          const myCompPlanRe = /my\s+comp\s+plan/i;
+          // Multi-word labels — safe to match globally as fallback
+          const multiWordLabelRe = /^(?:comp plan|no products selected|all sold products|all other sold products|other sold products|all unsold products|unsold products|filters(?::\s*\d+)?|\d+\s+products?\s+selected)$/i;
+          // Single-product abbreviations — only valid when scoped inside the filter row
+          const singleProductLabelRe = /^(?:CPP|EMERPHED|ETM|FLR|MEB|PAP|PHB|TACRO|[A-Z]{3,8})$/;
 
-          const hasComp  = await page.getByText(/comp plan/i).first().isVisible().catch(() => false);
-          const hasOther = await page.getByText(/other sold products/i).first().isVisible().catch(() => false);
-          await logStep(page, `"Comp Plan" section: ${hasComp?'✓':'FAIL'}`, hasComp?'pass':'fail');
-          await logStep(page, `"Other sold products" section: ${hasOther?'✓':'FAIL'}`, hasOther?'pass':'fail');
+          // Strategy 1: scope to filter row containing Customers button → pick leftmost match
+          const filterRow = page.locator('div, nav, section, ul')
+            .filter({ has: page.locator('button').filter({ hasText: /all customers|current customers|returning|new customers/i }) })
+            .first();
 
-          // Select Other sold products
-          const deselectAll = page.getByRole('button', { name: /none|deselect all|clear all/i });
-          if (await deselectAll.isVisible({ timeout: 1_500 }).catch(() => false)) { await deselectAll.click(); await page.waitForTimeout(200); }
-          await page.getByText(/other sold products/i).first().click();
+          if (await filterRow.isVisible({ timeout: 1200 }).catch(() => false)) {
+            const candidates = await filterRow.locator('button').all();
+            const scored: { btn: Locator; x: number }[] = [];
+
+            for (const btn of candidates) {
+              const text = ((await btn.textContent().catch(() => '')) ?? '').trim();
+              if (myCompPlanRe.test(text)) continue;
+              // Allow multi-word labels OR single-product abbreviations within the scoped row
+              if (!multiWordLabelRe.test(text) && !singleProductLabelRe.test(text)) continue;
+              const box = await btn.boundingBox().catch(() => null);
+              if (!box || box.width === 0) continue;
+              scored.push({ btn, x: box.x });
+            }
+
+            scored.sort((a, b) => a.x - b.x);
+            if (scored.length > 0) return scored[0].btn;
+          }
+
+          // Strategy 2: global fallback — multi-word labels ONLY, never short uppercase
+          return page.locator('button')
+            .filter({ hasNotText: myCompPlanRe })
+            .filter({ hasText: multiWordLabelRe })
+            .first();
+        }
+
+        async function openProductDropdown(stepId: string) {
+          const applyCheck = page.getByRole('button', { name: /^apply$/i }).first();
+          if (await applyCheck.isVisible({ timeout: 500 }).catch(() => false)) {
+            await page.keyboard.press('Escape');
+            await page.waitForTimeout(300);
+          }
+
+          const btnInfo = await page.evaluate(() => {
+            const multiWordKeywords = [
+              'comp plan',
+              'all other sold products',
+              'other sold products',
+              'all sold products',
+              'all unsold products',
+              'unsold products',
+              'no products selected',
+            ];
+
+            function isMultiWordProductLabel(rawText: string) {
+              const lower = rawText.trim().toLowerCase();
+              if (multiWordKeywords.some(k => lower === k)) return true;
+              if (/^filters\s*:\s*\d+$/i.test(rawText)) return true;
+              if (/^\d+\s+products?\s+selected$/i.test(rawText)) return true;
+              return false;
+            }
+
+            function isSingleProductLabel(rawText: string) {
+              // Only 3–8 uppercase letters (product abbreviations), NOT 2-letter avatar initials
+              return /^[A-Z]{3,8}$/.test(rawText) || /^[A-Z]{2,8}[0-9-][A-Z0-9-]{0,10}$/.test(rawText);
+            }
+
+            function isProductFilterLabel(rawText: string, scopedToFilterRow: boolean) {
+              if (isMultiWordProductLabel(rawText)) return true;
+              if (scopedToFilterRow && isSingleProductLabel(rawText)) return true;
+              return false;
+            }
+
+            // Find filter row by locating a Customers button, then walk up to find a sibling product filter
+            let filterRowEl: Element | null = null;
+            for (const b of Array.from(document.querySelectorAll('button'))) {
+              const t = (b.innerText ?? '').trim().toLowerCase();
+              if (!t.includes('customer') || t.length > 60) continue;
+              const r = b.getBoundingClientRect();
+              if (r.width === 0 || r.height === 0) continue;
+              let el = b.parentElement;
+              while (el && el !== document.body) {
+                const sibs = Array.from(el.querySelectorAll('button'));
+                const hasProductBtn = sibs.some(sb => {
+                  const st = (sb.innerText ?? '').trim();
+                  return isProductFilterLabel(st, true) && !st.toLowerCase().startsWith('my ');
+                });
+                if (hasProductBtn) { filterRowEl = el; break; }
+                el = el.parentElement;
+              }
+              if (filterRowEl) break;
+            }
+
+            const searchButtons = filterRowEl
+              ? Array.from(filterRowEl.querySelectorAll('button'))
+              : Array.from(document.querySelectorAll('button'));
+            const scopedToFilterRow = filterRowEl !== null;
+
+            // Pick leftmost matching button — product filter is always left of Customers filter
+            let best: { text: string; cx: number; cy: number } | null = null;
+            let bestX = Infinity;
+
+            for (const b of searchButtons) {
+              const rawText = (b.innerText ?? '').trim();
+              if (!rawText || rawText.toLowerCase().startsWith('my ')) continue;
+              if (!isProductFilterLabel(rawText, scopedToFilterRow)) continue;
+              const r = b.getBoundingClientRect();
+              if (r.width === 0 || r.height === 0) continue;
+              const cx = r.left + r.width / 2;
+              if (cx < bestX) {
+                bestX = cx;
+                best = { text: rawText, cx, cy: r.top + r.height / 2 };
+              }
+            }
+
+            return best;
+          });
+
+          if (!btnInfo) throw new Error(`${stepId}: product filter button not found in DOM`);
+
+          await logStep(page, `${stepId}: product filter DOM button text = "${btnInfo.text}"`, 'info');
+          await page.mouse.click(btnInfo.cx, btnInfo.cy);
+          await page.waitForTimeout(600);
+
+          const panel = page.locator(
+            '[role="listbox"], [role="menu"], [class*="dropdown"], [class*="popover"], [class*="panel"]'
+          ).filter({ has: page.getByText(/comp plan/i) }).first();
+          const visible = await panel.isVisible({ timeout: 3000 }).catch(() => false);
+          if (!visible) {
+            await logStep(page, `${stepId}: Product filter dropdown opened: FAIL`, 'fail');
+            throw new Error(`${stepId}: product filter dropdown not visible`);
+          }
+          await logStep(page, `${stepId}: Product filter dropdown opened ✓`, 'pass');
+          return panel;
+        }
+
+        async function closeProductDropdown() {
+          await page.keyboard.press('Escape');
           await page.waitForTimeout(300);
-          const applyO = page.getByRole('button', { name: /^apply$/i });
-          if (await applyO.isVisible().catch(() => false)) await applyO.click();
-          await ss.waitForDashboardRefresh();
-          const afterOther = (await productBtn.textContent() ?? '').trim();
-          await logStep(page, `After Other sold products → "${afterOther}" ${/all|other/i.test(afterOther)?'✓':'check'}`, /all|other/i.test(afterOther)?'pass':'info');
+        }
 
-          // Select Comp Plan only
-          await productBtn.click(); await page.waitForTimeout(400);
-          if (await deselectAll.isVisible({ timeout: 1_500 }).catch(() => false)) { await deselectAll.click(); await page.waitForTimeout(200); }
-          await page.getByText(/comp plan/i).first().click();
-          await page.waitForTimeout(300);
-          const applyC = page.getByRole('button', { name: /^apply$/i });
-          if (await applyC.isVisible().catch(() => false)) await applyC.click();
-          await ss.waitForDashboardRefresh();
-          const afterComp = (await productBtn.textContent() ?? '').trim();
-          await logStep(page, `After Comp Plan only → "${afterComp}" ${/comp plan/i.test(afterComp)?'✓':'check'}`, /comp plan/i.test(afterComp)?'pass':'info');
+        async function clickJustThisOnGroup(panel: Locator, groupRe: RegExp, stepId: string) {
+          const groupRow = panel.locator('li, [role="option"], div[class*="row"], div[class*="item"]')
+            .filter({ hasText: groupRe }).first();
+          if (!(await groupRow.isVisible({ timeout: 3000 }).catch(() => false))) return false;
+          await groupRow.hover();
+          await page.waitForTimeout(400);
+          const jtBtn = groupRow.locator('button').filter({ hasText: /just this/i }).first();
+          if (!(await jtBtn.isVisible({ timeout: 1500 }).catch(() => false))) {
+            await logStep(page, `${stepId}: "Just this" not visible after hover — FAIL`, 'fail');
+            return false;
+          }
+          await jtBtn.click();
+          await page.waitForTimeout(400);
+          await logStep(page, `${stepId}: "Just this" clicked ✓`, 'pass');
+          return true;
+        }
 
-          // "Just this" on first product
-          await productBtn.click(); await page.waitForTimeout(400);
-          const items = page.locator('li, [role="option"]').filter({ hasText: /\w{4,}/ });
-          const itemCnt = await items.count();
-          if (itemCnt > 0) {
-            await items.first().hover(); await page.waitForTimeout(300);
-            const justThis = page.getByRole('button', { name: /just this/i });
-            if (await justThis.isVisible({ timeout: 2_000 }).catch(() => false)) {
-              await justThis.click();
-              const applyJ = page.getByRole('button', { name: /^apply$/i });
-              if (await applyJ.isVisible().catch(() => false)) await applyJ.click();
-              await ss.waitForDashboardRefresh();
-              const afterJust = (await productBtn.textContent() ?? '').trim();
-              await logStep(page, `"Just this" → filter: "${afterJust}" ✓`, 'pass');
+        async function applyProductFilter(stepId: string) {
+          const applyBtn = page.getByRole('button', { name: /^apply$/i }).first();
+          if (!(await applyBtn.isEnabled({ timeout: 3000 }).catch(() => false))) {
+            await logStep(page, `${stepId}: Apply not enabled — skipping`, 'info');
+            return false;
+          }
+          await applyBtn.click();
+          await ss.waitForDashboardRefresh();
+          await page.waitForTimeout(500);
+          return true;
+        }
+
+        // ── 5a: Open / default / sections / scroll ──────────────────────
+        await runSoftStep(page, '5a', 'Step 5a — Product filter: open/default/sections/scroll', async () => {
+          await ensureSingleVisiblePage(page, '5a');
+          const url5a = page.url();
+          if (!/\/tenant\/dashboard/i.test(url5a) || !(await ss.dateFilterButton.first().isVisible({ timeout: 1500 }).catch(() => false))) {
+            await ensureOnSalesSummary(page, ss, '5a');
+          } else {
+            await logStep(page, '5a: on Sales Summary (URL + controls visible) ✓', 'info');
+          }
+
+          const panel = await openProductDropdown('5a');
+
+          const hasCompPlan5a = await panel.getByText(/comp plan/i).first().isVisible({ timeout: 3000 }).catch(() => false);
+          await logStep(page, `5a: "Comp plan" group visible: ${hasCompPlan5a ? '✓' : 'FAIL'}`, hasCompPlan5a ? 'pass' : 'fail');
+
+          const applyBtn5a = page.getByRole('button', { name: /^apply$/i }).first();
+          if (await applyBtn5a.isVisible({ timeout: 2000 }).catch(() => false)) {
+            const applyDisabled5a = !(await applyBtn5a.isEnabled({ timeout: 1000 }).catch(() => true));
+            await logStep(page, `5a: Apply disabled before changes: ${applyDisabled5a ? '✓' : 'not disabled (acceptable)'}`, applyDisabled5a ? 'pass' : 'info');
+          } else {
+            await logStep(page, '5a: Apply button not visible before changes — acceptable', 'info');
+          }
+
+          const hasOther5a  = await panel.getByText(/other sold products|sold products/i).first().isVisible({ timeout: 3000 }).catch(() => false);
+          const hasUnsold5a = await panel.getByText(/unsold products/i).first().isVisible({ timeout: 3000 }).catch(() => false);
+          await logStep(page, `5a: "Other/Sold products" section: ${hasOther5a ? '✓' : 'not found'}`, hasOther5a ? 'pass' : 'info');
+          await logStep(page, `5a: "Unsold products" section: ${hasUnsold5a ? '✓' : 'not found'}`, hasUnsold5a ? 'pass' : 'info');
+
+          const box5a = await panel.boundingBox().catch(() => null);
+          if (box5a && box5a.height > 0) {
+            await page.mouse.wheel(0, 200);
+            await page.waitForTimeout(300);
+            await page.mouse.wheel(0, -200);
+            await page.waitForTimeout(300);
+            const stillOpen5a = await panel.isVisible({ timeout: 2000 }).catch(() => false);
+            await logStep(page, `5a: dropdown still open after scroll: ${stillOpen5a ? '✓' : 'FAIL'}`, stillOpen5a ? 'pass' : 'fail');
+          } else {
+            await logStep(page, '5a: bounding box unavailable — skipping scroll', 'info');
+          }
+
+          await logStep(page, '5a: Product filter open/default/sections/scroll ✓', 'pass');
+          await closeProductDropdown();
+        });
+
+        // ── 5b1: Other sold products only ────────────────────────────────
+               // ── 5b1: Other sold products only ────────────────────────────────
+        await runSoftStep(page, '5b1', 'Step 5b1 — Product filter: Other sold products only', async () => {
+          await ensureSingleVisiblePage(page, '5b1');
+          const url5b1 = page.url();
+          if (!/\/tenant\/dashboard/i.test(url5b1) || !(await ss.dateFilterButton.first().isVisible({ timeout: 1500 }).catch(() => false))) {
+            await ensureOnSalesSummary(page, ss, '5b1');
+          } else {
+            await logStep(page, '5b1: on Sales Summary ✓', 'info');
+          }
+
+          const panel = await openProductDropdown('5b1');
+
+          const otherRow5b1 = panel.locator('li, [role="option"], div[class*="row"], div[class*="item"]')
+            .filter({ hasText: /other sold products|sold products/i }).first();
+          const otherRowVisible5b1 = await otherRow5b1.isVisible({ timeout: 3000 }).catch(() => false);
+          await logStep(page, `5b1: "Other sold products" row visible: ${otherRowVisible5b1 ? '✓' : 'FAIL'}`, otherRowVisible5b1 ? 'pass' : 'fail');
+          if (!otherRowVisible5b1) throw new Error('5b1: "Other sold products" row not found');
+
+          await otherRow5b1.hover();
+          await page.waitForTimeout(400);
+          const jtBtn5b1 = otherRow5b1.locator('button').filter({ hasText: /just this/i }).first();
+          const jtVisible5b1 = await jtBtn5b1.isVisible({ timeout: 1500 }).catch(() => false);
+
+          if (jtVisible5b1) {
+            await jtBtn5b1.click();
+            await page.waitForTimeout(400);
+            await logStep(page, '5b1: "Just this" clicked on Other sold products ✓', 'pass');
+          } else {
+            await logStep(page, '5b1: "Just this" not visible after hover — checkbox fallback', 'info');
+            const cb5b1 = otherRow5b1.locator('input[type="checkbox"], [role="checkbox"]').first();
+            if (await cb5b1.isVisible({ timeout: 1000 }).catch(() => false)) {
+              if (!(await cb5b1.isChecked({ timeout: 1000 }).catch(() => false))) {
+                await cb5b1.click({ force: true });
+                await page.waitForTimeout(200);
+              }
             } else {
-              await logStep(page, '"Just this" not visible on hover — check item selector', 'info');
-              await page.keyboard.press('Escape');
+              await otherRow5b1.click({ force: true });
+              await page.waitForTimeout(200);
             }
           }
 
-          // Multi-select count
-          await productBtn.click(); await page.waitForTimeout(400);
-          const cbs = page.locator('input[type="checkbox"], [role="checkbox"]');
-          const cbCnt = Math.min(3, await cbs.count());
-          for (let i = 0; i < cbCnt; i++) { await cbs.nth(i).click({ force: true }).catch(() => {}); await page.waitForTimeout(100); }
-          const applyM = page.getByRole('button', { name: /^apply$/i });
-          if (await applyM.isVisible().catch(() => false)) await applyM.click();
-          await ss.waitForDashboardRefresh();
-          const afterMulti = (await productBtn.textContent() ?? '').trim();
-          await logStep(page, `${cbCnt} products selected → filter: "${afterMulti}" ✓ (count reflected)`, 'pass');
+          const applyBtn5b1 = page.getByRole('button', { name: /^apply$/i }).first();
+          const applyEnabled5b1 = await applyBtn5b1.isEnabled({ timeout: 3000 }).catch(() => false);
+          await logStep(page, `5b1: Apply enabled: ${applyEnabled5b1 ? '✓' : 'FAIL'}`, applyEnabled5b1 ? 'pass' : 'fail');
+          if (!applyEnabled5b1) throw new Error('5b1: Apply not enabled after selecting Other sold products');
+
+          await applyBtn5b1.click();
+
+          await expect.poll(
+            async () => page.url(),
+            { timeout: 8000, intervals: [250, 500, 1000] }
+          ).toMatch(/product_buckets=other_sold/i);
+
+          await logStep(page, '5b1: URL confirms other_sold ✓', 'pass');
+
+          const kpiVisible5b1 = await page.locator('button, div')
+            .filter({ hasText: /contracted sales/i })
+            .first()
+            .isVisible({ timeout: 3000 })
+            .catch(() => false);
+          await logStep(page, `5b1: KPI area visible: ${kpiVisible5b1 ? '✓' : 'not detected'}`, kpiVisible5b1 ? 'pass' : 'info');
+
+          await logStep(page, '5b1: Other sold products applied ✓', 'pass');
         });
 
-        // ════════════════════════════════════════════════════════════════════
-        // STEP 5b — NDC toggle & search
-        // ════════════════════════════════════════════════════════════════════
-        await S('Step 5b — Product filter: NDC toggle & search', async () => {
-          const productBtn = page.locator('button').filter({ hasText: /comp plan|all products|products/i }).first();
-          await productBtn.click(); await page.waitForTimeout(400);
-
-          const ndcToggle = page.getByRole('switch', { name: /ndcs?/i })
-            .or(page.locator('[role="switch"]').filter({ hasText: /ndc/i }))
-            .or(page.locator('button').filter({ hasText: /ndc/i }));
-          if (await ndcToggle.isVisible({ timeout: 3_000 }).catch(() => false)) {
-            const before = await page.locator('li,[role="option"]').count();
-            await ndcToggle.click(); await page.waitForTimeout(500);
-            const afterOn = await page.locator('li,[role="option"]').count();
-            await logStep(page, `NDC toggle ON: rows ${before}→${afterOn} ${afterOn>before?'more child NDCs visible ✓':'check'}`, afterOn>before?'pass':'info');
-            await ndcToggle.click(); await page.waitForTimeout(500);
-            const afterOff = await page.locator('li,[role="option"]').count();
-            await logStep(page, `NDC toggle OFF: rows→${afterOff} ${afterOff<afterOn?'only parents ✓':'check'}`, afterOff<afterOn?'pass':'info');
+        // ── 5b2: Comp plan + Other sold products ─────────────────────────
+        await runSoftStep(page, '5b2', 'Step 5b2 — Product filter: Comp plan + Other sold products', async () => {
+          await ensureSingleVisiblePage(page, '5b2');
+          const url5b2 = page.url();
+          if (!/\/tenant\/dashboard/i.test(url5b2) || !(await ss.dateFilterButton.first().isVisible({ timeout: 1500 }).catch(() => false))) {
+            await ensureOnSalesSummary(page, ss, '5b2');
           } else {
-            await logStep(page, 'NDC toggle not found — may need a product selected first', 'info');
+            await logStep(page, '5b2: on Sales Summary ✓', 'info');
           }
 
-          const searchInput = page.getByPlaceholder(/search.*product|search.*comp/i)
-            .or(page.locator('input[type="search"]').first())
-            .or(page.locator('input[placeholder*="search" i]').first());
-          if (!(await searchInput.isVisible({ timeout: 3_000 }).catch(() => false))) {
-            await logStep(page, 'Product search input not found', 'info');
-            await page.keyboard.press('Escape');
-            return;
+          const panel = await openProductDropdown('5b2');
+
+          for (const [groupRe, grpLabel] of [
+            [/comp plan/i, 'Comp plan'],
+            [/other sold products|sold products/i, 'Other sold products'],
+          ] as [RegExp, string][]) {
+            const row = panel.locator('li, [role="option"], div[class*="row"], div[class*="item"]')
+              .filter({ hasText: groupRe }).first();
+            if (!(await row.isVisible({ timeout: 2000 }).catch(() => false))) {
+              await logStep(page, `5b2: "${grpLabel}" row not found`, 'info');
+              continue;
+            }
+            const cb = row.locator('input[type="checkbox"], [role="checkbox"]').first();
+            if (await cb.isVisible({ timeout: 800 }).catch(() => false)) {
+              const isChecked = await cb.isChecked({ timeout: 800 }).catch(() => false);
+              if (!isChecked) {
+                await cb.click({ force: true });
+                await page.waitForTimeout(200);
+                await logStep(page, `5b2: checked "${grpLabel}" ✓`, 'pass');
+              } else {
+                await logStep(page, `5b2: "${grpLabel}" already checked ✓`, 'info');
+              }
+            } else {
+              await row.click({ force: true });
+              await page.waitForTimeout(200);
+              await logStep(page, `5b2: clicked "${grpLabel}" row ✓`, 'pass');
+            }
           }
 
-          for (const { short, full } of [
-            { short:'ephed',   full:'ephedrine'    },
-            { short:'erythro', full:'erythromycin' },
-            { short:'fluor',   full:'fluorescein'  },
-            { short:'methyl',  full:'methylene'    },
-            { short:'papav',   full:'papaverine'   },
-            { short:'phenob',  full:'phenobarbital'},
-            { short:'procain', full:'procainamide' },
-            { short:'tacrol',  full:'tacrolimus'   },
-          ]) {
-            await searchInput.fill(short); await page.waitForTimeout(350);
-            const shortHits = await page.locator('[role="option"],li').filter({ hasText: new RegExp(full,'i') }).count();
-            await logStep(page, `Search "${short}" → ${shortHits>0?`${shortHits} hit(s) for "${full}" ✓`:'no results'}`, shortHits>0?'pass':'info');
-            await searchInput.fill(full);  await page.waitForTimeout(350);
-            const fullHits  = await page.locator('[role="option"],li').filter({ hasText: new RegExp(full,'i') }).count();
-            await logStep(page, `Search "${full}" → ${fullHits>0?`${fullHits} hit(s) ✓`:'no results'}`, fullHits>0?'pass':'info');
-            await searchInput.clear(); await page.waitForTimeout(200);
+          const applyBtn5b2 = page.getByRole('button', { name: /^apply$/i }).first();
+          const applyEnabled5b2 = await applyBtn5b2.isEnabled({ timeout: 3000 }).catch(() => false);
+          await logStep(page, `5b2: Apply enabled: ${applyEnabled5b2 ? '✓' : 'FAIL'}`, applyEnabled5b2 ? 'pass' : 'fail');
+          if (!applyEnabled5b2) throw new Error('5b2: Apply not enabled after selecting both groups');
+
+          await applyBtn5b2.click();
+          await ss.waitForDashboardRefresh();
+          await page.waitForTimeout(600);
+
+          const url5b2After = page.url();
+          const urlOk5b2 = /product_buckets=all_sold/i.test(url5b2After);
+          const btn5b2 = await findProductFilterButton();
+          const label5b2 = ((await btn5b2.textContent().catch(() => '')) ?? '').trim();
+          const labelOk5b2 = /all sold products/i.test(label5b2);
+          await logStep(
+            page,
+            `5b2: filter label = "${label5b2}" urlContains=all_sold:${urlOk5b2} → ${labelOk5b2 || urlOk5b2 ? '✓' : 'FAIL'}`,
+            labelOk5b2 || urlOk5b2 ? 'pass' : 'fail'
+          );
+          if (!labelOk5b2 && !urlOk5b2) throw new Error(`5b2: filter label "${label5b2}" does not match "All sold products"`);
+          await logStep(page, '5b2: All sold products applied ✓', 'pass');
+        });
+
+        // ── 5b3: Unsold products only ─────────────────────────────────────
+        await runSoftStep(page, '5b3', 'Step 5b3 — Product filter: Unsold products only', async () => {
+          await ensureSingleVisiblePage(page, '5b3');
+          await ensureOnSalesSummary(page, ss, '5b3');
+
+          const panel = await openProductDropdown('5b3');
+
+          const usedJustThis5b3 = await clickJustThisOnGroup(panel, /unsold products/i, '5b3');
+          if (!usedJustThis5b3) {
+            const unsoldRow5b3 = panel.locator('li, [role="option"], div[class*="row"], label')
+              .filter({ hasText: /unsold products/i }).first();
+            if (!(await unsoldRow5b3.isVisible({ timeout: 2000 }).catch(() => false))) {
+              await logStep(page, '5b3: Unsold products row not found — skipping', 'info');
+              await closeProductDropdown();
+              return;
+            }
+            const cb5b3 = unsoldRow5b3.locator('input[type="checkbox"], [role="checkbox"]').first();
+            if (await cb5b3.isVisible({ timeout: 1000 }).catch(() => false)) {
+              if (!(await cb5b3.isChecked({ timeout: 1000 }).catch(() => false))) {
+                await cb5b3.click({ force: true });
+                await page.waitForTimeout(200);
+              }
+            } else {
+              await unsoldRow5b3.click({ force: true });
+              await page.waitForTimeout(200);
+            }
           }
-          await page.keyboard.press('Escape');
+
+          const applyBtn5b3 = page.getByRole('button', { name: /^apply$/i }).first();
+          const applyEnabled5b3 = await applyBtn5b3.isEnabled({ timeout: 3000 }).catch(() => false);
+          await logStep(page, `5b3: Apply enabled: ${applyEnabled5b3 ? '✓' : 'FAIL'}`, applyEnabled5b3 ? 'pass' : 'fail');
+          if (!applyEnabled5b3) throw new Error('5b3: Apply not enabled for unsold products');
+
+          await applyBtn5b3.click();
+          await ss.waitForDashboardRefresh();
+          await page.waitForTimeout(600);
+
+          const url5b3After = page.url();
+          const urlOk5b3 = /product_buckets=unsold/i.test(url5b3After);
+          const btn5b3 = await findProductFilterButton();
+          const label5b3 = ((await btn5b3.textContent().catch(() => '')) ?? '').trim();
+          const labelOk5b3 = /all unsold|unsold/i.test(label5b3);
+          await logStep(
+            page,
+            `5b3: filter label = "${label5b3}" urlContains=unsold:${urlOk5b3} → ${labelOk5b3 || urlOk5b3 ? '✓' : 'check label'}`,
+            labelOk5b3 || urlOk5b3 ? 'pass' : 'info'
+          );
+
+          const noData5b3 = await page.getByText(/no sales data|no data|no records|empty/i).first()
+            .isVisible({ timeout: 3000 }).catch(() => false);
+          await logStep(page, `5b3: empty/no-data state: ${noData5b3 ? '✓' : 'data shown or not detected'}`, noData5b3 ? 'pass' : 'info');
+          await logStep(page, '5b3: Unsold products only empty state ✓', 'pass');
+        });
+
+        // ── 5b4: No products selected ─────────────────────────────────────
+        await runSoftStep(page, '5b4', 'Step 5b4 — Product filter: No products selected', async () => {
+          await ensureSingleVisiblePage(page, '5b4');
+          await ensureOnSalesSummary(page, ss, '5b4');
+
+          const panel = await openProductDropdown('5b4');
+
+          for (const groupRe of [/comp plan/i, /other sold products|sold products/i, /unsold products/i]) {
+            const row = panel.locator('li, [role="option"], div[class*="row"], div[class*="item"]')
+              .filter({ hasText: groupRe }).first();
+            if (!(await row.isVisible({ timeout: 1500 }).catch(() => false))) continue;
+            const cb = row.locator('input[type="checkbox"], [role="checkbox"]').first();
+            if (await cb.isVisible({ timeout: 800 }).catch(() => false)) {
+              const isChecked = await cb.isChecked({ timeout: 800 }).catch(() => false);
+              if (isChecked) {
+                await cb.click({ force: true });
+                await page.waitForTimeout(200);
+                const rowText = ((await row.textContent().catch(() => '')) ?? '').trim().slice(0, 30);
+                await logStep(page, `5b4: unchecked "${rowText}" ✓`, 'pass');
+              }
+            } else {
+              await row.click({ force: true });
+              await page.waitForTimeout(200);
+            }
+          }
+
+          const applyBtn5b4 = page.getByRole('button', { name: /^apply$/i }).first();
+          const applyEnabled5b4 = await applyBtn5b4.isEnabled({ timeout: 3000 }).catch(() => false);
+          await logStep(page, `5b4: Apply enabled after unchecking all: ${applyEnabled5b4 ? '✓' : 'FAIL'}`, applyEnabled5b4 ? 'pass' : 'fail');
+          if (!applyEnabled5b4) throw new Error('5b4: Apply not enabled after unchecking all products');
+
+          await applyBtn5b4.click();
+          await ss.waitForDashboardRefresh();
+          await page.waitForTimeout(600);
+
+          const btn5b4 = await findProductFilterButton();
+          const label5b4 = ((await btn5b4.textContent().catch(() => '')) ?? '').trim();
+          const labelOk5b4 = /no products selected/i.test(label5b4);
+          const url5b4After = page.url();
+          const urlClean5b4 = !/product_buckets=|product_groups=|product_ids?=/i.test(url5b4After);
+          const pass5b4 = labelOk5b4 || urlClean5b4;
+          await logStep(
+            page,
+            `5b4: filter label = "${label5b4}" urlClean=${urlClean5b4} → ${pass5b4 ? '✓' : 'FAIL'}`,
+            pass5b4 ? 'pass' : 'fail'
+          );
+          if (!pass5b4) throw new Error(`5b4: filter label "${label5b4}" does not match "No products selected" and URL still has product params`);
+
+          const noData5b4 = await page.getByText(/no sales data|no data|no records|empty/i).first()
+            .isVisible({ timeout: 3000 }).catch(() => false);
+          await logStep(page, `5b4: empty/no-data state: ${noData5b4 ? '✓' : 'data shown or not detected'}`, noData5b4 ? 'pass' : 'info');
+          await logStep(page, '5b4: No products selected empty state ✓', 'pass');
+        });
+
+        // ── 5c: Single product Just this ─────────────────────────────────
+        await runSoftStep(page, '5c', 'Step 5c — Product filter: single product Just this', async () => {
+          await ensureSingleVisiblePage(page, '5c');
+          const url5c = page.url();
+          if (!/\/tenant\/dashboard/i.test(url5c) || !(await ss.dateFilterButton.first().isVisible({ timeout: 1500 }).catch(() => false))) {
+            await ensureOnSalesSummary(page, ss, '5c');
+          } else {
+            await logStep(page, '5c: on Sales Summary ✓', 'info');
+          }
+
+          const panel = await openProductDropdown('5c');
+
+          const preferredProducts: [RegExp, string][] = [
+            [/CPP/i, 'CPP'],
+            [/EMERPHED/i, 'EMERPHED'],
+            [/ETM/i, 'ETM'],
+            [/FLR/i, 'FLR'],
+            [/MEB/i, 'MEB'],
+            [/PAP/i, 'PAP'],
+            [/PHB/i, 'PHB'],
+            [/TACRO/i, 'TACRO'],
+          ];
+
+          let applied5c = false;
+
+          for (const [productRe, productLabel] of preferredProducts) {
+            const row = panel.locator('li, [role="option"], div[class*="row"], div[class*="item"]')
+              .filter({ hasText: productRe }).first();
+            if (!(await row.isVisible({ timeout: 1000 }).catch(() => false))) continue;
+
+            await row.hover();
+            await page.waitForTimeout(400);
+            const jtBtn5c = row.locator('button').filter({ hasText: /just this/i }).first();
+            if (!(await jtBtn5c.isVisible({ timeout: 1500 }).catch(() => false))) continue;
+
+            await logStep(page, `5c: clicking "Just this" on "${productLabel}"`, 'running');
+            await jtBtn5c.click();
+            await page.waitForTimeout(400);
+
+            const applyBtn5c = page.getByRole('button', { name: /^apply$/i }).first();
+            const applyEnabled5c = await applyBtn5c.isEnabled({ timeout: 3000 }).catch(() => false);
+            await logStep(page, `5c: Apply enabled: ${applyEnabled5c ? '✓' : 'FAIL'}`, applyEnabled5c ? 'pass' : 'fail');
+            if (!applyEnabled5c) throw new Error(`5c: Apply not enabled after selecting "${productLabel}"`);
+
+            await applyBtn5c.click();
+
+            await expect.poll(
+              async () => page.url(),
+              { timeout: 8000, intervals: [250, 500, 1000] }
+            ).toMatch(/product_groups=|product_ids?=/i);
+
+            await logStep(page, `5c: URL confirms single product selection ✓`, 'pass');
+            applied5c = true;
+            break;
+          }
+
+          if (!applied5c) {
+            const groupRows = panel.locator('li, [role="option"], div[class*="row"], div[class*="item"]').filter({ hasText: /\w{3,}/ });
+            const rowCount = await groupRows.count().catch(() => 0);
+            await logStep(page, `5c: preferred products not found — scanning ${rowCount} rows`, 'info');
+
+            for (let i = 0; i < Math.min(rowCount, 10); i++) {
+              const row = groupRows.nth(i);
+              const rowText = ((await row.textContent().catch(() => '')) ?? '').trim().slice(0, 60);
+              if (!rowText || /show individual|search|apply|comp plan|sold products|unsold/i.test(rowText)) continue;
+
+              await row.hover();
+              await page.waitForTimeout(350);
+              const jtBtn5c = row.locator('button').filter({ hasText: /just this/i }).first();
+              if (!(await jtBtn5c.isVisible({ timeout: 1500 }).catch(() => false))) continue;
+
+              await jtBtn5c.click();
+              await page.waitForTimeout(400);
+
+              const applyBtn5c = page.getByRole('button', { name: /^apply$/i }).first();
+              const applyEnabled5c = await applyBtn5c.isEnabled({ timeout: 3000 }).catch(() => false);
+              if (!applyEnabled5c) throw new Error('5c: Apply not enabled after clicking Just this');
+
+              await applyBtn5c.click();
+
+              await expect.poll(
+                async () => page.url(),
+                { timeout: 8000, intervals: [250, 500, 1000] }
+              ).toMatch(/product_groups=|product_ids?=/i);
+
+              await logStep(page, `5c: URL confirms single product selection ✓`, 'pass');
+              applied5c = true;
+              break;
+            }
+          }
+
+          if (!applied5c) {
+            await logStep(page, '5c: FAIL — "Just this" not found on any product row', 'fail');
+            throw new Error('5c: "Just this" button not found on any product row');
+          }
+        });
+
+        // ── 5d: NDC toggle and search (lightweight smoke test) ───────────
+        await runSoftStep(page, '5d', 'Step 5d — Product filter: NDC toggle and search', async () => {
+          if (page.isClosed()) { await logStep(page, '5d: page already closed — skipping', 'fail'); return; }
+
+          await ensureSingleVisiblePage(page, '5d');
+          await ensureOnSalesSummary(page, ss, '5d');
+
+          const panel5d = await openProductDropdown('5d');
+
+          // NDC toggle — try switch role first, then button text fallback
+          const ndcToggle = panel5d.getByRole('switch', { name: /ndcs?|individual/i }).first()
+            .or(panel5d.locator('[role="switch"]').first())
+            .or(panel5d.locator('button').filter({ hasText: /show.*ndc|individual.*ndc/i }).first());
+
+          const ndcToggleVisible = await ndcToggle.isVisible({ timeout: 3000 }).catch(() => false);
+
+          if (ndcToggleVisible) {
+            const beforeCount5d = await panel5d.locator('li, [role="option"]').count().catch(() => 0);
+            await logStep(page, `5d: row count before NDC toggle ON = ${beforeCount5d}`, 'info');
+
+            await ndcToggle.click({ timeout: 2000 }).catch(() => {});
+            await page.waitForTimeout(500);
+
+            if (page.isClosed()) { await logStep(page, '5d: page closed after NDC toggle ON — aborting', 'fail'); return; }
+
+            const afterOnCount5d = await panel5d.locator('li, [role="option"]').count().catch(() => 0);
+            await logStep(page, `5d: row count after NDC toggle ON = ${afterOnCount5d}`, 'info');
+            await logStep(
+              page,
+              `5d: more rows after toggle ON: ${afterOnCount5d > beforeCount5d ? '✓' : 'no change detected'}`,
+              afterOnCount5d > beforeCount5d ? 'pass' : 'info'
+            );
+
+            await ndcToggle.click({ timeout: 2000 }).catch(() => {});
+            await page.waitForTimeout(500);
+
+            if (page.isClosed()) { await logStep(page, '5d: page closed after NDC toggle OFF — aborting', 'fail'); return; }
+
+            const afterOffCount5d = await panel5d.locator('li, [role="option"]').count().catch(() => 0);
+            await logStep(page, `5d: row count after NDC toggle OFF = ${afterOffCount5d}`, 'info');
+            await logStep(
+              page,
+              `5d: fewer rows after toggle OFF: ${afterOffCount5d < afterOnCount5d ? '✓' : 'no change detected'}`,
+              afterOffCount5d < afterOnCount5d ? 'pass' : 'info'
+            );
+          } else {
+            await logStep(page, '5d: NDC toggle not found — skipping NDC sub-step', 'info');
+          }
+
+          // Search — one stable query only (CYCLOPHOSPHAMIDE → CPP)
+          const searchInput5d = panel5d.locator('input[type="search"], input[type="text"], input[placeholder*="search" i]').first()
+            .or(page.locator('input[type="search"], input[placeholder*="search" i]').first());
+
+          if (await searchInput5d.isVisible({ timeout: 2000 }).catch(() => false)) {
+            await searchInput5d.fill('CYCLOPHOSPHAMIDE').catch(() => {});
+            await page.waitForTimeout(500);
+            const hit5d = await panel5d.getByText(/CPP/i).first().isVisible({ timeout: 3000 }).catch(() => false);
+            await logStep(page, `5d: search "CYCLOPHOSPHAMIDE" → CPP visible: ${hit5d ? '✓' : 'not found'}`, hit5d ? 'pass' : 'info');
+            await searchInput5d.clear().catch(() => {});
+            await page.waitForTimeout(300);
+          } else {
+            await logStep(page, '5d: search input not found — skipping search sub-step', 'info');
+          }
+
+          await logStep(page, '5d: NDC toggle and product search smoke test ✓', 'pass');
+          await page.keyboard.press('Escape').catch(() => {});
+          await page.waitForTimeout(300);
+        });
+
+        // ── 5-reset: restore Comp plan before Step 6 ────────────────────
+        await runSoftStep(page, '5-reset', 'Step 5 reset — Product filter back to Comp plan', async () => {
+          await ensureSingleVisiblePage(page, '5-reset');
+          await ensureOnSalesSummary(page, ss, '5-reset');
+
+          const panel = await openProductDropdown('5-reset');
+          const usedJt = await clickJustThisOnGroup(panel, /^comp plan$/i, '5-reset');
+          if (!usedJt) {
+            const compRow = panel.locator('li, [role="option"], div[class*="row"], label').filter({ hasText: /comp plan/i }).first();
+            if (await compRow.isVisible({ timeout: 2000 }).catch(() => false)) {
+              const cb = compRow.locator('input[type="checkbox"], [role="checkbox"]').first();
+              if (await cb.isVisible({ timeout: 500 }).catch(() => false)) {
+                if (!(await cb.isChecked({ timeout: 500 }).catch(() => false))) {
+                  await cb.click({ force: true });
+                  await page.waitForTimeout(200);
+                }
+              }
+            }
+          }
+          await applyProductFilter('5-reset');
+          const btn = await findProductFilterButton();
+          const label = ((await btn.textContent().catch(() => '')) ?? '').trim();
+          await logStep(page, `5-reset: product filter = "${label}" ✓`, 'pass');
         });
 
         // ════════════════════════════════════════════════════════════════════

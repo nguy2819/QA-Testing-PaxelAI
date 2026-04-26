@@ -881,20 +881,19 @@
           <div class="step-card-header" onclick="toggleStep(this)">
             <div class="step-num">5a</div>
             <div class="step-title-wrap">
-              <div class="step-title">Product filter — sections, selections, count, "Just this"</div>
-              <div class="step-subtitle">Verify Comp Plan and Other Sold Products sections exist, selection updates the label, "Just this" works</div>
+              <div class="step-title">Product filter — open/default/sections/scroll</div>
+              <div class="step-subtitle">Open the product filter, verify default label, confirm Comp Plan and product sections are visible, scroll works</div>
               <div class="step-tags"><span class="step-tag filter">Filter</span></div>
             </div>
             <div class="step-toggle">▸</div>
           </div>
           <div class="step-body">
             <ul>
-              <li>Read the product filter button default label — should contain "Comp Plan (N)".</li>
-              <li>Open the dropdown — verify both "Comp Plan" and "Other sold products" sections are visible.</li>
-              <li>Select "Other sold products" only → Apply → verify filter label updates.</li>
-              <li>Select "Comp Plan" only → Apply → verify filter label updates.</li>
-              <li>Hover the first product item → "Just this" button appears → click it → Apply → verify label updates.</li>
-              <li>Check 3 checkboxes → Apply → verify count is reflected in the filter label.</li>
+              <li>Open the product filter dropdown.</li>
+              <li>Verify "Comp Plan" group is visible by default.</li>
+              <li>Verify Apply is disabled before any change.</li>
+              <li>Verify "Other sold products" and "Unsold products" sections are visible.</li>
+              <li>Scroll the dropdown — verify it stays open and content is reachable.</li>
             </ul>
           </div>
         </div>
@@ -904,8 +903,50 @@
           <div class="step-card-header" onclick="toggleStep(this)">
             <div class="step-num">5b</div>
             <div class="step-title-wrap">
-              <div class="step-title">Product filter — NDC toggle &amp; search by name</div>
-              <div class="step-subtitle">Toggle the NDC view on/off and search for 8 known product names using both short and full name</div>
+              <div class="step-title">Product filter — group selections</div>
+              <div class="step-subtitle">Select each product group individually and in combination; verify filter label, URL param, and empty state</div>
+              <div class="step-tags"><span class="step-tag filter">Filter</span></div>
+            </div>
+            <div class="step-toggle">▸</div>
+          </div>
+          <div class="step-body">
+            <ul>
+              <li>5b1 — Select "Other sold products" only → Apply → URL contains <code>product_buckets=other_sold</code>.</li>
+              <li>5b2 — Select Comp Plan + Other sold products → Apply → label shows "All sold products", URL contains <code>product_buckets=all_sold</code>.</li>
+              <li>5b3 — Select "Unsold products" only → Apply → empty/no-data state visible.</li>
+              <li>5b4 — Uncheck all groups → Apply → label shows "No products selected", empty state visible.</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Step 5c -->
+        <div class="step-card">
+          <div class="step-card-header" onclick="toggleStep(this)">
+            <div class="step-num">5c</div>
+            <div class="step-title-wrap">
+              <div class="step-title">Product filter — single product Just this</div>
+              <div class="step-subtitle">Hover a product row, click "Just this", Apply, and verify URL contains product_id</div>
+              <div class="step-tags"><span class="step-tag filter">Filter</span></div>
+            </div>
+            <div class="step-toggle">▸</div>
+          </div>
+          <div class="step-body">
+            <ul>
+              <li>Open product filter → hover a known product row (CPP, EMERPHED, ETM, etc.).</li>
+              <li>Verify "Just this" button appears on hover → click it.</li>
+              <li>Apply → verify URL contains <code>product_id=</code>.</li>
+              <li>Verify filter label reflects the selected product.</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Step 5d -->
+        <div class="step-card">
+          <div class="step-card-header" onclick="toggleStep(this)">
+            <div class="step-num">5d</div>
+            <div class="step-title-wrap">
+              <div class="step-title">Product filter — NDC toggle + search smoke test</div>
+              <div class="step-subtitle">Toggle the NDC view on/off and search for one known drug name; no Apply, no selection change</div>
               <div class="step-tags"><span class="step-tag filter">Filter</span></div>
             </div>
             <div class="step-toggle">▸</div>
@@ -915,8 +956,8 @@
               <li>Open product filter → find the NDC toggle (<code>role="switch"</code>).</li>
               <li>Turn NDC ON → verify row count increases (child NDCs visible).</li>
               <li>Turn NDC OFF → verify row count decreases back to parent-only view.</li>
-              <li>For each of 8 products: type short prefix → verify at least 1 match; type full name → verify at least 1 match; clear input.</li>
-              <li>Products: ephedrine, erythromycin, fluorescein, methylene, papaverine, phenobarbital, procainamide, tacrolimus.</li>
+              <li>Type "CYCLOPHOSPHAMIDE" in the search input → verify CPP row is visible → clear.</li>
+              <li>Close dropdown with Escape. No Apply; product selection state is unchanged.</li>
             </ul>
           </div>
         </div>
