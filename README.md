@@ -17,7 +17,7 @@ Node has to bind into PORT of Render; web service is 10000.
 - docker build --no-cache -t paxel-qa-demo . 
 - docker ps
 - docker stop container_id
-- docker run --rm -p 3010:3001 -p 6090:6080 -p 5910:5900 paxel-qa-demo
+- docker run --rm -p 3001:3001 -p 6090:6080 -p 5910:5900 paxel-qa-demo
 
 or docker compose down -v
 docker compose up --build
@@ -31,9 +31,11 @@ Fix this error by **typing "docker/start.sh" -> change from CRLF to LF.** so Lin
 
 git branch
 git checkout main or demo-stable or rescue-rebuild
-git add
+git add .
 git commit -m ""
 git push
+
+git reset --hard "branch's id"
 
 **Debug playwright:**
 - HTML report: npx playwright show-report

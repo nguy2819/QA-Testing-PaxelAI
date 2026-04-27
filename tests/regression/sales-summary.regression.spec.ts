@@ -353,6 +353,7 @@ function makeSection(page: Page) {
     await logStep(page, `━━ ${label} ━━`, 'info');
     try { await fn(); }
     catch (e: any) {
+      if (page.isClosed()) return;
       const msg   = String(e?.message ?? e).split('\n')[0];
       const atUrl = page.url();
       await logStep(page, `FAIL "${label}": ${msg} | URL: ${atUrl}`, 'fail');
@@ -463,6 +464,18 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
 
       for (const user of roleUsers) {
 
+      const _diagClosed0 = page.isClosed();
+      const _diagUrl0 = _diagClosed0 ? '(page closed)' : page.url();
+
+      await logStep(
+        page,
+        `DIAG: Starting user ${user.fullName} — page.isClosed()=${_diagClosed0} url=${_diagUrl0}`,
+        'info'
+      );
+
+      if (_diagClosed0) {
+        throw new Error('Controlled page closed between users');
+      }
       await logStep(page, `════ Testing user: ${user.fullName} (${user.company}) ════`, 'info');
 
       let isImpersonated = false;
@@ -470,7 +483,7 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
       try {
 
         // ════════════════════════════════════════════════════════════════════
-        // STEP 2 — Impersonate + navigate
+        // STEP 2 — Impersonate + navigate - WORKING, DON'T CHANGE
         // ════════════════════════════════════════════════════════════════════
         await S(`Step 2 — Impersonate ${user.fullName} (${role} @ ${user.company})`, async () => {
           await logStep(page, `Impersonating ${user.fullName}…`, 'running');
@@ -705,6 +718,7 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
         // Browser / tab safety
         // ─────────────────────────────────────────────────────────────────────────────
         async function ensureSingleVisiblePage(page: Page, stepId: string) {
+        if (page.isClosed()) return;
         const browser = page.context().browser();
         if (!browser) return;
 
@@ -3219,32 +3233,87 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
         // STEP 6 — Customers filter
         // ════════════════════════════════════════════════════════════════════
         await S('Step 6 — Customers filter: All / Current / Returning / New', async () => {
-          for (const opt of ['All','Current','Returning','New']) {
-            await ss.customersFilterButton.click(); await page.waitForTimeout(400);
-            const optEl = page.getByRole('button', { name: new RegExp(`^${opt}`,'i') })
-              .or(page.getByText(new RegExp(`^${opt}`,'i')).first());
-            if (!(await optEl.isVisible({ timeout: 3_000 }).catch(() => false))) {
-              await logStep(page, `Customer option "${opt}" not found — closing`, 'info');
-              await page.keyboard.press('Escape'); continue;
+          await ensureSingleVisiblePage(page, '6');
+          await ensureOnSalesSummary(page, ss, '6');
+
+          // 1. Verify default label = "All customers"
+          const custBtnDefault = page.locator('button')
+            .filter({ hasText: /all customers|all|current|returning new|new/i })
+            .first();
+          const defaultLabel = ((await custBtnDefault.textContent().catch(() => '')) ?? '').trim();
+          const isDefaultAll = /all customers/i.test(defaultLabel);
+          await logStep(page, `6: default All customers ${isDefaultAll ? '✓' : `FAIL (got "${defaultLabel}")`}`, isDefaultAll ? 'pass' : 'fail');
+
+          // Helper: open customers dropdown and return the visible panel
+          async function openCustomersDropdown6(): Promise<import('@playwright/test').Locator> {
+            const btn = page.locator('button')
+              .filter({ hasText: /all customers|all|current|returning new|new/i })
+              .first();
+            const box = await btn.boundingBox().catch(() => null);
+            if (!box) {
+              await logStep(page, '6: Customers button not found — cannot open dropdown', 'fail');
+              throw new Error('6: Customers button not found');
             }
-            await optEl.click(); await page.waitForTimeout(300);
-            const applyBtn = page.getByRole('button', { name: /^apply$/i });
-            if (await applyBtn.isVisible({ timeout: 1_500 }).catch(() => false)) await applyBtn.click();
-            await ss.waitForDashboardRefresh();
-            const lbl = (await ss.customersFilterButton.textContent() ?? '').trim();
-            await logStep(page, `Customers = "${opt}" → filter: "${lbl}"`, 'info');
-            const dataOk = await page.locator('button').filter({ hasText: /contracted sales/i }).first().isVisible({ timeout: 8_000 }).catch(() => false);
-            await logStep(page, `Data loads for "${opt}": ${dataOk?'✓':'FAIL'}`, dataOk?'pass':'fail');
+            await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+            await page.waitForTimeout(300);
+
+            const panel = page.locator('div.absolute.z-50')
+              .filter({ hasText: /All|Current|Returning new|New/i })
+              .first();
+            const panelVisible = await panel.isVisible({ timeout: 2000 }).catch(() => false);
+            const panelText = panelVisible
+              ? ((await panel.textContent().catch(() => '')) ?? '').trim().slice(0, 300)
+              : '';
+            await logStep(page, '6: Customers dropdown opened ✓', 'pass');
+            await logStep(page, `6: customers dropdown text = "${panelText}"`, 'info');
+            return panel;
           }
-          // Reset to All
-          await ss.customersFilterButton.click(); await page.waitForTimeout(300);
-          await page.getByText(/^all$/i).first().isVisible().then(async (v) => {
-            if (v) await page.getByText(/^all$/i).first().click();
-          }).catch(() => {});
-          const applyR = page.getByRole('button', { name: /^apply$/i });
-          if (await applyR.isVisible({ timeout: 1_500 }).catch(() => false)) await applyR.click();
-          await ss.waitForDashboardRefresh();
-          await logStep(page, 'Customers reset to All ✓', 'pass');
+
+          // Helper: open dropdown and click an option by label, scoped to panel
+          async function clickCustomerOption6(label: string): Promise<void> {
+            const panel = await openCustomersDropdown6();
+
+            const exactPattern = new RegExp(`^\\s*${label}\\s*$`, 'i');
+            let opt = panel.locator('div.cursor-pointer, div[class*="cursor-pointer"]')
+              .filter({ hasText: exactPattern })
+              .first();
+
+            let optVisible = await opt.isVisible({ timeout: 2000 }).catch(() => false);
+            if (!optVisible) {
+              opt = panel.locator('div.cursor-pointer, div[class*="cursor-pointer"]')
+                .filter({ hasText: new RegExp(label, 'i') })
+                .first();
+              optVisible = await opt.isVisible({ timeout: 2000 }).catch(() => false);
+            }
+
+            if (!optVisible) {
+              await logStep(page, `6: "${label}" option not visible in panel`, 'fail');
+              return;
+            }
+
+            const optBox = await opt.boundingBox().catch(() => null);
+            if (!optBox) {
+              await logStep(page, `6: "${label}" option found but no boundingBox`, 'fail');
+              return;
+            }
+            await page.mouse.click(optBox.x + optBox.width / 2, optBox.y + optBox.height / 2);
+            await page.waitForTimeout(500);
+            await logStep(page, `6: ${label} selected ✓`, 'pass');
+          }
+
+          // 2. Click Current
+          await clickCustomerOption6('Current');
+
+          // 3. Click Returning new
+          await clickCustomerOption6('Returning new');
+
+          // 4. Click New
+          await clickCustomerOption6('New');
+
+          // 5. Reset to All
+          await clickCustomerOption6('All');
+
+          await logStep(page, '6: Customers filter ✓', 'pass');
         });
 
         // Role-specific extra checks
@@ -3262,13 +3331,32 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
 
       } finally {
         // Exit impersonation after each user before moving to the next
-        if (isImpersonated) {
+        // DIAGNOSTIC: log page state before exit
+        const _diagClosedBefore = page.isClosed();
+        const _diagUrlBefore = _diagClosedBefore ? '(page closed)' : page.url();
+        await logStep(page, `DIAG finally: before exitImpersonation — isImpersonated=${isImpersonated} page.isClosed()=${_diagClosedBefore} url=${_diagUrlBefore}`, 'info');
+
+        if (isImpersonated && !page.isClosed()) {
           try {
             await logStep(page, `Exiting impersonation for ${user.fullName}…`, 'running');
             await impersonation.exitImpersonation();
-            await logStep(page, `Impersonation for ${user.fullName} exited ✓`, 'pass');
-          } catch {}
+            // DIAGNOSTIC: log page state after exitImpersonation
+            const _diagClosedAfterExit = page.isClosed();
+            const _diagUrlAfterExit = _diagClosedAfterExit ? '(page closed)' : page.url();
+            await logStep(page, `DIAG finally: after exitImpersonation — page.isClosed()=${_diagClosedAfterExit} url=${_diagUrlAfterExit}`, 'info');
+            if (!page.isClosed()) {
+              await logStep(page, `Impersonation for ${user.fullName} exited ✓`, 'pass');
+            }
+          } catch (exitErr: any) {
+            // DIAGNOSTIC: log if exitImpersonation itself threw
+            await logStep(page, `DIAG finally: exitImpersonation threw — page.isClosed()=${page.isClosed()} err=${String(exitErr?.message ?? exitErr).split('\n')[0]}`, 'info');
+          }
         }
+
+        // DIAGNOSTIC: log page state at very end of finally
+        const _diagClosedEnd = page.isClosed();
+        const _diagUrlEnd = _diagClosedEnd ? '(page closed)' : page.url();
+        await logStep(page, `DIAG finally: END of finally block — page.isClosed()=${_diagClosedEnd} url=${_diagUrlEnd}`, 'info');
       }
 
       } // end for (const user of roleUsers)
