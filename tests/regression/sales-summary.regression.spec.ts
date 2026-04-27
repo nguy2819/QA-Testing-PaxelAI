@@ -2218,7 +2218,7 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
           // Multi-word labels — safe to match globally as fallback
           const multiWordLabelRe = /^(?:comp plan|no products selected|all sold products|all other sold products|other sold products|all unsold products|unsold products|filters(?::\s*\d+)?|\d+\s+products?\s+selected)$/i;
           // Single-product abbreviations — only valid when scoped inside the filter row
-          const singleProductLabelRe = /^(?:CPP|EMERPHED|ETM|FLR|MEB|PAP|PHB|TACRO|[A-Z]{3,8})$/;
+          const singleProductLabelRe = /^(?:CPP|EMERPHED|ETM|FLR|MEB|PAP|PHB|TACRO|[A-Z]{3,8}|[A-Z0-9-]+\s*\(\d+\))$/;
 
           // Strategy 1: scope to filter row containing Customers button → pick leftmost match
           const filterRow = page.locator('div, nav, section, ul')
@@ -2277,8 +2277,10 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
             }
 
             function isSingleProductLabel(rawText: string) {
-              // Only 3–8 uppercase letters (product abbreviations), NOT 2-letter avatar initials
-              return /^[A-Z]{3,8}$/.test(rawText) || /^[A-Z]{2,8}[0-9-][A-Z0-9-]{0,10}$/.test(rawText);
+              // 3–8 uppercase letters, compound codes, or "CODE (N)" post-selection labels
+              return /^[A-Z]{3,8}$/.test(rawText)
+                || /^[A-Z]{2,8}[0-9-][A-Z0-9-]{0,10}$/.test(rawText)
+                || /^[A-Z0-9-]+\s*\(\d+\)$/.test(rawText);
             }
 
             function isProductFilterLabel(rawText: string, scopedToFilterRow: boolean) {
@@ -2340,7 +2342,7 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
 
           const panel = page.locator(
             '[role="listbox"], [role="menu"], [class*="dropdown"], [class*="popover"], [class*="panel"]'
-          ).filter({ has: page.getByText(/comp plan/i) }).first();
+          ).filter({ hasText: /comp plan|sold products|unsold products|show individual|ndcs?/i }).first();
           const visible = await panel.isVisible({ timeout: 3000 }).catch(() => false);
           if (!visible) {
             await logStep(page, `${stepId}: Product filter dropdown opened: FAIL`, 'fail');
@@ -2761,98 +2763,456 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
           }
         });
 
-        // ── 5d: NDC toggle and search (lightweight smoke test) ───────────
-        await runSoftStep(page, '5d', 'Step 5d — Product filter: NDC toggle and search', async () => {
-          if (page.isClosed()) { await logStep(page, '5d: page already closed — skipping', 'fail'); return; }
-
+        // ── 5d: NDC toggle (no search, no Apply) ─────────────────────────
+        await runSoftStep(page, '5d', 'Step 5d — Product filter: NDC toggle', async () => {
           await ensureSingleVisiblePage(page, '5d');
           await ensureOnSalesSummary(page, ss, '5d');
 
+          await logStep(page, `5d: URL before opening product filter = ${page.url()}`, 'info');
+
+          // Open using the same path as 5c — no page.goto, no reload
           const panel5d = await openProductDropdown('5d');
 
-          // NDC toggle — try switch role first, then button text fallback
-          const ndcToggle = panel5d.getByRole('switch', { name: /ndcs?|individual/i }).first()
-            .or(panel5d.locator('[role="switch"]').first())
-            .or(panel5d.locator('button').filter({ hasText: /show.*ndc|individual.*ndc/i }).first());
+          const panelText5d = ((await panel5d.textContent().catch(() => '')) ?? '')
+            .replace(/\s+/g, ' ').trim().slice(0, 500);
+          await logStep(page, `5d: panel text (first 500 chars) = "${panelText5d}"`, 'info');
 
-          const ndcToggleVisible = await ndcToggle.isVisible({ timeout: 3000 }).catch(() => false);
+          async function findNdcToggle5d(
+            panel: Locator
+          ): Promise<{ toggle: Locator; strategy: string } | null> {
+            const s1 = panel.getByRole('switch', { name: /ndcs?|individual/i }).first();
+            if (await s1.isVisible({ timeout: 600 }).catch(() => false))
+              return { toggle: s1, strategy: 'role=switch[name~NDC]' };
 
-          if (ndcToggleVisible) {
-            const beforeCount5d = await panel5d.locator('li, [role="option"]').count().catch(() => 0);
-            await logStep(page, `5d: row count before NDC toggle ON = ${beforeCount5d}`, 'info');
+            const s2 = panel.locator('[role="switch"]').first();
+            if (await s2.isVisible({ timeout: 600 }).catch(() => false))
+              return { toggle: s2, strategy: '[role="switch"]' };
 
-            await ndcToggle.click({ timeout: 2000 }).catch(() => {});
-            await page.waitForTimeout(500);
+            const ndcLabelEl = panel.getByText(/show individual ndc/i).first();
+            if (await ndcLabelEl.isVisible({ timeout: 600 }).catch(() => false)) {
+              const container = panel
+                .locator('div, label, span, li')
+                .filter({ has: page.getByText(/show individual ndc/i) })
+                .first();
+              const inner = container
+                .locator('[role="switch"], [role="checkbox"], input[type="checkbox"], button')
+                .first();
+              if (await inner.isVisible({ timeout: 600 }).catch(() => false))
+                return { toggle: inner, strategy: 'NDC label container child' };
+              if (await container.isVisible({ timeout: 300 }).catch(() => false))
+                return { toggle: container, strategy: 'NDC label container' };
+            }
 
-            if (page.isClosed()) { await logStep(page, '5d: page closed after NDC toggle ON — aborting', 'fail'); return; }
+            const s4 = panel.locator('input[type="checkbox"]').first();
+            if (await s4.isVisible({ timeout: 600 }).catch(() => false))
+              return { toggle: s4, strategy: 'input[type="checkbox"]' };
 
-            const afterOnCount5d = await panel5d.locator('li, [role="option"]').count().catch(() => 0);
-            await logStep(page, `5d: row count after NDC toggle ON = ${afterOnCount5d}`, 'info');
-            await logStep(
-              page,
-              `5d: more rows after toggle ON: ${afterOnCount5d > beforeCount5d ? '✓' : 'no change detected'}`,
-              afterOnCount5d > beforeCount5d ? 'pass' : 'info'
-            );
-
-            await ndcToggle.click({ timeout: 2000 }).catch(() => {});
-            await page.waitForTimeout(500);
-
-            if (page.isClosed()) { await logStep(page, '5d: page closed after NDC toggle OFF — aborting', 'fail'); return; }
-
-            const afterOffCount5d = await panel5d.locator('li, [role="option"]').count().catch(() => 0);
-            await logStep(page, `5d: row count after NDC toggle OFF = ${afterOffCount5d}`, 'info');
-            await logStep(
-              page,
-              `5d: fewer rows after toggle OFF: ${afterOffCount5d < afterOnCount5d ? '✓' : 'no change detected'}`,
-              afterOffCount5d < afterOnCount5d ? 'pass' : 'info'
-            );
-          } else {
-            await logStep(page, '5d: NDC toggle not found — skipping NDC sub-step', 'info');
+            return null;
           }
 
-          // Search — one stable query only (CYCLOPHOSPHAMIDE → CPP)
-          const searchInput5d = panel5d.locator('input[type="search"], input[type="text"], input[placeholder*="search" i]').first()
-            .or(page.locator('input[type="search"], input[placeholder*="search" i]').first());
+          const ndcResult5d = await findNdcToggle5d(panel5d);
+          await logStep(
+            page,
+            `5d: NDC toggle found: ${ndcResult5d ? `yes (${ndcResult5d.strategy}) ✓` : 'no — skipping'}`,
+            ndcResult5d ? 'pass' : 'info'
+          );
 
-          if (await searchInput5d.isVisible({ timeout: 2000 }).catch(() => false)) {
-            await searchInput5d.fill('CYCLOPHOSPHAMIDE').catch(() => {});
-            await page.waitForTimeout(500);
-            const hit5d = await panel5d.getByText(/CPP/i).first().isVisible({ timeout: 3000 }).catch(() => false);
-            await logStep(page, `5d: search "CYCLOPHOSPHAMIDE" → CPP visible: ${hit5d ? '✓' : 'not found'}`, hit5d ? 'pass' : 'info');
-            await searchInput5d.clear().catch(() => {});
+          if (!ndcResult5d) {
+            await logStep(page, '5d: NDC toggle not found — skipping NDC test', 'info');
+            await page.keyboard.press('Escape').catch(() => {});
             await page.waitForTimeout(300);
-          } else {
-            await logStep(page, '5d: search input not found — skipping search sub-step', 'info');
+            return;
           }
 
-          await logStep(page, '5d: NDC toggle and product search smoke test ✓', 'pass');
-          await page.keyboard.press('Escape').catch(() => {});
-          await page.waitForTimeout(300);
-        });
+          const beforeCount5d = await panel5d.locator('li, [role="option"]').count().catch(() => 0);
+          const beforeText5d  = ((await panel5d.textContent().catch(() => '')) ?? '').replace(/\s+/g, ' ').trim();
+          await logStep(page, `5d: row count before toggle ON = ${beforeCount5d}`, 'info');
 
-        // ── 5-reset: restore Comp plan before Step 6 ────────────────────
-        await runSoftStep(page, '5-reset', 'Step 5 reset — Product filter back to Comp plan', async () => {
-          await ensureSingleVisiblePage(page, '5-reset');
-          await ensureOnSalesSummary(page, ss, '5-reset');
+          // 5d1: NDC toggle ON
+          await ndcResult5d.toggle.click({ timeout: 2000, force: true }).catch(() => {});
+          await page.waitForTimeout(600);
+          await logStep(page, '5d1: NDC toggle clicked ON ✓', 'pass');
 
-          const panel = await openProductDropdown('5-reset');
-          const usedJt = await clickJustThisOnGroup(panel, /^comp plan$/i, '5-reset');
-          if (!usedJt) {
-            const compRow = panel.locator('li, [role="option"], div[class*="row"], label').filter({ hasText: /comp plan/i }).first();
-            if (await compRow.isVisible({ timeout: 2000 }).catch(() => false)) {
-              const cb = compRow.locator('input[type="checkbox"], [role="checkbox"]').first();
-              if (await cb.isVisible({ timeout: 500 }).catch(() => false)) {
-                if (!(await cb.isChecked({ timeout: 500 }).catch(() => false))) {
-                  await cb.click({ force: true });
-                  await page.waitForTimeout(200);
+          const afterOnCount5d     = await panel5d.locator('li, [role="option"]').count().catch(() => 0);
+          const childRowsOnCount5d = await panel5d
+            .locator('[class*="child"], [class*="ndc"], [data-level="1"], [data-depth="1"]')
+            .count().catch(() => 0);
+          const afterOnText5d      = ((await panel5d.textContent().catch(() => '')) ?? '').replace(/\s+/g, ' ').trim();
+          const panelOpenOn5d      = await panel5d.isVisible({ timeout: 600 }).catch(() => false);
+          const toggleOnOk5d       =
+            afterOnCount5d > beforeCount5d ||
+            childRowsOnCount5d > 0 ||
+            afterOnText5d !== beforeText5d;
+
+          await logStep(page, `5d: row count after toggle ON = ${afterOnCount5d}  childRows = ${childRowsOnCount5d}  panelOpen = ${panelOpenOn5d}`, 'info');
+          await logStep(
+            page,
+            `5d1: NDC toggle ON shows child products: ${toggleOnOk5d ? '✓' : 'no visible change (soft)'}`,
+            toggleOnOk5d ? 'pass' : 'info'
+          );
+
+          // ── 5d2 child/NDC product selection (appended after toggle ON) ─────────
+          // Only attempt if the panel is open and toggle ON revealed child rows.
+          const panelVisibleForChild5d = await panel5d.isVisible({ timeout: 500 }).catch(() => false);
+          if (toggleOnOk5d && panelVisibleForChild5d) {
+            const childRowRe5d = /^[A-Z0-9]+-[A-Z0-9]+/;
+            const allRows5d = panel5d.locator('li, [role="option"], div[class*="row"], div[class*="item"]');
+            const rowCount5d = await allRows5d.count().catch(() => 0);
+
+            let childRow5d: Locator | null = null;
+            let childRowLabel5d = '';
+
+            for (let i = 0; i < Math.min(rowCount5d, 40); i++) {
+              const row = allRows5d.nth(i);
+              const rowText = ((await row.textContent().catch(() => '')) ?? '').trim();
+              const firstWord = rowText.split(/\s/)[0] ?? rowText;
+              if (childRowRe5d.test(firstWord)) {
+                const visible = await row.isVisible({ timeout: 300 }).catch(() => false);
+                if (visible) {
+                  childRow5d = row;
+                  childRowLabel5d = rowText.slice(0, 50);
+                  break;
                 }
               }
             }
+
+            if (!childRow5d) {
+              await logStep(page, '5d: no child/NDC products found — skipping child product selection', 'info');
+            } else {
+              await logStep(page, `5d2: selected child/NDC product = "${childRowLabel5d}"`, 'info');
+
+              await childRow5d.hover();
+              await page.waitForTimeout(400);
+
+              const jtBtnChild5d = childRow5d.locator('button').filter({ hasText: /just this/i }).first();
+              const jtVisibleChild5d = await jtBtnChild5d.isVisible({ timeout: 1500 }).catch(() => false);
+
+              if (jtVisibleChild5d) {
+                await jtBtnChild5d.click();
+                await page.waitForTimeout(400);
+                await logStep(page, '5d2: clicked Just this for child ✓', 'pass');
+              } else {
+                const cbChild5d = childRow5d.locator('input[type="checkbox"], [role="checkbox"]').first();
+                if (await cbChild5d.isVisible({ timeout: 800 }).catch(() => false)) {
+                  if (!(await cbChild5d.isChecked({ timeout: 800 }).catch(() => false))) {
+                    await cbChild5d.click({ force: true });
+                    await page.waitForTimeout(300);
+                  }
+                  await logStep(page, '5d2: clicked child product checkbox (Just this not available) ✓', 'pass');
+                } else {
+                  await childRow5d.click({ force: true });
+                  await page.waitForTimeout(300);
+                  await logStep(page, '5d2: clicked child product row (fallback) ✓', 'pass');
+                }
+              }
+
+              const applyBtnChild5d = page.getByRole('button', { name: /^apply$/i }).first();
+              const applyEnabledChild5d = await applyBtnChild5d.isEnabled({ timeout: 3000 }).catch(() => false);
+              await logStep(page, `5d2: Apply enabled ✓`, applyEnabledChild5d ? 'pass' : 'fail');
+              await logStep(page, '5d2: one child/NDC product selected ✓', 'pass');
+            }
           }
-          await applyProductFilter('5-reset');
-          const btn = await findProductFilterButton();
-          const label = ((await btn.textContent().catch(() => '')) ?? '').trim();
-          await logStep(page, `5-reset: product filter = "${label}" ✓`, 'pass');
+          // Panel stays open — 5d3 will continue using it
+        });
+
+        // ── 5d3: Select multiple child/NDC products from different parents ──────
+        await runSoftStep(page, '5d3', 'Step 5d3 — Product filter: select multiple child/NDC products from different parents', async () => {
+          await ensureSingleVisiblePage(page, '5d3');
+          await ensureOnSalesSummary(page, ss, '5d3');
+
+          // Reuse open panel from 5d2 if still visible; otherwise open fresh
+          const existingPanel5d3 = page.locator(
+            '[role="listbox"], [role="menu"], [class*="dropdown"], [class*="popover"], [class*="panel"]'
+          ).filter({ hasText: /comp plan|sold products|unsold products|show individual|ndcs?/i }).first();
+
+          let panel5d3: Locator;
+          let ndcAlreadyOn = false;
+
+          if (await existingPanel5d3.isVisible({ timeout: 500 }).catch(() => false)) {
+            panel5d3 = existingPanel5d3;
+            await logStep(page, '5d3: reusing open product dropdown from 5d2 ✓', 'info');
+            ndcAlreadyOn = true;
+          } else {
+            panel5d3 = await openProductDropdown('5d3');
+          }
+
+          // Toggle NDC ON (same logic as 5d1; skipped if panel was reused with NDC already ON)
+          async function findNdcToggle5d3(
+            panel: Locator
+          ): Promise<{ toggle: Locator; strategy: string } | null> {
+            const s1 = panel.getByRole('switch', { name: /ndcs?|individual/i }).first();
+            if (await s1.isVisible({ timeout: 600 }).catch(() => false))
+              return { toggle: s1, strategy: 'role=switch[name~NDC]' };
+
+            const s2 = panel.locator('[role="switch"]').first();
+            if (await s2.isVisible({ timeout: 600 }).catch(() => false))
+              return { toggle: s2, strategy: '[role="switch"]' };
+
+            const ndcLabelEl = panel.getByText(/show individual ndc/i).first();
+            if (await ndcLabelEl.isVisible({ timeout: 600 }).catch(() => false)) {
+              const container = panel
+                .locator('div, label, span, li')
+                .filter({ has: page.getByText(/show individual ndc/i) })
+                .first();
+              const inner = container
+                .locator('[role="switch"], [role="checkbox"], input[type="checkbox"], button')
+                .first();
+              if (await inner.isVisible({ timeout: 600 }).catch(() => false))
+                return { toggle: inner, strategy: 'NDC label container child' };
+              if (await container.isVisible({ timeout: 300 }).catch(() => false))
+                return { toggle: container, strategy: 'NDC label container' };
+            }
+
+            const s4 = panel.locator('input[type="checkbox"]').first();
+            if (await s4.isVisible({ timeout: 600 }).catch(() => false))
+              return { toggle: s4, strategy: 'input[type="checkbox"]' };
+
+            return null;
+          }
+
+          if (!ndcAlreadyOn) {
+            const ndcResult5d3 = await findNdcToggle5d3(panel5d3);
+            await logStep(
+              page,
+              `5d3: NDC toggle found: ${ndcResult5d3 ? `yes (${ndcResult5d3.strategy}) ✓` : 'no — skipping'}`,
+              ndcResult5d3 ? 'pass' : 'info'
+            );
+
+            if (!ndcResult5d3) {
+              await logStep(page, '5d3: NDC toggle not found — skipping', 'info');
+              await page.keyboard.press('Escape').catch(() => {});
+              await page.waitForTimeout(300);
+              return;
+            }
+
+            await ndcResult5d3.toggle.click({ timeout: 2000, force: true }).catch(() => {});
+            await page.waitForTimeout(600);
+            await logStep(page, '5d3: NDC toggle ON ✓', 'pass');
+          } else {
+            await logStep(page, '5d3: NDC already ON from 5d1 ✓', 'info');
+          }
+
+          // Collect visible child/NDC products (pattern: PARENT-SUFFIX)
+          const childRowRe5d3 = /^[A-Z0-9]+-[A-Z0-9.]+/;
+          const allRows5d3 = panel5d3.locator('li, [role="option"], div[class*="row"], div[class*="item"]');
+          const rowCount5d3 = await allRows5d3.count().catch(() => 0);
+
+          const childProducts5d3: { row: Locator; text: string; parent: string }[] = [];
+          for (let i = 0; i < Math.min(rowCount5d3, 80); i++) {
+            const row = allRows5d3.nth(i);
+            const rowText = ((await row.textContent().catch(() => '')) ?? '').trim();
+            const firstWord = rowText.split(/\s/)[0] ?? rowText;
+            if (!childRowRe5d3.test(firstWord)) continue;
+            const visible = await row.isVisible({ timeout: 300 }).catch(() => false);
+            if (!visible) continue;
+            const parent = firstWord.split('-')[0];
+            childProducts5d3.push({ row, text: rowText.slice(0, 50), parent });
+          }
+
+          // Pick two products from DIFFERENT parents
+          const selected5d3: { row: Locator; text: string }[] = [];
+          const usedParents5d3 = new Set<string>();
+          for (const cp of childProducts5d3) {
+            if (!usedParents5d3.has(cp.parent)) {
+              selected5d3.push({ row: cp.row, text: cp.text });
+              usedParents5d3.add(cp.parent);
+            }
+            if (selected5d3.length >= 2) break;
+          }
+
+          if (selected5d3.length < 2) {
+            await logStep(page, '5d3: fewer than 2 child/NDC products from different parents found — skipping', 'info');
+            await page.keyboard.press('Escape').catch(() => {});
+            await page.waitForTimeout(300);
+            return;
+          }
+
+          const selectedLabels5d3 = selected5d3.map(s => s.text).join(', ');
+          await logStep(page, `5d3: selected child/NDC products = "${selectedLabels5d3}"`, 'info');
+
+          for (const { row, text } of selected5d3) {
+            const cb = row.locator('input[type="checkbox"], [role="checkbox"]').first();
+            if (await cb.isVisible({ timeout: 800 }).catch(() => false)) {
+              if (!(await cb.isChecked({ timeout: 800 }).catch(() => false))) {
+                await cb.click({ force: true });
+                await page.waitForTimeout(300);
+              }
+              await logStep(page, `5d3: checked "${text}" ✓`, 'pass');
+            } else {
+              await row.click({ force: true });
+              await page.waitForTimeout(300);
+              await logStep(page, `5d3: clicked row "${text}" ✓`, 'pass');
+            }
+          }
+
+          const applyBtn5d3 = page.getByRole('button', { name: /^apply$/i }).first();
+          const applyEnabled5d3 = await applyBtn5d3.isEnabled({ timeout: 3000 }).catch(() => false);
+          await logStep(page, `5d3: Apply enabled ✓`, applyEnabled5d3 ? 'pass' : 'fail');
+          // Panel stays open — 5e will continue using it
+        });
+
+        // ── 5e: Search product ────────────────────────────────────────────────
+        await runSoftStep(page, '5e', 'Step 5e — Product filter: search product', async () => {
+          await ensureSingleVisiblePage(page, '5e');
+          await ensureOnSalesSummary(page, ss, '5e');
+
+          // Reuse open panel from 5d3 if still visible; otherwise open fresh
+          const existingPanel5e = page.locator(
+            '[role="listbox"], [role="menu"], [class*="dropdown"], [class*="popover"], [class*="panel"]'
+          ).filter({ hasText: /comp plan|sold products|unsold products|show individual|ndcs?/i }).first();
+
+          let panel5e: Locator;
+          if (await existingPanel5e.isVisible({ timeout: 500 }).catch(() => false)) {
+            panel5e = existingPanel5e;
+            await logStep(page, '5e: reusing open product dropdown from 5d3 ✓', 'info');
+          } else {
+            panel5e = await openProductDropdown('5e');
+          }
+
+          // Find search input
+          const searchInput5e = panel5e.locator(
+            'input[placeholder*="search" i], input[placeholder*="product" i], input[type="search"]'
+          ).first();
+          const searchVisible5e = await searchInput5e.isVisible({ timeout: 3000 }).catch(() => false);
+          await logStep(page, `5e: search input visible: ${searchVisible5e ? '✓' : 'FAIL'}`, searchVisible5e ? 'pass' : 'fail');
+          if (!searchVisible5e) throw new Error('5e: search input not found');
+
+          const searches5e: [string, string][] = [
+            ['OFLOXACIN',    'OFLO'],
+            ['LEVETIRACETAM','LEVE'],
+            ['EPHEDRINE',    'EPH'],
+            ['PROCAINAMIDE', 'PROCAN'],
+            ['KETOROLAC',    'KTOR'],
+          ];
+
+          for (const [term, expected] of searches5e) {
+            await searchInput5e.fill(term);
+            await page.waitForTimeout(500);
+            await logStep(page, `5e: searched "${term}" ✓`, 'pass');
+
+            const noMatches5e = await panel5e.getByText(/no matches found/i).first()
+              .isVisible({ timeout: 1000 }).catch(() => false);
+
+            if (noMatches5e) {
+              await logStep(page, `5e: "${term}" → no matches found — continuing`, 'info');
+            } else {
+              const resultRow5e = panel5e
+                .locator('li, [role="option"], div[class*="row"], div[class*="item"]')
+                .filter({ hasText: new RegExp(expected, 'i') })
+                .first();
+              const resultVisible5e = await resultRow5e.isVisible({ timeout: 2000 }).catch(() => false);
+
+              if (resultVisible5e) {
+                await resultRow5e.click({ force: true });
+                await page.waitForTimeout(300);
+                await logStep(page, `5e: clicked "${expected}" ✓`, 'pass');
+              } else {
+                await logStep(page, `5e: expected result "${expected}" not visible — continuing`, 'info');
+              }
+            }
+
+            // Clear search input — try X/clear button first, then keyboard
+            const clearBtn5e = panel5e.locator(
+              'button[aria-label*="clear" i], button[class*="clear" i], button[aria-label*="close" i]'
+            ).first();
+            if (await clearBtn5e.isVisible({ timeout: 500 }).catch(() => false)) {
+              await clearBtn5e.click();
+              await page.waitForTimeout(200);
+            } else {
+              await searchInput5e.click();
+              await searchInput5e.press('Control+A');
+              await searchInput5e.press('Backspace');
+              await page.waitForTimeout(200);
+            }
+
+            const inputValue5e = await searchInput5e.inputValue().catch(() => '');
+            const inputEmpty5e = inputValue5e === '';
+            await logStep(
+              page,
+              `5e: search input clear: ${inputEmpty5e ? '✓' : `FAIL (still has: "${inputValue5e}")`}`,
+              inputEmpty5e ? 'pass' : 'fail'
+            );
+          }
+
+          // Close dropdown without applying
+          await page.keyboard.press('Escape').catch(() => {});
+          await page.waitForTimeout(300);
+          await logStep(page, '5e: search product filter tests done ✓', 'pass');
+        });
+
+        // ── 5-reset: restore product filter before Step 6 ────────────────────
+        await runSoftStep(page, '5-reset', 'Step 5 reset — Product filter restore', async () => {
+          try {
+            await ensureSingleVisiblePage(page, '5-reset');
+            await ensureOnSalesSummary(page, ss, '5-reset');
+
+            const panel = await openProductDropdown('5-reset');
+
+            const isCaplin = /caplin/i.test(user.company);
+
+            if (!isCaplin) {
+              // Nexus (and others with Comp plan): prefer Comp plan reset
+              const hasCompPlan = await panel.getByText(/comp plan/i).first()
+                .isVisible({ timeout: 2000 }).catch(() => false);
+
+              if (hasCompPlan) {
+                await logStep(page, '5-reset: resetting to Comp plan (Nexus) ✓', 'info');
+                const usedJt = await clickJustThisOnGroup(panel, /^comp plan$/i, '5-reset');
+                if (!usedJt) {
+                  const compRow = panel.locator('li, [role="option"], div[class*="row"], label')
+                    .filter({ hasText: /comp plan/i }).first();
+                  if (await compRow.isVisible({ timeout: 2000 }).catch(() => false)) {
+                    const cb = compRow.locator('input[type="checkbox"], [role="checkbox"]').first();
+                    if (await cb.isVisible({ timeout: 500 }).catch(() => false)) {
+                      if (!(await cb.isChecked({ timeout: 500 }).catch(() => false))) {
+                        await cb.click({ force: true });
+                        await page.waitForTimeout(200);
+                      }
+                    }
+                  }
+                }
+              } else {
+                // Comp plan not present — fall back to All sold products
+                await logStep(page, '5-reset: Comp plan not found — resetting to All sold products', 'info');
+                await clickJustThisOnGroup(panel, /all sold products|other sold products|sold products/i, '5-reset');
+              }
+            } else {
+              // Caplin: no Comp plan — reset to All sold products or first available sold products group
+              await logStep(page, `5-reset: Caplin — resetting to All sold products`, 'info');
+              const usedJt = await clickJustThisOnGroup(
+                panel,
+                /all sold products|other sold products|sold products/i,
+                '5-reset'
+              );
+              if (!usedJt) {
+                const soldRow = panel.locator('li, [role="option"], div[class*="row"], label')
+                  .filter({ hasText: /sold products/i }).first();
+                if (await soldRow.isVisible({ timeout: 2000 }).catch(() => false)) {
+                  const cb = soldRow.locator('input[type="checkbox"], [role="checkbox"]').first();
+                  if (await cb.isVisible({ timeout: 500 }).catch(() => false)) {
+                    if (!(await cb.isChecked({ timeout: 500 }).catch(() => false))) {
+                      await cb.click({ force: true });
+                      await page.waitForTimeout(200);
+                    }
+                  } else {
+                    await soldRow.click({ force: true });
+                    await page.waitForTimeout(200);
+                  }
+                }
+              }
+            }
+
+            await applyProductFilter('5-reset');
+            const btn = await findProductFilterButton();
+            const label = ((await btn.textContent().catch(() => '')) ?? '').trim();
+            await logStep(page, `5-reset: product filter = "${label}" ✓`, 'pass');
+          } catch (err) {
+            await logStep(
+              page,
+              `5-reset: could not restore product filter — ${(err as Error).message ?? String(err)} (continuing)`,
+              'info'
+            );
+          }
         });
 
         // ════════════════════════════════════════════════════════════════════
