@@ -654,7 +654,6 @@ let selectedRole      = null;
 let currentPlanKey    = null;
 let isRunning         = false;
 let isPaused          = false;
-let pauseQueue        = [];
 let eventSource       = null;
 let steps             = [];
 let counts            = { pass: 0, fail: 0, running: 0, info: 0 };
@@ -893,7 +892,6 @@ async function startRun() {
 
   isRunning      = true;
   isPaused       = false;
-  pauseQueue     = [];
   pendingAutoAdvance = null;
 
   currentRunPage = selectedPage;
@@ -945,7 +943,6 @@ async function startRun() {
   eventSource.onmessage = (e) => {
     try {
       const entry = JSON.parse(e.data);
-      if (isPaused) { pauseQueue.push(entry); return; }
       processStep(entry);
     } catch {}
   };
@@ -969,21 +966,23 @@ async function stopTest() {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pause / Resume
+// Writes/removes a pause.flag file via the server; waitIfPaused() in
+// step.helper.ts polls that file so the test process genuinely blocks.
 // ─────────────────────────────────────────────────────────────────────────────
-function togglePause() {
+async function togglePause() {
   if (!isRunning) return;
   isPaused = !isPaused;
   const btn = document.getElementById('pauseBtn');
   if (isPaused) {
     btn.textContent = '▶ Resume';
     btn.classList.add('active');
-    appendLog('⏸ Paused — test continues in background, display frozen.', 'info', Date.now());
+    appendLog('⏸ Paused — test will hold before its next step.', 'info', Date.now());
+    try { await fetch(`${getApiBase()}/api/pause`, { method: 'POST' }); } catch {}
   } else {
     btn.textContent = '⏸ Pause';
     btn.classList.remove('active');
-    // Flush queued entries
-    while (pauseQueue.length) { processStep(pauseQueue.shift()); }
-    appendLog('▶ Resumed.', 'info', Date.now());
+    try { await fetch(`${getApiBase()}/api/resume`, { method: 'POST' }); } catch {}
+    appendLog('▶ Resumed — continuing from next pending step.', 'info', Date.now());
   }
 }
 

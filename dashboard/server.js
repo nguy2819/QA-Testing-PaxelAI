@@ -19,6 +19,7 @@ const PORT = process.env.PORT || 3001;
 const PROJECT    = path.join(__dirname, '..');
 const RUN_DIR    = path.join(__dirname, 'run');
 const LOG_FILE   = path.join(RUN_DIR, 'current.jsonl');
+const PAUSE_FILE = path.join(RUN_DIR, 'pause.flag');
 const APP_ROOT = path.join(__dirname, '..');
 
 const NOVNC_CANDIDATES = [
@@ -156,10 +157,9 @@ app.post('/api/run', (req, res) => {
     currentProc = null;
   }
 
-    // Clear previous text log
-  try {
-    fs.writeFileSync(LOG_FILE, '');
-  } catch {}
+    // Clear previous text log and ensure no stale pause flag
+  try { fs.writeFileSync(LOG_FILE, ''); } catch {}
+  try { if (fs.existsSync(PAUSE_FILE)) fs.unlinkSync(PAUSE_FILE); } catch {}
 
   runStatus = 'running';
 
@@ -204,6 +204,8 @@ currentProc.stderr.on('data', (data) => {
 
 // ── POST /api/stop ────────────────────────────────────────────────────────────
 app.post('/api/stop', (req, res) => {
+  // Remove pause flag first so the test process can exit its wait loop
+  try { if (fs.existsSync(PAUSE_FILE)) fs.unlinkSync(PAUSE_FILE); } catch {}
   if (currentProc) {
     killProc(currentProc);
     currentProc = null;
@@ -211,6 +213,18 @@ app.post('/api/stop', (req, res) => {
     const stopped = { message: '🛑 Test run stopped by user.', status: 'fail', ts: Date.now(), _done: true };
     try { fs.appendFileSync(LOG_FILE, JSON.stringify(stopped) + '\n'); } catch {}
   }
+  res.json({ ok: true });
+});
+
+// ── POST /api/pause ───────────────────────────────────────────────────────────
+app.post('/api/pause', (req, res) => {
+  try { fs.writeFileSync(PAUSE_FILE, ''); } catch {}
+  res.json({ ok: true });
+});
+
+// ── POST /api/resume ──────────────────────────────────────────────────────────
+app.post('/api/resume', (req, res) => {
+  try { if (fs.existsSync(PAUSE_FILE)) fs.unlinkSync(PAUSE_FILE); } catch {}
   res.json({ ok: true });
 });
 

@@ -12,7 +12,7 @@ import { ImpersonationPage } from '../../pages/ImpersonationPage';
 import { SalesSummaryPage }  from '../../pages/SalesSummaryPage';
 import { SALES_REPS, DIRECTORS, EXECUTIVES } from '../../data/users';
 import { loginAsAdmin }          from '../../helpers/auth.helper';
-import { initRun, logStep } from '../../helpers/step.helper';
+import { initRun, logStep, waitIfPaused } from '../../helpers/step.helper';
 import { waitForSalesComparisonsResponse, assertKpisFromResponse } from '../../helpers/assertKpis';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -350,14 +350,18 @@ async function checkAllKpi(page: Page, expectPrev?: string) {
 // ─────────────────────────────────────────────────────────────────────────────
 function makeSection(page: Page) {
   return async function S(label: string, fn: () => Promise<void>) {
+    await waitIfPaused(); // real pause before every section
+
     await logStep(page, `━━ ${label} ━━`, 'info');
-    try { await fn(); }
-    catch (e: any) {
+
+    try {
+      await waitIfPaused(); // pause again before executing section body
+      await fn();
+    } catch (e: any) {
       if (page.isClosed()) return;
-      const msg   = String(e?.message ?? e).split('\n')[0];
+      const msg = String(e?.message ?? e).split('\n')[0];
       const atUrl = page.url();
       await logStep(page, `FAIL "${label}": ${msg} | URL: ${atUrl}`, 'fail');
-      // Dismiss any open panel/overlay so the next section starts from a clean state
       await page.keyboard.press('Escape').catch(() => {});
       await page.waitForTimeout(400);
     }
@@ -3474,13 +3478,13 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
       });
       
         // ════════════════════════════════════════════════════════════════════
-        // STEP 8a — Sales Summary lower tables: Orders tab
+        // STEP 8a — Sales Summary tables (Orders/Accounts/Contracts/Distributors): Orders tab
         // ════════════════════════════════════════════════════════════════════
         if (page.isClosed()) {
           throw new Error('Page closed before Step 8');
         }
 
-        await runSoftStep(page, '8a', 'Step 8a — Sales Summary lower tables: Orders tab search, sort, order type', async () => {
+        await runSoftStep(page, '8a', 'Step 8a — Sales Summary tables (Orders/Accounts/Contracts/Distributors): Orders tab search, sort, order type', async () => {
           await ensureSingleVisiblePage(page, '8a');
           await ensureOnSalesSummary(page, ss, '8a');
 
