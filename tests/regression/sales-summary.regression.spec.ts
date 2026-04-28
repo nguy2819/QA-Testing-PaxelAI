@@ -3933,50 +3933,6 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
           return json;
         }
 
-          async function clickPaginationAndCaptureApi8a(label: 'Next' | 'Previous') {
-            const btn = page.getByRole('button', { name: new RegExp(`^${label}`, 'i') }).first();
-
-            const visible = await btn.isVisible({ timeout: 3000 }).catch(() => false);
-            const enabled = visible && await btn.isEnabled().catch(() => false);
-
-            await logStep(
-              page,
-              `8a7: pagination "${label}" visible=${visible} enabled=${enabled}`,
-              enabled ? 'pass' : 'fail'
-            );
-
-            if (!enabled) return null;
-
-            const beforeUrl = page.url();
-
-            const apiPromise = page.waitForResponse(
-              res => res.url().includes('/tenant/sales_summary_table') && res.status() === 200,
-              { timeout: 15000 }
-            ).catch(() => null);
-
-            await btn.click({ force: true });
-            await page.waitForTimeout(1200);
-
-            const response = await apiPromise;
-            const json = response ? await response.json().catch(() => null) : null;
-
-            await logStep(
-              page,
-              `8a7: pagination "${label}" before="${beforeUrl}" after="${page.url()}" apiCaptured=${!!json}`,
-              json ? 'pass' : 'info'
-            );
-
-            if (json?.metadata) {
-              await logStep(
-                page,
-                `8a7: pagination "${label}" API page=${json.metadata.page} totalPages=${json.metadata.totalPages}`,
-                'info'
-              );
-            }
-
-            return json;
-          }
-
           // 8a7: Run API-vs-UI verification using the already-parsed apiPage1.
           // Do NOT call salesTableResponse.json() again.
           if (!apiPage1) {
@@ -3984,6 +3940,7 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
           } else {
             const totalPages = Number(apiPage1?.metadata?.totalPages ?? 1);
             const totalCount = Number(apiPage1?.metadata?.totalCount ?? 0);
+            let currentApiPage = Number(apiPage1?.metadata?.page ?? 1);
 
             const ordersTabText = ((await ordersTab.textContent().catch(() => '')) ?? '')
               .replace(/\s+/g, ' ')
@@ -4001,25 +3958,140 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
 
             const pagesToTest = Math.min(totalPages, 4);
 
-            for (let pageIndex = 2; pageIndex <= pagesToTest; pageIndex++) {
-              const nextJson = await clickPaginationAndCaptureApi8a('Next');
+            // ── Next button validation ─────────────────────────────────────────
+            for (let expectedPage = 2; expectedPage <= pagesToTest; expectedPage++) {
+              const nextBtn = page.getByRole('button', { name: /^Next/i }).first();
+              const nextVisible = await nextBtn.isVisible({ timeout: 3000 }).catch(() => false);
+              const nextEnabled = nextVisible && await nextBtn.isEnabled().catch(() => false);
 
-              if (!nextJson) {
-                await logStep(page, `8a7: could not move to page ${pageIndex}`, 'info');
+              if (currentApiPage < totalPages && !nextEnabled) {
+                await logStep(
+                  page,
+                  `8a7: Next button DISABLED on page ${currentApiPage} of ${totalPages} — expected active/clickable → FAIL`,
+                  'fail'
+                );
                 break;
               }
 
-              await verifyOrdersPageAgainstApi8a(nextJson, `page ${pageIndex}`);
+              const nextApiPromise = page.waitForResponse(
+                res => res.url().includes('/tenant/sales_summary_table') && res.status() === 200,
+                { timeout: 15000 }
+              ).catch(() => null);
+
+              await nextBtn.click({ force: true });
+              await page.waitForTimeout(1200);
+
+              const nextResponse = await nextApiPromise;
+              const nextJson = nextResponse ? await nextResponse.json().catch(() => null) : null;
+
+              if (!nextJson) {
+                await logStep(page, `8a7: Next click on page ${currentApiPage} — API response not captured → FAIL`, 'fail');
+                break;
+              }
+
+              const newPage = Number(nextJson.metadata.page);
+              if (newPage === currentApiPage + 1) {
+                await logStep(
+                  page,
+                  `8a7: Next → page ${currentApiPage} → ${newPage} (totalPages=${totalPages}) ✓ PASS`,
+                  'pass'
+                );
+                currentApiPage = newPage;
+              } else {
+                await logStep(
+                  page,
+                  `8a7: Next → page ${currentApiPage} → ${newPage} (expected ${currentApiPage + 1}) — page did not increase by 1 → FAIL`,
+                  'fail'
+                );
+                currentApiPage = newPage;
+                break;
+              }
+
+              await verifyOrdersPageAgainstApi8a(nextJson, `page ${expectedPage}`);
             }
 
-            if (pagesToTest > 1) {
-              const prevJson = await clickPaginationAndCaptureApi8a('Previous');
+            // ── Next on last page: should be disabled ──────────────────────────
+            if (currentApiPage === totalPages) {
+              const lastNextBtn = page.getByRole('button', { name: /^Next/i }).first();
+              const lastNextEnabled = await lastNextBtn.isEnabled().catch(() => false);
+              if (!lastNextEnabled) {
+                await logStep(
+                  page,
+                  `8a7: Next button correctly disabled on last page ${totalPages} ✓ PASS`,
+                  'pass'
+                );
+              } else {
+                await logStep(
+                  page,
+                  `8a7: Next button active/clickable on last page ${totalPages} — page should not change → FAIL`,
+                  'fail'
+                );
+              }
+            }
 
-              await logStep(
-                page,
-                `8a7: Previous pagination works ${prevJson ? '✓' : 'FAIL'}`,
-                prevJson ? 'pass' : 'fail'
-              );
+            // ── Previous button validation ─────────────────────────────────────
+            {
+              const prevBtn = page.getByRole('button', { name: /^Previous/i }).first();
+              const prevVisible = await prevBtn.isVisible({ timeout: 3000 }).catch(() => false);
+              const prevEnabled = prevVisible && await prevBtn.isEnabled().catch(() => false);
+
+              if (currentApiPage === 1) {
+                if (!prevEnabled) {
+                  await logStep(
+                    page,
+                    `8a7: Previous button correctly disabled on page 1 ✓ PASS`,
+                    'pass'
+                  );
+                } else {
+                  await logStep(
+                    page,
+                    `8a7: Previous button active on page 1 — unexpected state (informational)`,
+                    'info'
+                  );
+                }
+              } else {
+                if (!prevEnabled) {
+                  await logStep(
+                    page,
+                    `8a7: Previous button DISABLED on page ${currentApiPage} > 1 — expected active/clickable → FAIL`,
+                    'fail'
+                  );
+                } else {
+                  const prevApiPromise = page.waitForResponse(
+                    res => res.url().includes('/tenant/sales_summary_table') && res.status() === 200,
+                    { timeout: 15000 }
+                  ).catch(() => null);
+
+                  await prevBtn.click({ force: true });
+                  await page.waitForTimeout(1200);
+
+                  const prevResponse = await prevApiPromise;
+                  const prevJson = prevResponse ? await prevResponse.json().catch(() => null) : null;
+
+                  if (!prevJson) {
+                    await logStep(
+                      page,
+                      `8a7: Previous click on page ${currentApiPage} — API response not captured → FAIL`,
+                      'fail'
+                    );
+                  } else {
+                    const prevPage = Number(prevJson.metadata.page);
+                    if (prevPage === currentApiPage - 1) {
+                      await logStep(
+                        page,
+                        `8a7: Previous → page ${currentApiPage} → ${prevPage} ✓ PASS`,
+                        'pass'
+                      );
+                    } else {
+                      await logStep(
+                        page,
+                        `8a7: Previous → page ${currentApiPage} → ${prevPage} (expected ${currentApiPage - 1}) — page did not decrease by 1 → FAIL`,
+                        'fail'
+                      );
+                    }
+                  }
+                }
+              }
             }
           }
 
@@ -4349,51 +4421,58 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
             await logStep(page, '8b5: API returned 0 account rows', 'info');
           }
 
-          async function clickAccountsPagination8b(label: 'Next' | 'Previous') {
-            const btn = page.getByRole('button', { name: new RegExp(`^${label}`, 'i') }).first();
+          const pagesToTest = Math.min(totalPages, 3);
 
-            const visible = await btn.isVisible({ timeout: 3000 }).catch(() => false);
-            const enabled = visible && await btn.isEnabled().catch(() => false);
+          // ── Next button validation (8b7) ────────────────────────────────────
+          let currentApiPage8b = Number(apiPage1?.metadata?.page ?? 1);
 
-            await logStep(
-              page,
-              `8b7: pagination "${label}" visible/enabled ${enabled ? '✓' : 'not available'}`,
-              enabled ? 'pass' : 'info'
-            );
+          for (let expectedPage = 2; expectedPage <= pagesToTest; expectedPage++) {
+            const nextBtn8b = page.getByRole('button', { name: /^Next/i }).first();
+            const nextVisible8b = await nextBtn8b.isVisible({ timeout: 3000 }).catch(() => false);
+            const nextEnabled8b = nextVisible8b && await nextBtn8b.isEnabled().catch(() => false);
 
-            if (!enabled) return null;
+            if (currentApiPage8b < totalPages && !nextEnabled8b) {
+              await logStep(
+                page,
+                `8b7: Next button DISABLED on page ${currentApiPage8b} of ${totalPages} — expected active/clickable → FAIL`,
+                'fail'
+              );
+              break;
+            }
 
-            const apiPromise = page.waitForResponse(
+            const nextApiPromise8b = page.waitForResponse(
               res => res.url().includes('/tenant/sales_summary_accounts') && res.status() === 200,
               { timeout: 15000 }
             ).catch(() => null);
 
-            await btn.click({ force: true });
+            await nextBtn8b.click({ force: true });
             await page.waitForTimeout(1000);
 
-            const response = await apiPromise;
-            const json = response ? await response.json().catch(() => null) : null;
-
-            return json;
-          }
-
-          const pagesToTest = Math.min(totalPages, 3);
-
-          for (let expectedPage = 2; expectedPage <= pagesToTest; expectedPage++) {
-            const nextJson = await clickAccountsPagination8b('Next');
+            const nextResponse8b = await nextApiPromise8b;
+            const nextJson = nextResponse8b ? await nextResponse8b.json().catch(() => null) : null;
 
             if (!nextJson) {
-              await logStep(page, `8b7: could not move to Accounts page ${expectedPage}`, 'info');
+              await logStep(page, `8b7: could not move to Accounts page ${expectedPage} — API not captured → FAIL`, 'fail');
               break;
             }
 
             const apiPage = Number(nextJson?.metadata?.page ?? 0);
-
-            await logStep(
-              page,
-              `8b7: Accounts API page after Next = "${apiPage}" expected "${expectedPage}" ${apiPage === expectedPage ? '✓' : 'FAIL'}`,
-              apiPage === expectedPage ? 'pass' : 'fail'
-            );
+            if (apiPage === currentApiPage8b + 1) {
+              await logStep(
+                page,
+                `8b7: Next → page ${currentApiPage8b} → ${apiPage} (totalPages=${totalPages}) ✓ PASS`,
+                'pass'
+              );
+              currentApiPage8b = apiPage;
+            } else {
+              await logStep(
+                page,
+                `8b7: Next → page ${currentApiPage8b} → ${apiPage} (expected ${currentApiPage8b + 1}) — page did not increase by 1 → FAIL`,
+                'fail'
+              );
+              currentApiPage8b = apiPage;
+              break;
+            }
 
             const pageBtnVisible = await page.getByRole('button', { name: new RegExp(`^${expectedPage}$`) }).first()
               .isVisible({ timeout: 3000 }).catch(() => false);
@@ -4410,15 +4489,88 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
             }
           }
 
-          if (pagesToTest > 1) {
-            const prevJson = await clickAccountsPagination8b('Previous');
-            const prevPage = Number(prevJson?.metadata?.page ?? 0);
+          // ── Next on last page: should be disabled ────────────────────────────
+          if (currentApiPage8b === totalPages) {
+            const lastNextBtn8b = page.getByRole('button', { name: /^Next/i }).first();
+            const lastNextEnabled8b = await lastNextBtn8b.isEnabled().catch(() => false);
+            if (!lastNextEnabled8b) {
+              await logStep(
+                page,
+                `8b7: Next button correctly disabled on last page ${totalPages} ✓ PASS`,
+                'pass'
+              );
+            } else {
+              await logStep(
+                page,
+                `8b7: Next button active/clickable on last page ${totalPages} — page should not change → FAIL`,
+                'fail'
+              );
+            }
+          }
 
-            await logStep(
-              page,
-              `8b7: Previous pagination works; API page="${prevPage}" ${prevJson ? '✓' : 'FAIL'}`,
-              prevJson ? 'pass' : 'fail'
-            );
+          // ── Previous button validation (8b7) ─────────────────────────────────
+          {
+            const prevBtn8b = page.getByRole('button', { name: /^Previous/i }).first();
+            const prevVisible8b = await prevBtn8b.isVisible({ timeout: 3000 }).catch(() => false);
+            const prevEnabled8b = prevVisible8b && await prevBtn8b.isEnabled().catch(() => false);
+
+            if (currentApiPage8b === 1) {
+              if (!prevEnabled8b) {
+                await logStep(
+                  page,
+                  `8b7: Previous button correctly disabled on page 1 ✓ PASS`,
+                  'pass'
+                );
+              } else {
+                await logStep(
+                  page,
+                  `8b7: Previous button active on page 1 — unexpected state (informational)`,
+                  'info'
+                );
+              }
+            } else {
+              if (!prevEnabled8b) {
+                await logStep(
+                  page,
+                  `8b7: Previous button DISABLED on page ${currentApiPage8b} > 1 — expected active/clickable → FAIL`,
+                  'fail'
+                );
+              } else {
+                const prevApiPromise8b = page.waitForResponse(
+                  res => res.url().includes('/tenant/sales_summary_accounts') && res.status() === 200,
+                  { timeout: 15000 }
+                ).catch(() => null);
+
+                await prevBtn8b.click({ force: true });
+                await page.waitForTimeout(1000);
+
+                const prevResponse8b = await prevApiPromise8b;
+                const prevJson8b = prevResponse8b ? await prevResponse8b.json().catch(() => null) : null;
+
+                if (!prevJson8b) {
+                  await logStep(
+                    page,
+                    `8b7: Previous click on page ${currentApiPage8b} — API response not captured → FAIL`,
+                    'fail'
+                  );
+                } else {
+                  const prevPage8b = Number(prevJson8b.metadata.page);
+                  if (prevPage8b === currentApiPage8b - 1) {
+                    await logStep(
+                      page,
+                      `8b7: Previous → page ${currentApiPage8b} → ${prevPage8b} ✓ PASS`,
+                      'pass'
+                    );
+                  } else {
+                    await logStep(
+                      page,
+                      `8b7: Previous → page ${currentApiPage8b} → ${prevPage8b} (expected ${currentApiPage8b - 1}) — page did not decrease by 1 → FAIL`,
+                      'fail'
+                    );
+                  }
+                }
+              }
+            }
           }
 
           // 8b8 — Accounts search + click account detail + back
@@ -4706,55 +4858,57 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
           }
 
           // ── 8c7: Pagination ────────────────────────────────────────────────
-          async function clickContractsPagination8c(label: 'Next' | 'Previous') {
-            const btn = page.getByRole('button', { name: new RegExp(`^${label}`, 'i') }).first();
-            const visible = await btn.isVisible({ timeout: 3000 }).catch(() => false);
-            const enabled = visible && (await btn.isEnabled().catch(() => false));
+          const pagesToTest8c = Math.min(totalPages8c, 3);
+          let currentApiPage8c = Number(apiPage1?.metadata?.page ?? 1);
 
-            await logStep(
-              page,
-              `8c7: pagination "${label}" visible/enabled ${enabled ? '✓' : 'not available'}`,
-              enabled ? 'pass' : 'info'
-            );
-            if (!enabled) return null;
+          // ── Next button validation ─────────────────────────────────────────
+          for (let expectedPage = 2; expectedPage <= pagesToTest8c; expectedPage++) {
+            const nextBtn8c = page.getByRole('button', { name: /^Next/i }).first();
+            const nextVisible8c = await nextBtn8c.isVisible({ timeout: 3000 }).catch(() => false);
+            const nextEnabled8c = nextVisible8c && await nextBtn8c.isEnabled().catch(() => false);
 
-            const apiPromise = page.waitForResponse(
+            if (currentApiPage8c < totalPages8c && !nextEnabled8c) {
+              await logStep(
+                page,
+                `8c7: Next button DISABLED on page ${currentApiPage8c} of ${totalPages8c} — expected active/clickable → FAIL`,
+                'fail'
+              );
+              break;
+            }
+
+            const nextApiPromise8c = page.waitForResponse(
               res => res.url().includes('/tenant/sales_summary_contracts') && res.status() === 200,
               { timeout: 15000 }
             ).catch(() => null);
 
-            await btn.click({ force: true });
+            await nextBtn8c.click({ force: true });
             await page.waitForTimeout(1000);
 
-            const response = await apiPromise;
-            const json = response ? await response.json().catch(() => null) : null;
+            const nextResponse8c = await nextApiPromise8c;
+            const nextJson = nextResponse8c ? await nextResponse8c.json().catch(() => null) : null;
 
-            if (json?.metadata) {
-              await logStep(
-                page,
-                `8c7: pagination "${label}" API page=${json.metadata.page} totalPages=${json.metadata.totalPages}`,
-                'info'
-              );
-            }
-
-            return json;
-          }
-
-          const pagesToTest8c = Math.min(totalPages8c, 3);
-
-          for (let expectedPage = 2; expectedPage <= pagesToTest8c; expectedPage++) {
-            const nextJson = await clickContractsPagination8c('Next');
             if (!nextJson) {
-              await logStep(page, `8c7: could not advance to Contracts page ${expectedPage}`, 'info');
+              await logStep(page, `8c7: could not advance to Contracts page ${expectedPage} — API not captured → FAIL`, 'fail');
               break;
             }
 
             const apiPageNum = Number(nextJson?.metadata?.page ?? 0);
-            await logStep(
-              page,
-              `8c7: Contracts API page after Next = "${apiPageNum}" expected "${expectedPage}" ${apiPageNum === expectedPage ? '✓' : 'FAIL'}`,
-              apiPageNum === expectedPage ? 'pass' : 'fail'
-            );
+            if (apiPageNum === currentApiPage8c + 1) {
+              await logStep(
+                page,
+                `8c7: Next → page ${currentApiPage8c} → ${apiPageNum} (totalPages=${totalPages8c}) ✓ PASS`,
+                'pass'
+              );
+              currentApiPage8c = apiPageNum;
+            } else {
+              await logStep(
+                page,
+                `8c7: Next → page ${currentApiPage8c} → ${apiPageNum} (expected ${currentApiPage8c + 1}) — page did not increase by 1 → FAIL`,
+                'fail'
+              );
+              currentApiPage8c = apiPageNum;
+              break;
+            }
 
             const nextContracts = Array.isArray(nextJson?.contracts) ? nextJson.contracts : [];
             if (nextContracts.length) {
@@ -4762,13 +4916,88 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
             }
           }
 
-          if (pagesToTest8c > 1) {
-            const prevJson = await clickContractsPagination8c('Previous');
-            await logStep(
-              page,
-              `8c7: Previous pagination works ${prevJson ? '✓' : 'FAIL'}`,
-              prevJson ? 'pass' : 'fail'
-            );
+          // ── Next on last page: should be disabled ──────────────────────────
+          if (currentApiPage8c === totalPages8c) {
+            const lastNextBtn8c = page.getByRole('button', { name: /^Next/i }).first();
+            const lastNextEnabled8c = await lastNextBtn8c.isEnabled().catch(() => false);
+            if (!lastNextEnabled8c) {
+              await logStep(
+                page,
+                `8c7: Next button correctly disabled on last page ${totalPages8c} ✓ PASS`,
+                'pass'
+              );
+            } else {
+              await logStep(
+                page,
+                `8c7: Next button active/clickable on last page ${totalPages8c} — page should not change → FAIL`,
+                'fail'
+              );
+            }
+          }
+
+          // ── Previous button validation ─────────────────────────────────────
+          {
+            const prevBtn8c = page.getByRole('button', { name: /^Previous/i }).first();
+            const prevVisible8c = await prevBtn8c.isVisible({ timeout: 3000 }).catch(() => false);
+            const prevEnabled8c = prevVisible8c && await prevBtn8c.isEnabled().catch(() => false);
+
+            if (currentApiPage8c === 1) {
+              if (!prevEnabled8c) {
+                await logStep(
+                  page,
+                  `8c7: Previous button correctly disabled on page 1 ✓ PASS`,
+                  'pass'
+                );
+              } else {
+                await logStep(
+                  page,
+                  `8c7: Previous button active on page 1 — unexpected state (informational)`,
+                  'info'
+                );
+              }
+            } else {
+              if (!prevEnabled8c) {
+                await logStep(
+                  page,
+                  `8c7: Previous button DISABLED on page ${currentApiPage8c} > 1 — expected active/clickable → FAIL`,
+                  'fail'
+                );
+              } else {
+                const prevApiPromise8c = page.waitForResponse(
+                  res => res.url().includes('/tenant/sales_summary_contracts') && res.status() === 200,
+                  { timeout: 15000 }
+                ).catch(() => null);
+
+                await prevBtn8c.click({ force: true });
+                await page.waitForTimeout(1000);
+
+                const prevResponse8c = await prevApiPromise8c;
+                const prevJson8c = prevResponse8c ? await prevResponse8c.json().catch(() => null) : null;
+
+                if (!prevJson8c) {
+                  await logStep(
+                    page,
+                    `8c7: Previous click on page ${currentApiPage8c} — API response not captured → FAIL`,
+                    'fail'
+                  );
+                } else {
+                  const prevPage8c = Number(prevJson8c.metadata.page);
+                  if (prevPage8c === currentApiPage8c - 1) {
+                    await logStep(
+                      page,
+                      `8c7: Previous → page ${currentApiPage8c} → ${prevPage8c} ✓ PASS`,
+                      'pass'
+                    );
+                  } else {
+                    await logStep(
+                      page,
+                      `8c7: Previous → page ${currentApiPage8c} → ${prevPage8c} (expected ${currentApiPage8c - 1}) — page did not decrease by 1 → FAIL`,
+                      'fail'
+                    );
+                  }
+                }
+              }
+            }
           }
 
           // ── 8c8: Search test ───────────────────────────────────────────────
@@ -5043,55 +5272,57 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
           }
 
           // ── 8d6: Pagination ────────────────────────────────────────────────
-          async function clickDistributorsPagination8d(label: 'Next' | 'Previous') {
-            const btn = page.getByRole('button', { name: new RegExp(`^${label}`, 'i') }).first();
-            const visible = await btn.isVisible({ timeout: 3000 }).catch(() => false);
-            const enabled = visible && (await btn.isEnabled().catch(() => false));
+          const pagesToTest8d = Math.min(totalPages8d, 3);
+          let currentApiPage8d = Number(apiPage1?.metadata?.page ?? 1);
 
-            await logStep(
-              page,
-              `8d6: pagination "${label}" visible/enabled ${enabled ? '✓' : 'not available'}`,
-              enabled ? 'pass' : 'info'
-            );
-            if (!enabled) return null;
+          // ── Next button validation ─────────────────────────────────────────
+          for (let expectedPage = 2; expectedPage <= pagesToTest8d; expectedPage++) {
+            const nextBtn8d = page.getByRole('button', { name: /^Next/i }).first();
+            const nextVisible8d = await nextBtn8d.isVisible({ timeout: 3000 }).catch(() => false);
+            const nextEnabled8d = nextVisible8d && await nextBtn8d.isEnabled().catch(() => false);
 
-            const apiPromise = page.waitForResponse(
+            if (currentApiPage8d < totalPages8d && !nextEnabled8d) {
+              await logStep(
+                page,
+                `8d6: Next button DISABLED on page ${currentApiPage8d} of ${totalPages8d} — expected active/clickable → FAIL`,
+                'fail'
+              );
+              break;
+            }
+
+            const nextApiPromise8d = page.waitForResponse(
               res => res.url().includes('/tenant/sales_summary_wholesalers') && res.status() === 200,
               { timeout: 15000 }
             ).catch(() => null);
 
-            await btn.click({ force: true });
+            await nextBtn8d.click({ force: true });
             await page.waitForTimeout(1000);
 
-            const response = await apiPromise;
-            const json = response ? await response.json().catch(() => null) : null;
+            const nextResponse8d = await nextApiPromise8d;
+            const nextJson = nextResponse8d ? await nextResponse8d.json().catch(() => null) : null;
 
-            if (json?.metadata) {
-              await logStep(
-                page,
-                `8d6: pagination "${label}" API page=${json.metadata.page} totalPages=${json.metadata.totalPages}`,
-                'info'
-              );
-            }
-
-            return json;
-          }
-
-          const pagesToTest8d = Math.min(totalPages8d, 3);
-
-          for (let expectedPage = 2; expectedPage <= pagesToTest8d; expectedPage++) {
-            const nextJson = await clickDistributorsPagination8d('Next');
             if (!nextJson) {
-              await logStep(page, `8d6: could not advance to Distributors page ${expectedPage}`, 'info');
+              await logStep(page, `8d6: could not advance to Distributors page ${expectedPage} — API not captured → FAIL`, 'fail');
               break;
             }
 
             const apiPageNum8d = Number(nextJson?.metadata?.page ?? 0);
-            await logStep(
-              page,
-              `8d6: Distributors API page after Next = "${apiPageNum8d}" expected "${expectedPage}" ${apiPageNum8d === expectedPage ? '✓' : 'FAIL'}`,
-              apiPageNum8d === expectedPage ? 'pass' : 'fail'
-            );
+            if (apiPageNum8d === currentApiPage8d + 1) {
+              await logStep(
+                page,
+                `8d6: Next → page ${currentApiPage8d} → ${apiPageNum8d} (totalPages=${totalPages8d}) ✓ PASS`,
+                'pass'
+              );
+              currentApiPage8d = apiPageNum8d;
+            } else {
+              await logStep(
+                page,
+                `8d6: Next → page ${currentApiPage8d} → ${apiPageNum8d} (expected ${currentApiPage8d + 1}) — page did not increase by 1 → FAIL`,
+                'fail'
+              );
+              currentApiPage8d = apiPageNum8d;
+              break;
+            }
 
             const nextWholesalers = Array.isArray(nextJson?.wholesalers) ? nextJson.wholesalers : [];
             if (nextWholesalers.length) {
@@ -5099,13 +5330,88 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
             }
           }
 
-          if (pagesToTest8d > 1) {
-            const prevJson = await clickDistributorsPagination8d('Previous');
-            await logStep(
-              page,
-              `8d6: Previous pagination works ${prevJson ? '✓' : 'FAIL'}`,
-              prevJson ? 'pass' : 'fail'
-            );
+          // ── Next on last page: should be disabled ──────────────────────────
+          if (currentApiPage8d === totalPages8d) {
+            const lastNextBtn8d = page.getByRole('button', { name: /^Next/i }).first();
+            const lastNextEnabled8d = await lastNextBtn8d.isEnabled().catch(() => false);
+            if (!lastNextEnabled8d) {
+              await logStep(
+                page,
+                `8d6: Next button correctly disabled on last page ${totalPages8d} ✓ PASS`,
+                'pass'
+              );
+            } else {
+              await logStep(
+                page,
+                `8d6: Next button active/clickable on last page ${totalPages8d} — page should not change → FAIL`,
+                'fail'
+              );
+            }
+          }
+
+          // ── Previous button validation ─────────────────────────────────────
+          {
+            const prevBtn8d = page.getByRole('button', { name: /^Previous/i }).first();
+            const prevVisible8d = await prevBtn8d.isVisible({ timeout: 3000 }).catch(() => false);
+            const prevEnabled8d = prevVisible8d && await prevBtn8d.isEnabled().catch(() => false);
+
+            if (currentApiPage8d === 1) {
+              if (!prevEnabled8d) {
+                await logStep(
+                  page,
+                  `8d6: Previous button correctly disabled on page 1 ✓ PASS`,
+                  'pass'
+                );
+              } else {
+                await logStep(
+                  page,
+                  `8d6: Previous button active on page 1 — unexpected state (informational)`,
+                  'info'
+                );
+              }
+            } else {
+              if (!prevEnabled8d) {
+                await logStep(
+                  page,
+                  `8d6: Previous button DISABLED on page ${currentApiPage8d} > 1 — expected active/clickable → FAIL`,
+                  'fail'
+                );
+              } else {
+                const prevApiPromise8d = page.waitForResponse(
+                  res => res.url().includes('/tenant/sales_summary_wholesalers') && res.status() === 200,
+                  { timeout: 15000 }
+                ).catch(() => null);
+
+                await prevBtn8d.click({ force: true });
+                await page.waitForTimeout(1000);
+
+                const prevResponse8d = await prevApiPromise8d;
+                const prevJson8d = prevResponse8d ? await prevResponse8d.json().catch(() => null) : null;
+
+                if (!prevJson8d) {
+                  await logStep(
+                    page,
+                    `8d6: Previous click on page ${currentApiPage8d} — API response not captured → FAIL`,
+                    'fail'
+                  );
+                } else {
+                  const prevPage8d = Number(prevJson8d.metadata.page);
+                  if (prevPage8d === currentApiPage8d - 1) {
+                    await logStep(
+                      page,
+                      `8d6: Previous → page ${currentApiPage8d} → ${prevPage8d} ✓ PASS`,
+                      'pass'
+                    );
+                  } else {
+                    await logStep(
+                      page,
+                      `8d6: Previous → page ${currentApiPage8d} → ${prevPage8d} (expected ${currentApiPage8d - 1}) — page did not decrease by 1 → FAIL`,
+                      'fail'
+                    );
+                  }
+                }
+              }
+            }
           }
 
           await logStep(page, '8d: Distributors tab API + UI validation completed ✓', 'pass');
