@@ -2092,6 +2092,30 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
           //   }
           // }
 
+        await S('Step 4-reset — Date filter restore to Previous year', async () => {
+        await ensureSingleVisiblePage(page, '4-reset');
+        await ensureOnSalesSummary(page, ss, '4-reset');
+
+        const panel = await openDateFilterStrict(page, ss, '4-reset');
+        await clickDatePresetStrict(page, panel, 'Previous year', '4-reset');
+
+        await page.waitForTimeout(1200);
+
+        await validateUrlContains(page, /dateRange=previous-year/i, '4-reset');
+
+        await validateDateButtonExact(
+          page,
+          ss,
+          expectedDateRegex('Previous year', yesterday(), user.company),
+          '4-reset'
+        );
+
+        await closeDatePickerIfOpenStrict(page);
+
+        await logStep(page, '4-reset: date filter restored to Previous year ✓', 'pass');
+      });
+
+
         // ════════════════════════════════════════════════════════════════════
         // STEP 4i3 — Date filter: Custom range outside-click close
         // Business rule:
@@ -3489,6 +3513,7 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
           await ensureOnSalesSummary(page, ss, '8a');
 
           // Scroll to lower table
+          // ════════════════════════════════════════════════════════════════════
           await page.evaluate(() => window.scrollTo(0, 0));
           await page.waitForTimeout(500);
 
@@ -3499,7 +3524,8 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
           await page.mouse.wheel(0, 1800);
           await page.waitForTimeout(1000);
 
-          // Verify tabs exist
+          // 8a1: Verify tabs exist
+          // ════════════════════════════════════════════════════════════════════
           const tabNames = ['Orders', 'Accounts', 'Contracts', 'Distributors'];
 
           for (const tabName of tabNames) {
@@ -3511,18 +3537,20 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
 
             await logStep(
               page,
-              `8: tab "${tabName}" visible ${visible ? '✓' : 'FAIL'}`,
+              `8a1: tab "${tabName}" visible ${visible ? '✓' : 'FAIL'}`,
               visible ? 'pass' : 'fail'
             );
           }
 
           // Intercept sales_summary_table API before clicking Orders tab
+          // ════════════════════════════════════════════════════════════════════
           const salesTableResponsePromise = page.waitForResponse(
             resp => resp.url().includes('/tenant/sales_summary_table') && resp.status() === 200,
             { timeout: 15000 }
           ).catch(() => null);
 
-          // Click Orders tab
+          // 8a2: Click Orders tab
+          // ════════════════════════════════════════════════════════════════════
           const ordersTab = page.locator('button[data-tab], button, [role="tab"]').filter({
             hasText: /^Orders/i,
           }).first();
@@ -3530,30 +3558,10 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
           await ordersTab.click({ force: true });
           await page.waitForTimeout(800);
 
-          await logStep(page, '8a: Orders tab clicked ✓', 'pass');
+          await logStep(page, '8a2: Orders tab clicked ✓', 'pass');
 
-          // Wait for and parse the sales_summary_table API response
-          let customerFromApi = '';
-          const salesTableResponse = await salesTableResponsePromise;
-          if (salesTableResponse) {
-            try {
-              const json = await salesTableResponse.json();
-              customerFromApi = (json?.sales_summary?.[0]?.customer ?? '').trim();
-            } catch (_) {}
-          }
-          await logStep(page, `8a: API customer for search = "${customerFromApi}"`, 'info');
-
-          // Verify search box
-          const searchBox = page.getByPlaceholder(/search by buyer name or city/i).first();
-          const searchVisible = await searchBox.isVisible({ timeout: 3000 }).catch(() => false);
-
-          await logStep(
-            page,
-            `8a: Orders search box visible ${searchVisible ? '✓' : 'FAIL'}`,
-            searchVisible ? 'pass' : 'fail'
-          );
-
-          // Verify Order type default = All
+          // 8a3: Verify Order type default = All
+          // ════════════════════════════════════════════════════════════════════
           const orderTypeBtn = page.locator('[role="button"], button, div.input1').filter({
             hasText: /^All$/i,
           }).first();
@@ -3562,62 +3570,100 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
 
           await logStep(
             page,
-            `8a: Order type default = "${orderTypeText}" ${/^All$/i.test(orderTypeText) ? '✓' : 'FAIL'}`,
+            `8a3: Order type default = "${orderTypeText}" ${/^All$/i.test(orderTypeText) ? '✓' : 'FAIL'}`,
             /^All$/i.test(orderTypeText) ? 'pass' : 'fail'
           );
 
-          // Test Order type dropdown: Orders and Returns
-          async function openOrderTypeDropdown8a() {
-            const orderTypeLabel = page.getByText(/^Order type$/i).first();
-            await orderTypeLabel.scrollIntoViewIfNeeded().catch(() => {});
+         // 8a4: Order type dropdown: All / Orders / Returns
+         // ════════════════════════════════════════════════════════════════════
+          async function openOrderTypeDropdown8a(): Promise<Locator> {
+            await page.keyboard.press('Escape').catch(() => {});
+            await page.waitForTimeout(250);
 
-            const orderTypeBtn = page.locator('div.input1, [role="button"], button').filter({
+            const btn = page.locator('div.input1[role="button"]').filter({
               hasText: /^(All|Orders|Returns)$/i,
             }).last();
 
-            const box = await orderTypeBtn.boundingBox().catch(() => null);
+            const box = await btn.boundingBox().catch(() => null);
             if (!box) {
-              await logStep(page, '8a: Order type button has no bounding box', 'fail');
-              return null;
+              await logStep(page, '8a4: Order type button not found', 'fail');
+              throw new Error('8a4: Order type button not found');
             }
 
             await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
             await page.waitForTimeout(500);
 
-            const panel = page.locator('div.absolute.z-20, div.absolute').filter({
-              hasText: /All|Orders|Returns/i,
-            }).last();
+            const panel = page.locator('div.absolute.z-20, div.absolute')
+              .filter({ hasText: /All\s*Orders\s*Returns/i })
+              .last();
 
-            const visible = await panel.isVisible({ timeout: 2500 }).catch(() => false);
-            await logStep(page, `8a: Order type dropdown opened ${visible ? '✓' : 'FAIL'}`, visible ? 'pass' : 'fail');
+            const panelVisible = await panel.isVisible({ timeout: 2500 }).catch(() => false);
+            const panelText = panelVisible
+              ? ((await panel.textContent().catch(() => '')) ?? '').replace(/\s+/g, ' ').trim()
+              : '';
 
-            return visible ? panel : null;
+            await logStep(
+              page,
+              `8a4: Order type dropdown opened ${panelVisible ? '?' : 'FAIL'} text="${panelText}"`,
+              panelVisible ? 'pass' : 'fail'
+            );
+
+            if (!panelVisible) {
+              throw new Error('8a4: Order type dropdown did not open');
+            }
+
+            return panel;
           }
 
-          for (const optionName of ['Orders', 'Returns', 'All']) {
+          async function clickOrderTypeOption8a(optionName: 'All' | 'Orders' | 'Returns') {
             const panel = await openOrderTypeDropdown8a();
-            if (!panel) continue;
 
-            const option = panel.locator('div.group, div, button, [role="option"]').filter({
-              hasText: new RegExp(`^${optionName}$`, 'i'),
+            const option = panel.locator('div.group, div[class*="cursor-pointer"], div').filter({
+              hasText: new RegExp(`^\\s*${optionName}\\s*$`, 'i'),
             }).first();
-
+            
             const visible = await option.isVisible({ timeout: 2500 }).catch(() => false);
 
             await logStep(
               page,
-              `8a: order type option "${optionName}" visible ${visible ? '✓' : 'FAIL'}`,
+              `8a4: order type option "${optionName}" visible ${visible ? '?' : 'FAIL'}`,
               visible ? 'pass' : 'fail'
             );
 
-            if (visible) {
-              await option.click({ force: true });
-              await page.waitForTimeout(1000);
-              await logStep(page, `8a: selected order type "${optionName}" and table rendered ✓`, 'pass');
+            if (!visible) {
+              await page.keyboard.press('Escape').catch(() => {});
+              return;
             }
+
+            const responsePromise = page.waitForResponse(
+              res => res.url().includes('/tenant/sales_summary_table') && res.status() === 200,
+              { timeout: 10000 }
+            ).catch(() => null);
+
+            const optBox = await option.boundingBox().catch(() => null);
+            if (optBox) {
+              await page.mouse.click(optBox.x + optBox.width / 2, optBox.y + optBox.height / 2);
+            } else {
+              await option.click({ force: true });
+            }
+
+            const response = await responsePromise;
+            await page.waitForTimeout(1000);
+
+            await logStep(
+              page,
+              `8a4: selected order type "${optionName}" ${response ? 'and table API loaded ?' : '?'}`,
+              'pass'
+            );
           }
 
-          // Verify table headers
+          await clickOrderTypeOption8a('Orders');
+          await clickOrderTypeOption8a('Returns');
+          await clickOrderTypeOption8a('All');
+
+
+          // 8a5: Verify table headers
+          // ════════════════════════════════════════════════════════════════════
           const headers = ['Buyer', 'Date', 'Product', 'Contract', 'Wholesaler', 'Units', 'Amount'];
 
           for (const header of headers) {
@@ -3626,25 +3672,372 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
 
             await logStep(
               page,
-              `8a: table header "${header}" visible ${visible ? '✓' : 'FAIL'}`,
+              `8a5: table header "${header}" visible ${visible ? '✓' : 'FAIL'}`,
               visible ? 'pass' : 'fail'
             );
           }
 
-          // Test sorting each header
+          // 8a6: Test sorting each header
+          // ════════════════════════════════════════════════════════════════════
           for (const header of headers) {
             const headerLoc = page.getByText(new RegExp(`^${header}$`, 'i')).first();
 
             if (await headerLoc.isVisible({ timeout: 1500 }).catch(() => false)) {
               await headerLoc.click({ force: true });
               await page.waitForTimeout(500);
-              await logStep(page, `8a: clicked sort header "${header}" ✓`, 'pass');
+              await logStep(page, `8a6: clicked sort header "${header}" ✓`, 'pass');
             } else {
-              await logStep(page, `8a: header "${header}" not clickable/visible`, 'info');
+              await logStep(page, `8a6: header "${header}" not clickable/visible`, 'info');
             }
           }
 
-          // Search for customer from API response, click link, verify URL, go back
+          // 8a7:Wait for and parse the sales_summary_table API response
+          // ════════════════════════════════════════════════════════════════════
+          let customerFromApi = '';
+          let apiPage1: any = null;
+
+          const salesTableResponse = await salesTableResponsePromise;
+
+          if (salesTableResponse) {
+            try {
+              apiPage1 = await salesTableResponse.json();
+              customerFromApi = (apiPage1?.sales_summary?.[0]?.customer ?? '').trim();
+            } catch (_) {}
+          }
+
+          await logStep(page, `8a: API customer for search = "${customerFromApi}"`, 'info');
+
+
+          // 8a7: Verify Orders table rows against /tenant/sales_summary_table API
+          // ════════════════════════════════════════════════════════════════════          
+          function normalizeText8a(value: unknown): string {
+            return String(value ?? '')
+              .replace(/\s+/g, ' ')
+              .replace(/\$/g, '')
+              .replace(/,/g, '')
+              .trim()
+              .toLowerCase();
+          }
+
+          function normalizeMoney8a(value: unknown): string {
+            const n = Number(String(value ?? '').replace(/[$,]/g, '').trim());
+            if (Number.isNaN(n)) return normalizeText8a(value);
+            return Math.round(n).toString();
+          }
+
+          function formatApiDate8a(value: unknown): string {
+            const raw = String(value ?? '');
+            // API date can be "4/27/2026" or raw_date ISO. Keep simple first.
+            if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(raw)) return raw;
+
+            const d = new Date(raw);
+            if (Number.isNaN(d.getTime())) return raw;
+
+            return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+          }
+
+          async function waitForOrdersTableApi8a() {
+            const response = await page.waitForResponse(
+              res =>
+                res.url().includes('/tenant/sales_summary_table') &&
+                res.status() === 200,
+              { timeout: 15000 }
+            ).catch(() => null);
+
+            if (!response) {
+              await logStep(page, '8a: sales_summary_table API response not captured', 'fail');
+              return null;
+            }
+
+            const json = await response.json().catch(() => null);
+            if (!json) {
+              await logStep(page, '8a: sales_summary_table API JSON parse failed', 'fail');
+              return null;
+            }
+
+            return json;
+          }
+
+          async function verifyOrdersPageAgainstApi8a(apiJson: any, pageNumLabel: string) {
+            const metadata = apiJson?.metadata ?? {};
+            const rows = Array.isArray(apiJson?.sales_summary) ? apiJson.sales_summary : [];
+
+            await logStep(
+              page,
+              `8a7: API metadata ${pageNumLabel} → totalCount=${metadata.totalCount}, totalPages=${metadata.totalPages}, page=${metadata.page}, limit=${metadata.limit}`,
+              'info'
+            );
+
+            if (!rows.length) {
+              await logStep(page, `8a7: API returned 0 sales_summary rows for ${pageNumLabel}`, 'info');
+              return;
+            }
+
+            const sample = rows[Math.floor(Math.random() * rows.length)];
+
+            const expected = {
+              customer: sample.customer,
+              date: formatApiDate8a(sample.date ?? sample.raw_date),
+              product: sample.productShort ?? sample.product,
+              contract: sample.contract,
+              wholesaler: sample.wholesaler,
+              units: sample.units,
+              amount: sample.amount,
+            };
+
+            await logStep(
+              page,
+              `8a7: random API row ${pageNumLabel} data_id=${sample.data_id} customer="${expected.customer}"`,
+              'info'
+            );
+
+            const customerLink = page.locator('a').filter({
+              hasText: new RegExp(escapeRe(String(expected.customer)), 'i'),
+            }).first();
+
+            const customerVisible = await customerLink.isVisible({ timeout: 5000 }).catch(() => false);
+
+            await logStep(
+              page,
+              `8a7: UI customer "${expected.customer}" visible ${customerVisible ? '✓' : 'FAIL'}`,
+              customerVisible ? 'pass' : 'fail'
+            );
+
+            if (!customerVisible) return;
+
+            const rowCard = page.locator('div, tr').filter({
+              has: customerLink,
+            }).first();
+
+            const rowText = ((await rowCard.textContent().catch(() => '')) ?? '')
+              .replace(/\s+/g, ' ')
+              .trim();
+
+            const checks = [
+              ['date', expected.date],
+              ['product', expected.product],
+              ['contract', expected.contract],
+              ['wholesaler', expected.wholesaler],
+              ['units', expected.units],
+              ['amount', expected.amount],
+            ] as const;
+
+            const mapping = [
+            ['Buyer', expected.customer, 'customer'],
+            ['Date', expected.date, 'date'],
+            ['Product', expected.product, 'productShort'],
+            ['Contract', expected.contract, 'contract'],
+            ['Wholesaler', expected.wholesaler, 'wholesaler'],
+            ['Units', expected.units, 'units'],
+            ['Amount', expected.amount, 'amount'],
+          ] as const;
+
+          let allPass = true;
+
+          for (const [label, value, apiField] of mapping) {
+            const ok =
+              label === 'Amount'
+                ? normalizeText8a(rowText).includes(normalizeMoney8a(value))
+                : normalizeText8a(rowText).includes(normalizeText8a(value));
+
+            if (!ok) allPass = false;
+
+            await logStep(
+              page,
+              `8a7: ${label} match API ${apiField}: "${value}" ${ok ? '✓' : 'FAIL'}`,
+              ok ? 'pass' : 'fail'
+            );
+          }
+
+          let rowAllPass8a7 = true;
+
+          for (const [label, value, apiField] of mapping) {
+            const ok =
+              label === 'Amount'
+                ? normalizeText8a(rowText).includes(normalizeMoney8a(value))
+                : normalizeText8a(rowText).includes(normalizeText8a(value));
+
+            if (!ok) rowAllPass8a7 = false;
+
+            await logStep(
+              page,
+              `8a7: ${label} match API ${apiField}: "${value}" ${ok ? '✓' : 'FAIL'}`,
+              ok ? 'pass' : 'fail'
+            );
+          }
+
+          await logStep(
+            page,
+            `8a7: Row data fully matches API ${rowAllPass8a7 ? '✓' : 'FAIL'}`,
+            rowAllPass8a7 ? 'pass' : 'fail'
+          );
+
+
+          for (const [label, value, apiField] of mapping) {
+            const ok =
+              label === 'Amount'
+                ? normalizeText8a(rowText).includes(normalizeMoney8a(value))
+                : normalizeText8a(rowText).includes(normalizeText8a(value));
+
+            await logStep(
+              page,
+              `8a7: ${label} match API ${apiField}: "${value}" ${ok ? '✓' : 'FAIL'}`,
+              ok ? 'pass' : 'fail'
+            );
+          }
+
+          await logStep(
+            page,
+            `8a7: Row data fully matches API ${allPass ? '✓' : 'FAIL'}`,
+            allPass ? 'pass' : 'fail'
+          );
+          }
+
+          async function clickPaginationAndCaptureApi8(label: 'Next' | 'Previous', apiPath: string, expectedPage?: number) {
+          const btn = page.getByRole('button', { name: new RegExp(`^${label}`, 'i') }).first();
+
+          const visible = await btn.isVisible({ timeout: 3000 }).catch(() => false);
+          const enabled = visible && await btn.isEnabled().catch(() => false);
+
+          await logStep(page, `pagination "${label}" visible=${visible} enabled=${enabled}`, enabled ? 'pass' : 'fail');
+          if (!enabled) return null;
+
+          const beforeUrl = page.url();
+          await logStep(page, `pagination "${label}" before URL = ${beforeUrl}`, 'info');
+
+          const apiPromise = page.waitForResponse(
+            res => res.url().includes(apiPath) && res.status() === 200,
+            { timeout: 15000 }
+          ).catch(async err => {
+            await logStep(page, `pagination "${label}" API not captured: ${String(err?.message ?? err).split('\n')[0]}`, 'fail');
+            return null;
+          });
+
+          await btn.click({ force: true });
+          await page.waitForTimeout(1200);
+
+          const afterUrl = page.url();
+          await logStep(page, `pagination "${label}" after URL = ${afterUrl}`, 'info');
+
+          const response = await apiPromise;
+          const json = response ? await response.json().catch(() => null) : null;
+
+          if (json?.metadata) {
+            await logStep(
+              page,
+              `pagination "${label}" API page=${json.metadata.page} totalPages=${json.metadata.totalPages}`,
+              expectedPage ? (Number(json.metadata.page) === expectedPage ? 'pass' : 'fail') : 'pass'
+            );
+          }
+
+          return json;
+        }
+
+          async function clickPaginationAndCaptureApi8a(label: 'Next' | 'Previous') {
+            const btn = page.getByRole('button', { name: new RegExp(`^${label}`, 'i') }).first();
+
+            const visible = await btn.isVisible({ timeout: 3000 }).catch(() => false);
+            const enabled = visible && await btn.isEnabled().catch(() => false);
+
+            await logStep(
+              page,
+              `8a7: pagination "${label}" visible=${visible} enabled=${enabled}`,
+              enabled ? 'pass' : 'fail'
+            );
+
+            if (!enabled) return null;
+
+            const beforeUrl = page.url();
+
+            const apiPromise = page.waitForResponse(
+              res => res.url().includes('/tenant/sales_summary_table') && res.status() === 200,
+              { timeout: 15000 }
+            ).catch(() => null);
+
+            await btn.click({ force: true });
+            await page.waitForTimeout(1200);
+
+            const response = await apiPromise;
+            const json = response ? await response.json().catch(() => null) : null;
+
+            await logStep(
+              page,
+              `8a7: pagination "${label}" before="${beforeUrl}" after="${page.url()}" apiCaptured=${!!json}`,
+              json ? 'pass' : 'info'
+            );
+
+            if (json?.metadata) {
+              await logStep(
+                page,
+                `8a7: pagination "${label}" API page=${json.metadata.page} totalPages=${json.metadata.totalPages}`,
+                'info'
+              );
+            }
+
+            return json;
+          }
+
+          // 8a7: Run API-vs-UI verification using the already-parsed apiPage1.
+          // Do NOT call salesTableResponse.json() again.
+          if (!apiPage1) {
+            await logStep(page, '8a7: API page 1 not captured from initial Orders table response', 'fail');
+          } else {
+            const totalPages = Number(apiPage1?.metadata?.totalPages ?? 1);
+            const totalCount = Number(apiPage1?.metadata?.totalCount ?? 0);
+
+            const ordersTabText = ((await ordersTab.textContent().catch(() => '')) ?? '')
+              .replace(/\s+/g, ' ')
+              .trim();
+
+            const tabCountMatch = ordersTabText.includes(String(totalCount));
+
+            await logStep(
+              page,
+              `8a7: Orders tab count match API totalCount: "${totalCount}" ${tabCountMatch ? '✓' : `FAIL tab="${ordersTabText}"`}`,
+              tabCountMatch ? 'pass' : 'fail'
+            );
+
+            await verifyOrdersPageAgainstApi8a(apiPage1, 'page 1');
+
+            const pagesToTest = Math.min(totalPages, 4);
+
+            for (let pageIndex = 2; pageIndex <= pagesToTest; pageIndex++) {
+              const nextJson = await clickPaginationAndCaptureApi8a('Next');
+
+              if (!nextJson) {
+                await logStep(page, `8a7: could not move to page ${pageIndex}`, 'info');
+                break;
+              }
+
+              await verifyOrdersPageAgainstApi8a(nextJson, `page ${pageIndex}`);
+            }
+
+            if (pagesToTest > 1) {
+              const prevJson = await clickPaginationAndCaptureApi8a('Previous');
+
+              await logStep(
+                page,
+                `8a7: Previous pagination works ${prevJson ? '✓' : 'FAIL'}`,
+                prevJson ? 'pass' : 'fail'
+              );
+            }
+          }
+
+
+          // 8a8: Verify search box
+          // ════════════════════════════════════════════════════════════════════
+          const searchBox = page.getByPlaceholder(/search by buyer name or city/i).first();
+          const searchVisible = await searchBox.isVisible({ timeout: 3000 }).catch(() => false);
+
+          await logStep(
+            page,
+            `8a8: Orders search box visible ${searchVisible ? '✓' : 'FAIL'}`,
+            searchVisible ? 'pass' : 'fail'
+          );
+
+          
+          // 8a9: Search for customer from API response, click link, verify URL, go back
+          // ════════════════════════════════════════════════════════════════════
           const searchTerm = customerFromApi;
 
           if (searchTerm && searchVisible) {
@@ -3657,11 +4050,12 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
 
             await logStep(
               page,
-              `8a: customer "${searchTerm}" appears in filtered results ${resultVisible ? '✓' : 'FAIL'}`,
+              `8a9: customer "${searchTerm}" appears in filtered results ${resultVisible ? '✓' : 'FAIL'}`,
               resultVisible ? 'pass' : 'fail'
             );
 
             // Click the customer link
+            // ════════════════════════════════════════════════════════════════════
             const customerLink = page.getByText(
               new RegExp(searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i')
             ).first();
@@ -3676,11 +4070,12 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
               const isAccountUrl = currentUrl.includes('/tenant/account/') || currentUrl.includes('/account/');
               await logStep(
                 page,
-                `8a: URL after clicking customer = "${currentUrl}" ${isAccountUrl ? '✓' : 'FAIL'}`,
+                `8a9: URL after clicking customer = "${currentUrl}" ${isAccountUrl ? '✓' : 'FAIL'}`,
                 isAccountUrl ? 'pass' : 'fail'
               );
 
               // Go back to Sales Summary and verify dashboard loads
+              // ════════════════════════════════════════════════════════════════════
               await page.goBack();
               await page.waitForTimeout(1500);
               await ensureOnSalesSummary(page, ss, '8a');
@@ -3689,11 +4084,12 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
                 .first().isVisible({ timeout: 8000 }).catch(() => false);
               await logStep(
                 page,
-                `8a: Sales Summary dashboard reloaded after back ${dashboardLoaded ? '✓' : 'FAIL'}`,
+                `8a9: Sales Summary dashboard reloaded after back ${dashboardLoaded ? '✓' : 'FAIL'}`,
                 dashboardLoaded ? 'pass' : 'fail'
               );
 
               // Re-scroll and re-click Orders tab before order type dropdown test
+              // ════════════════════════════════════════════════════════════════════
               await page.mouse.wheel(0, 1800);
               await page.waitForTimeout(800);
               await ordersTab.click({ force: true });
@@ -3704,7 +4100,1018 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
         await logStep(page, '8a: Orders table test completed ✓', 'pass');
       });
 
- 
+
+        // ════════════════════════════════════════════════════════════════════
+        // STEP 8b — Sales Summary tables (Orders/Accounts/Contracts/Distributors): Accounts tab
+        // ════════════════════════════════════════════════════════════════════
+        await runSoftStep(page, '8b', 'Sales Summary tables: Accounts tab', async () => {
+          await ensureSingleVisiblePage(page, '8b');
+          await ensureOnSalesSummary(page, ss, '8b');
+
+          await page.mouse.wheel(0, 1800);
+          await page.waitForTimeout(800);
+
+          function norm8b(value: unknown): string {
+            return String(value ?? '')
+              .replace(/\s+/g, ' ')
+              .replace(/\$/g, '')
+              .replace(/,/g, '')
+              .trim()
+              .toLowerCase();
+          }
+
+          function money8b(value: unknown): string {
+            const n = Number(String(value ?? '').replace(/[$,]/g, '').trim());
+            if (Number.isNaN(n)) return norm8b(value);
+            return Math.round(n).toString();
+          }
+
+          const accountsTab = page.locator('button[data-tab="Accounts"]').filter({
+            hasText: /^Accounts/i,
+          }).first();
+
+          const accountsVisible = await accountsTab.isVisible({ timeout: 5000 }).catch(() => false);
+
+          await logStep(
+            page,
+            `8b1: Accounts lower-table tab visible ${accountsVisible ? '✓' : 'FAIL'}`,
+            accountsVisible ? 'pass' : 'fail'
+          );
+
+          if (!accountsVisible) return;
+
+          const accountsApiPromise = page.waitForResponse(
+            res => res.url().includes('/tenant/sales_summary_accounts') && res.status() === 200,
+            { timeout: 15000 }
+          ).catch(() => null);
+
+          await accountsTab.click({ force: true });
+          await page.waitForTimeout(1000);
+
+          const accountsApiResponse = await accountsApiPromise;
+          const apiPage1 = accountsApiResponse ? await accountsApiResponse.json().catch(() => null) : null;
+
+          if (!apiPage1) {
+            await logStep(page, '8b2: sales_summary_accounts API not captured', 'fail');
+            return;
+          }
+
+          const metadata = apiPage1?.metadata ?? {};
+          const accounts = Array.isArray(apiPage1?.accounts) ? apiPage1.accounts : [];
+
+          const totalCount = Number(metadata.totalCount ?? apiPage1?.count ?? 0);
+          const totalPages = Number(metadata.totalPages ?? 1);
+          const currentPage = Number(metadata.page ?? 1);
+
+          const accountsTabText = ((await accountsTab.textContent().catch(() => '')) ?? '')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+          const countMatch = accountsTabText.includes(String(totalCount));
+
+          await logStep(
+            page,
+            `8b2: Accounts tab count match API totalCount: "${totalCount}" ${countMatch ? '✓' : `FAIL tab="${accountsTabText}"`}`,
+            countMatch ? 'pass' : 'fail'
+          );
+
+          await logStep(
+            page,
+            `8b2: API metadata → totalCount=${totalCount}, totalPages=${totalPages}, page=${currentPage}, limit=${metadata.limit}`,
+            'info'
+          );
+
+          const searchBox = page.getByPlaceholder(/search by account name/i).first();
+          const searchVisible = await searchBox.isVisible({ timeout: 5000 }).catch(() => false);
+          await logStep(page, `8b3: Accounts search box visible ${searchVisible ? '✓' : 'FAIL'}`, searchVisible ? 'pass' : 'fail');
+
+          const headers = ['Account', 'Purchasing IDs', 'Orders', 'Units', 'Contracted sales', 'Trend vs prior'];
+
+          for (const h of headers) {
+            const headerVisible = await page.getByText(new RegExp(`^${escapeRe(h)}$`, 'i')).first()
+              .isVisible({ timeout: 3000 }).catch(() => false);
+
+            await logStep(
+              page,
+              `8b4: table header "${h}" visible ${headerVisible ? '✓' : 'FAIL'}`,
+              headerVisible ? 'pass' : 'fail'
+            );
+          }
+
+          async function verifyAccountRow8b(account: any, label: string) {
+            const accountName = String(account?.account_name ?? '').trim();
+
+            if (!accountName) {
+              await logStep(page, `8b5: ${label} skipped — API account_name empty`, 'info');
+              return;
+            }
+
+            const accountLink = page.locator('a, button, div').filter({
+              hasText: new RegExp(escapeRe(accountName), 'i'),
+            }).first();
+
+            const visible = await accountLink.isVisible({ timeout: 5000 }).catch(() => false);
+
+            await logStep(
+              page,
+              `8b5: UI account "${accountName}" visible ${visible ? '✓' : 'FAIL'}`,
+              visible ? 'pass' : 'fail'
+            );
+
+            if (!visible) return;
+
+            const row = page.locator('div, tr').filter({ has: accountLink }).first();
+            const rowText = ((await row.textContent().catch(() => '')) ?? '')
+              .replace(/\s+/g, ' ')
+              .trim();
+
+            const checks = [
+              ['Account name', account.account_name, 'account_name', 'text'],
+              ['Purchasing IDs', account.customer_id_count, 'customer_id_count', 'text'],
+              ['Orders', account.orders_count ?? account.order_count, 'orders_count', 'text'],
+              ['Units', account.total_units, 'total_units', 'text'],
+              ['Contracted sales', account.total_amount, 'total_amount', 'money'],
+              ['Trend vs prior', account.total_amount_trend, 'total_amount_trend', 'text'],
+            ] as const;
+
+            let allPass = true;
+
+            for (const [uiLabel, apiValue, apiField, kind] of checks) {
+              const ok =
+                kind === 'money'
+                  ? norm8b(rowText).includes(money8b(apiValue))
+                  : norm8b(rowText).includes(norm8b(apiValue));
+
+              if (!ok) allPass = false;
+
+              await logStep(
+                page,
+                `8b5: ${uiLabel} match API ${apiField}: "${apiValue}" ${ok ? '✓' : 'FAIL'}`,
+                ok ? 'pass' : 'fail'
+              );
+            }
+
+            await logStep(
+              page,
+              `8b5: Parent account row fully matches API ${allPass ? '✓' : 'FAIL'}`,
+              allPass ? 'pass' : 'fail'
+            );
+          }
+
+          async function verifyExpandedSubAccount8b(parentAccount: any) {
+            const accountName = String(parentAccount?.account_name ?? '').trim();
+            const children = Array.isArray(parentAccount?.orders) ? parentAccount.orders : [];
+
+            if (!children.length) {
+              await logStep(page, `8b6: parent "${accountName}" has no child orders in API — skipping expand validation`, 'info');
+              return;
+            }
+
+            const parentLink = page.locator('a, button, div').filter({
+              hasText: new RegExp(escapeRe(accountName), 'i'),
+            }).first();
+
+            const parentRow = page.locator('div, tr').filter({ has: parentLink }).first();
+
+            const child = children[0];
+            const childName = String(child?.customer ?? '').trim();
+
+            const expandBtn = parentRow
+              .locator('button[aria-label*="Collapse"], button[aria-label*="Expand"], button')
+              .first();
+
+            const expandButtonVisible = await expandBtn.isVisible({ timeout: 3000 }).catch(() => false);
+
+            await logStep(
+              page,
+              `8b6: expand button visible for "${accountName}" ${expandButtonVisible ? '✓' : 'FAIL'}`,
+              expandButtonVisible ? 'pass' : 'fail'
+            );
+
+            if (!expandButtonVisible) return;
+
+            await expandBtn.click({ force: true });
+            await page.waitForTimeout(800);
+
+            const expandedAfterClick = await page.getByText(new RegExp(escapeRe(childName), 'i')).first()
+              .isVisible({ timeout: 5000 })
+              .catch(() => false);
+
+            await logStep(
+              page,
+              `8b6: arrow expanded and child row rendered ${expandedAfterClick ? '✓' : 'FAIL'}`,
+              expandedAfterClick ? 'pass' : 'fail'
+            );
+
+            if (!expandedAfterClick) return;
+
+            await logStep(
+              page,
+              `8b6: expanded child account "${childName}" visible ✓`,
+              'pass'
+            );
+           
+
+            const childArea = page.locator('div, tr').filter({
+              hasText: new RegExp(escapeRe(childName), 'i'),
+            }).first();
+
+            const childText = ((await childArea.textContent().catch(() => '')) ?? '')
+              .replace(/\s+/g, ' ')
+              .trim();
+
+            const childChecks = [
+              ['Sub account name', child.customer, 'customer', 'text'],
+              ['Purchasing ID', child.customer_id, 'customer_id', 'text'],
+              ['Orders', child.orders_count ?? child.order_count, 'orders_count', 'text'],
+              ['Units', child.units, 'units', 'text'],
+              ['Amount', child.amount, 'amount', 'money'],
+            ] as const;
+
+            for (const [uiLabel, apiValue, apiField, kind] of childChecks) {
+              const ok =
+                kind === 'money'
+                  ? norm8b(childText).includes(money8b(apiValue))
+                  : norm8b(childText).includes(norm8b(apiValue));
+
+              await logStep(
+                page,
+                `8b6: ${uiLabel} match API child ${apiField}: "${apiValue}" ${ok ? '✓' : 'FAIL'}`,
+                ok ? 'pass' : 'fail'
+              );
+            }
+          }
+
+          if (accounts.length) {
+            await verifyAccountRow8b(accounts[0], 'page 1 first account');
+            await verifyExpandedSubAccount8b(accounts[0]);
+          } else {
+            await logStep(page, '8b5: API returned 0 account rows', 'info');
+          }
+
+          async function clickAccountsPagination8b(label: 'Next' | 'Previous') {
+            const btn = page.getByRole('button', { name: new RegExp(`^${label}`, 'i') }).first();
+
+            const visible = await btn.isVisible({ timeout: 3000 }).catch(() => false);
+            const enabled = visible && await btn.isEnabled().catch(() => false);
+
+            await logStep(
+              page,
+              `8b7: pagination "${label}" visible/enabled ${enabled ? '✓' : 'not available'}`,
+              enabled ? 'pass' : 'info'
+            );
+
+            if (!enabled) return null;
+
+            const apiPromise = page.waitForResponse(
+              res => res.url().includes('/tenant/sales_summary_accounts') && res.status() === 200,
+              { timeout: 15000 }
+            ).catch(() => null);
+
+            await btn.click({ force: true });
+            await page.waitForTimeout(1000);
+
+            const response = await apiPromise;
+            const json = response ? await response.json().catch(() => null) : null;
+
+            return json;
+          }
+
+          const pagesToTest = Math.min(totalPages, 3);
+
+          for (let expectedPage = 2; expectedPage <= pagesToTest; expectedPage++) {
+            const nextJson = await clickAccountsPagination8b('Next');
+
+            if (!nextJson) {
+              await logStep(page, `8b7: could not move to Accounts page ${expectedPage}`, 'info');
+              break;
+            }
+
+            const apiPage = Number(nextJson?.metadata?.page ?? 0);
+
+            await logStep(
+              page,
+              `8b7: Accounts API page after Next = "${apiPage}" expected "${expectedPage}" ${apiPage === expectedPage ? '✓' : 'FAIL'}`,
+              apiPage === expectedPage ? 'pass' : 'fail'
+            );
+
+            const pageBtnVisible = await page.getByRole('button', { name: new RegExp(`^${expectedPage}$`) }).first()
+              .isVisible({ timeout: 3000 }).catch(() => false);
+
+            await logStep(
+              page,
+              `8b7: UI page number "${expectedPage}" visible ${pageBtnVisible ? '✓' : 'FAIL'}`,
+              pageBtnVisible ? 'pass' : 'fail'
+            );
+
+            const nextAccounts = Array.isArray(nextJson?.accounts) ? nextJson.accounts : [];
+            if (nextAccounts.length) {
+              await verifyAccountRow8b(nextAccounts[0], `page ${expectedPage} first account`);
+            }
+          }
+
+          if (pagesToTest > 1) {
+            const prevJson = await clickAccountsPagination8b('Previous');
+            const prevPage = Number(prevJson?.metadata?.page ?? 0);
+
+            await logStep(
+              page,
+              `8b7: Previous pagination works; API page="${prevPage}" ${prevJson ? '✓' : 'FAIL'}`,
+              prevJson ? 'pass' : 'fail'
+            );
+          }
+
+          // 8b8 — Accounts search + click account detail + back
+          const searchableAccount = accounts[Math.floor(Math.random() * accounts.length)];
+          const searchAccountName = String(searchableAccount?.account_name ?? '').trim();
+
+          if (searchAccountName && searchVisible) {
+            await searchBox.click();
+            await searchBox.fill(searchAccountName);
+            await page.waitForTimeout(1000);
+
+            const foundAccount = page.locator('a').filter({
+              hasText: new RegExp(escapeRe(searchAccountName), 'i'),
+            }).first();
+
+            const foundVisible = await foundAccount.isVisible({ timeout: 5000 }).catch(() => false);
+
+            await logStep(
+              page,
+              `8b8: account "${searchAccountName}" appears in filtered results ${foundVisible ? '✓' : 'FAIL'}`,
+              foundVisible ? 'pass' : 'fail'
+            );
+
+            if (foundVisible) {
+              await foundAccount.click({ force: true });
+              await page.waitForTimeout(1500);
+
+              const accountUrlOk = /\/tenant\/account\//i.test(page.url());
+
+              await logStep(
+                page,
+                `8b8: clicking account opens Account Detail page ${accountUrlOk ? '✓' : 'FAIL'} url="${page.url()}"`,
+                accountUrlOk ? 'pass' : 'fail'
+              );
+
+              await page.goBack();
+              await page.waitForTimeout(1500);
+              await ensureOnSalesSummary(page, ss, '8b8');
+
+              await page.mouse.wheel(0, 1800);
+              await page.waitForTimeout(800);
+
+              const accountsTabAgain = page.locator('button[data-tab="Accounts"]').filter({
+                hasText: /^Accounts/i,
+              }).first();
+
+              await accountsTabAgain.click({ force: true });
+              await page.waitForTimeout(800);
+
+              await logStep(page, '8b8: returned to Sales Summary Accounts tab ✓', 'pass');
+            }
+          } else {
+            await logStep(page, '8b8: skipped account search — no API account name or search box missing', 'info');
+          }
+
+          await logStep(page, '8b: Accounts tab API + UI validation completed ✓', 'pass');
+        });
+
+
+
+        // ════════════════════════════════════════════════════════════════════
+        // STEP 8c — Sales Summary tables: Contracts tab
+        // ════════════════════════════════════════════════════════════════════
+        await runSoftStep(page, '8c', 'Sales Summary tables: Contracts tab', async () => {
+          await ensureSingleVisiblePage(page, '8c');
+          await ensureOnSalesSummary(page, ss, '8c');
+
+          await page.mouse.wheel(0, 1800);
+          await page.waitForTimeout(800);
+
+          // ── Normalizers ────────────────────────────────────────────────────
+          function norm8c(value: unknown): string {
+            return String(value ?? '')
+              .replace(/\s+/g, ' ')
+              .replace(/\$/g, '')
+              .replace(/,/g, '')
+              .trim()
+              .toLowerCase();
+          }
+
+          function money8c(value: unknown): string {
+            const n = Number(String(value ?? '').replace(/[$,]/g, '').trim());
+            if (Number.isNaN(n)) return norm8c(value);
+            return Math.round(n).toString();
+          }
+
+          // Trend: API returns a number (e.g. 50, 1242, -25).
+          // UI renders "↑ 50% Growing" or "↓ 25% Declining".
+          // We just check that the absolute numeric portion appears in the row text.
+          function matchTrend8c(rowText: string, trend: unknown): boolean {
+            const trendNum = Number(trend);
+            if (Number.isNaN(trendNum)) return true; // can't validate
+            if (trendNum === 0) return true;          // neutral — any representation ok
+            return norm8c(rowText).includes(Math.abs(trendNum).toString());
+          }
+
+          // ── 8c1: Locate + click Contracts tab ─────────────────────────────
+          const contractsTab = page.locator('button[data-tab="Contracts"]').filter({
+            hasText: /^Contracts/i,
+          }).first();
+
+          const contractsTabVisible = await contractsTab.isVisible({ timeout: 5000 }).catch(() => false);
+          await logStep(
+            page,
+            `8c1: Contracts lower-table tab visible ${contractsTabVisible ? '✓' : 'FAIL'}`,
+            contractsTabVisible ? 'pass' : 'fail'
+          );
+          if (!contractsTabVisible) return;
+
+          // Intercept API before clicking so we never miss the response
+          const contractsApiPromise = page.waitForResponse(
+            res => res.url().includes('/tenant/sales_summary_contracts') && res.status() === 200,
+            { timeout: 15000 }
+          ).catch(() => null);
+
+          await contractsTab.click({ force: true });
+          await page.waitForTimeout(1000);
+
+          const contractsApiResponse = await contractsApiPromise;
+
+          if (!contractsApiResponse) {
+            await logStep(page, '8c1: sales_summary_contracts API response not captured — FAIL', 'fail');
+            return;
+          }
+
+          const apiPage1 = await contractsApiResponse.json().catch(() => null);
+          if (!apiPage1) {
+            await logStep(page, '8c1: sales_summary_contracts API JSON parse failed — FAIL', 'fail');
+            return;
+          }
+
+          await logStep(page, '8c1: Contracts tab clicked and API captured ✓', 'pass');
+
+          // ── 8c2: Verify request parameters ────────────────────────────────
+          const reqUrl    = contractsApiResponse.request().url();
+          const reqBody   = contractsApiResponse.request().postData() ?? '';
+          const reqMethod = contractsApiResponse.request().method();
+
+          await logStep(page, `8c2: API method=${reqMethod} url=${reqUrl}`, 'info');
+          await logStep(page, `8c2: request body (first 300 chars) = "${reqBody.slice(0, 300)}"`, 'info');
+
+          // Parameters may appear in the URL or in the POST body
+          const reqSearchable = `${reqUrl} ${reqBody}`;
+
+          const requestUrl = new URL(contractsApiResponse.request().url());
+
+          for (const param of ['start_date', 'end_date', 'previous_start_date', 'previous_end_date', 'page', 'limit']) {
+            const present = requestUrl.searchParams.has(param);
+            await logStep(
+              page,
+              `8c2: request param "${param}" present ${present ? '✓' : 'FAIL'}`,
+              present ? 'pass' : 'fail'
+            );
+          }
+
+          const hasSortTotalAmount = reqSearchable.includes('total_amount');
+          const hasOrderDesc       = /\bDESC\b/i.test(reqSearchable);
+
+          await logStep(
+            page,
+            `8c2: sort=total_amount ${hasSortTotalAmount ? '✓' : 'FAIL'}`,
+            hasSortTotalAmount ? 'pass' : 'fail'
+          );
+          await logStep(
+            page,
+            `8c2: order=DESC ${hasOrderDesc ? '✓' : 'FAIL'}`,
+            hasOrderDesc ? 'pass' : 'fail'
+          );
+
+          // ── Parse response ─────────────────────────────────────────────────
+          const metadata8c  = apiPage1?.metadata ?? {};
+          const contracts8c = Array.isArray(apiPage1?.contracts) ? apiPage1.contracts : [];
+          const totalCount8c = Number(metadata8c.totalCount ?? apiPage1?.count ?? 0);
+          const totalPages8c = Number(metadata8c.totalPages ?? 1);
+          const pageNum8c    = Number(metadata8c.page ?? 1);
+
+          await logStep(
+            page,
+            `8c2: API metadata → totalCount=${totalCount8c}, totalPages=${totalPages8c}, page=${pageNum8c}, limit=${metadata8c.limit}`,
+            'info'
+          );
+
+          if (metadata8c.current_start) {
+            await logStep(
+              page,
+              `8c2: date range current=${metadata8c.current_start}→${metadata8c.current_end}  previous=${metadata8c.previous_start}→${metadata8c.previous_end}`,
+              'info'
+            );
+          }
+
+          // ── 8c3: Tab count badge matches API totalCount ────────────────────
+          const contractsTabText8c = ((await contractsTab.textContent().catch(() => '')) ?? '')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+          const countMatch8c = contractsTabText8c.includes(String(totalCount8c));
+          await logStep(
+            page,
+            `8c3: Contracts tab badge "${contractsTabText8c}" matches API totalCount="${totalCount8c}" ${countMatch8c ? '✓' : 'FAIL'}`,
+            countMatch8c ? 'pass' : 'fail'
+          );
+
+          // ── 8c4: Search box ────────────────────────────────────────────────
+          const searchBox8c = page.getByPlaceholder(/search by contract name/i).first();
+          const searchVisible8c = await searchBox8c.isVisible({ timeout: 5000 }).catch(() => false);
+          await logStep(
+            page,
+            `8c4: Contracts search box visible ${searchVisible8c ? '✓' : 'FAIL'}`,
+            searchVisible8c ? 'pass' : 'fail'
+          );
+
+          // ── 8c5: Table headers ─────────────────────────────────────────────
+          for (const h of ['Contract Name', 'Accounts', 'Orders', 'Contracted sales', 'Trend vs prior']) {
+            const headerVisible = await page.getByText(new RegExp(`^${escapeRe(h)}$`, 'i')).first()
+              .isVisible({ timeout: 3000 }).catch(() => false);
+            await logStep(
+              page,
+              `8c5: table header "${h}" visible ${headerVisible ? '✓' : 'FAIL'}`,
+              headerVisible ? 'pass' : 'fail'
+            );
+          }
+
+          // ── 8c6: Row data verification ─────────────────────────────────────
+          async function verifyContractRow8c(contract: any, rowLabel: string) {
+            const contractName = String(contract?.contract_name ?? '').trim();
+            if (!contractName) {
+              await logStep(page, `8c6: ${rowLabel} skipped — API contract_name empty`, 'info');
+              return;
+            }
+
+            const contractNameEl = page.locator('div, td, span, a').filter({
+              hasText: new RegExp(escapeRe(contractName), 'i'),
+            }).first();
+
+            const nameVisible = await contractNameEl.isVisible({ timeout: 5000 }).catch(() => false);
+            await logStep(
+              page,
+              `8c6: UI contract name "${contractName}" visible ${nameVisible ? '✓' : 'FAIL'} [${rowLabel}]`,
+              nameVisible ? 'pass' : 'fail'
+            );
+            if (!nameVisible) return;
+
+            const row = page.locator('div, tr').filter({ has: contractNameEl }).first();
+            const rowText = ((await row.textContent().catch(() => '')) ?? '')
+              .replace(/\s+/g, ' ')
+              .trim();
+
+            const checks: Array<[string, unknown, string, 'text' | 'money' | 'trend']> = [
+              ['Contract Name',    contract.contract_name,       'contract_name',       'text'],
+              ['Accounts',         contract.account_count,       'account_count',       'text'],
+              ['Orders',           contract.order_count,         'order_count',         'text'],
+              ['Contracted sales', contract.total_amount,        'total_amount',        'money'],
+              ['Trend vs prior',   contract.total_amount_trend,  'total_amount_trend',  'trend'],
+            ];
+
+            let allPass = true;
+            for (const [uiLabel, apiValue, apiField, kind] of checks) {
+              let ok: boolean;
+              if (kind === 'money') {
+                ok = norm8c(rowText).includes(money8c(apiValue));
+              } else if (kind === 'trend') {
+                ok = matchTrend8c(rowText, apiValue);
+              } else {
+                ok = norm8c(rowText).includes(norm8c(String(apiValue ?? '')));
+              }
+              if (!ok) allPass = false;
+              await logStep(
+                page,
+                `8c6: ${uiLabel} match API ${apiField}: "${apiValue}" ${ok ? '✓' : 'FAIL'}`,
+                ok ? 'pass' : 'fail'
+              );
+            }
+
+            await logStep(
+              page,
+              `8c6: Contract row fully matches API ${allPass ? '✓' : 'FAIL'} [${rowLabel}]`,
+              allPass ? 'pass' : 'fail'
+            );
+          }
+
+          if (contracts8c.length) {
+            await verifyContractRow8c(contracts8c[0], 'page 1 first contract');
+          } else {
+            await logStep(page, '8c6: API returned 0 contract rows — skipping row validation', 'info');
+          }
+
+          // ── 8c7: Pagination ────────────────────────────────────────────────
+          async function clickContractsPagination8c(label: 'Next' | 'Previous') {
+            const btn = page.getByRole('button', { name: new RegExp(`^${label}`, 'i') }).first();
+            const visible = await btn.isVisible({ timeout: 3000 }).catch(() => false);
+            const enabled = visible && (await btn.isEnabled().catch(() => false));
+
+            await logStep(
+              page,
+              `8c7: pagination "${label}" visible/enabled ${enabled ? '✓' : 'not available'}`,
+              enabled ? 'pass' : 'info'
+            );
+            if (!enabled) return null;
+
+            const apiPromise = page.waitForResponse(
+              res => res.url().includes('/tenant/sales_summary_contracts') && res.status() === 200,
+              { timeout: 15000 }
+            ).catch(() => null);
+
+            await btn.click({ force: true });
+            await page.waitForTimeout(1000);
+
+            const response = await apiPromise;
+            const json = response ? await response.json().catch(() => null) : null;
+
+            if (json?.metadata) {
+              await logStep(
+                page,
+                `8c7: pagination "${label}" API page=${json.metadata.page} totalPages=${json.metadata.totalPages}`,
+                'info'
+              );
+            }
+
+            return json;
+          }
+
+          const pagesToTest8c = Math.min(totalPages8c, 3);
+
+          for (let expectedPage = 2; expectedPage <= pagesToTest8c; expectedPage++) {
+            const nextJson = await clickContractsPagination8c('Next');
+            if (!nextJson) {
+              await logStep(page, `8c7: could not advance to Contracts page ${expectedPage}`, 'info');
+              break;
+            }
+
+            const apiPageNum = Number(nextJson?.metadata?.page ?? 0);
+            await logStep(
+              page,
+              `8c7: Contracts API page after Next = "${apiPageNum}" expected "${expectedPage}" ${apiPageNum === expectedPage ? '✓' : 'FAIL'}`,
+              apiPageNum === expectedPage ? 'pass' : 'fail'
+            );
+
+            const nextContracts = Array.isArray(nextJson?.contracts) ? nextJson.contracts : [];
+            if (nextContracts.length) {
+              await verifyContractRow8c(nextContracts[0], `page ${expectedPage} first contract`);
+            }
+          }
+
+          if (pagesToTest8c > 1) {
+            const prevJson = await clickContractsPagination8c('Previous');
+            await logStep(
+              page,
+              `8c7: Previous pagination works ${prevJson ? '✓' : 'FAIL'}`,
+              prevJson ? 'pass' : 'fail'
+            );
+          }
+
+          // ── 8c8: Search test ───────────────────────────────────────────────
+          if (contracts8c.length && searchVisible8c) {
+            const randomIdx8c = Math.floor(Math.random() * contracts8c.length);
+            const searchableContract = contracts8c[randomIdx8c];
+            const searchContractName = String(searchableContract?.contract_name ?? '').trim();
+
+            if (searchContractName) {
+              await logStep(page, `8c8: searching for contract "${searchContractName}"`, 'running');
+
+              await searchBox8c.click();
+              await searchBox8c.fill(searchContractName);
+              await page.waitForTimeout(1200);
+
+              const foundEl = page.locator('div, td, span, a').filter({
+                hasText: new RegExp(escapeRe(searchContractName), 'i'),
+              }).first();
+
+              const foundVisible = await foundEl.isVisible({ timeout: 5000 }).catch(() => false);
+              await logStep(
+                page,
+                `8c8: contract "${searchContractName}" appears in filtered results ${foundVisible ? '✓' : 'FAIL'}`,
+                foundVisible ? 'pass' : 'fail'
+              );
+
+              if (foundVisible) {
+                await verifyContractRow8c(searchableContract, 'search result');
+              }
+
+              // Clear the search input
+              const clearBtn8c = page.locator(
+                'button[aria-label*="clear" i], button[class*="clear" i], button[aria-label*="close" i]'
+              ).first();
+              if (await clearBtn8c.isVisible({ timeout: 500 }).catch(() => false)) {
+                await clearBtn8c.click();
+              } else {
+                await searchBox8c.click();
+                await searchBox8c.press('Control+A');
+                await searchBox8c.press('Backspace');
+              }
+              await page.waitForTimeout(500);
+              await logStep(page, '8c8: search cleared ✓', 'pass');
+            }
+          } else {
+            await logStep(
+              page,
+              '8c8: skipped contract search — no API contracts returned or search box not visible',
+              'info'
+            );
+          }
+
+          await logStep(page, '8c: Contracts tab API + UI validation completed ✓', 'pass');
+        });
+
+
+
+        // ════════════════════════════════════════════════════════════════════
+        // STEP 8d — Sales Summary tables: Distributors tab
+        // ════════════════════════════════════════════════════════════════════
+        await runSoftStep(page, '8d', 'Sales Summary tables: Distributors tab', async () => {
+          await ensureSingleVisiblePage(page, '8d');
+          await ensureOnSalesSummary(page, ss, '8d');
+
+          await page.mouse.wheel(0, 1800);
+          await page.waitForTimeout(800);
+
+          // ── Normalizers ────────────────────────────────────────────────────
+          function norm8d(value: unknown): string {
+            return String(value ?? '')
+              .replace(/\s+/g, ' ')
+              .replace(/\$/g, '')
+              .replace(/,/g, '')
+              .trim()
+              .toLowerCase();
+          }
+
+          function money8d(value: unknown): string {
+            const n = Number(String(value ?? '').replace(/[$,]/g, '').trim());
+            if (Number.isNaN(n)) return norm8d(value);
+            return Math.round(n).toString();
+          }
+
+          // Trend: API returns e.g. 26 → UI "↑ 26% Growing", -66 → "↓ 66% Declining".
+          // We verify the absolute numeric portion appears; null trend → skip validation.
+          function matchTrend8d(rowText: string, trend: unknown): boolean {
+            if (trend === null || trend === undefined || trend === '') return true;
+            const trendNum = Number(trend);
+            if (Number.isNaN(trendNum)) return true;
+            if (trendNum === 0) return true;
+            return norm8d(rowText).includes(Math.abs(trendNum).toString());
+          }
+
+          // ── 8d1: Locate + click Distributors tab ──────────────────────────
+          const distributorsTab = page.locator('button[data-tab="Distributors"]').filter({
+            hasText: /^Distributors/i,
+          }).first();
+
+          const distributorsTabVisible = await distributorsTab.isVisible({ timeout: 5000 }).catch(() => false);
+          await logStep(
+            page,
+            `8d1: Distributors lower-table tab visible ${distributorsTabVisible ? '✓' : 'FAIL'}`,
+            distributorsTabVisible ? 'pass' : 'fail'
+          );
+          if (!distributorsTabVisible) return;
+
+          // Intercept API before clicking so we never miss the response
+          const distributorsApiPromise = page.waitForResponse(
+            res => res.url().includes('/tenant/sales_summary_wholesalers') && res.status() === 200,
+            { timeout: 15000 }
+          ).catch(() => null);
+
+          await distributorsTab.click({ force: true });
+          await page.waitForTimeout(1000);
+
+          const distributorsApiResponse = await distributorsApiPromise;
+
+          if (!distributorsApiResponse) {
+            await logStep(page, '8d1: sales_summary_wholesalers API response not captured — FAIL', 'fail');
+            return;
+          }
+
+          const apiPage1 = await distributorsApiResponse.json().catch(() => null);
+          if (!apiPage1) {
+            await logStep(page, '8d1: sales_summary_wholesalers API JSON parse failed — FAIL', 'fail');
+            return;
+          }
+
+          await logStep(page, '8d1: Distributors tab clicked and API captured ✓', 'pass');
+
+          // ── 8d2: Verify request parameters ────────────────────────────────
+          const reqUrl8d    = distributorsApiResponse.request().url();
+          const reqBody8d   = distributorsApiResponse.request().postData() ?? '';
+          const reqMethod8d = distributorsApiResponse.request().method();
+
+          await logStep(page, `8d2: API method=${reqMethod8d} url=${reqUrl8d}`, 'info');
+          await logStep(page, `8d2: request body (first 300 chars) = "${reqBody8d.slice(0, 300)}"`, 'info');
+
+          const reqSearchable8d = `${reqUrl8d} ${reqBody8d}`;
+
+          const requestUrl8d = new URL(distributorsApiResponse.request().url());
+
+          for (const param of ['start_date', 'end_date', 'previous_start_date', 'previous_end_date', 'page', 'limit']) {
+            const present = requestUrl8d.searchParams.has(param);
+            await logStep(
+              page,
+              `8d2: request param "${param}" present ${present ? '✓' : 'FAIL'}`,
+              present ? 'pass' : 'fail'
+            );
+          }
+
+          const hasSortTotalAmount8d = reqSearchable8d.includes('total_amount');
+          const hasOrderDesc8d       = /\bDESC\b/i.test(reqSearchable8d);
+
+          await logStep(
+            page,
+            `8d2: sort=total_amount ${hasSortTotalAmount8d ? '✓' : 'FAIL'}`,
+            hasSortTotalAmount8d ? 'pass' : 'fail'
+          );
+          await logStep(
+            page,
+            `8d2: order=DESC ${hasOrderDesc8d ? '✓' : 'FAIL'}`,
+            hasOrderDesc8d ? 'pass' : 'fail'
+          );
+
+          // ── Parse response ─────────────────────────────────────────────────
+          const metadata8d      = apiPage1?.metadata ?? {};
+          const wholesalers8d   = Array.isArray(apiPage1?.wholesalers) ? apiPage1.wholesalers : [];
+          const totalCount8d    = Number(metadata8d.totalCount ?? apiPage1?.count ?? 0);
+          const totalPages8d    = Number(metadata8d.totalPages ?? 1);
+          const pageNum8d       = Number(metadata8d.page ?? 1);
+
+          await logStep(
+            page,
+            `8d2: API metadata → totalCount=${totalCount8d}, totalPages=${totalPages8d}, page=${pageNum8d}, limit=${metadata8d.limit}`,
+            'info'
+          );
+
+          if (metadata8d.current_start) {
+            await logStep(
+              page,
+              `8d2: date range current=${metadata8d.current_start}→${metadata8d.current_end}  previous=${metadata8d.previous_start}→${metadata8d.previous_end}`,
+              'info'
+            );
+          }
+
+          // ── 8d3: Tab count badge matches API totalCount ────────────────────
+          const distributorsTabText = ((await distributorsTab.textContent().catch(() => '')) ?? '')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+          const countMatch8d = distributorsTabText.includes(String(totalCount8d));
+          await logStep(
+            page,
+            `8d3: Distributors tab badge "${distributorsTabText}" matches API totalCount="${totalCount8d}" ${countMatch8d ? '✓' : 'FAIL'}`,
+            countMatch8d ? 'pass' : 'fail'
+          );
+
+          // ── 8d4: Table headers ─────────────────────────────────────────────
+          for (const h of ['Distributor Name', 'Accounts', 'Orders', 'Contracted sales', 'Trend vs prior']) {
+            const headerVisible = await page.getByText(new RegExp(`^${escapeRe(h)}$`, 'i')).first()
+              .isVisible({ timeout: 3000 }).catch(() => false);
+            await logStep(
+              page,
+              `8d4: table header "${h}" visible ${headerVisible ? '✓' : 'FAIL'}`,
+              headerVisible ? 'pass' : 'fail'
+            );
+          }
+
+          // ── 8d5: Row data verification ─────────────────────────────────────
+          async function verifyDistributorRow8d(wholesaler: any, rowLabel: string) {
+            const distributorName = String(wholesaler?.wholesaler_name ?? '').trim();
+            if (!distributorName) {
+              await logStep(page, `8d5: ${rowLabel} skipped — API wholesaler_name empty`, 'info');
+              return;
+            }
+
+            const nameEl = page.locator('div, td, span, a').filter({
+              hasText: new RegExp(escapeRe(distributorName), 'i'),
+            }).first();
+
+            const nameVisible = await nameEl.isVisible({ timeout: 5000 }).catch(() => false);
+            await logStep(
+              page,
+              `8d5: UI distributor name "${distributorName}" visible ${nameVisible ? '✓' : 'FAIL'} [${rowLabel}]`,
+              nameVisible ? 'pass' : 'fail'
+            );
+            if (!nameVisible) return;
+
+            const row = page.locator('div, tr').filter({ has: nameEl }).first();
+            const rowText = ((await row.textContent().catch(() => '')) ?? '')
+              .replace(/\s+/g, ' ')
+              .trim();
+
+            const checks: Array<[string, unknown, string, 'text' | 'money' | 'trend']> = [
+              ['Distributor Name',  wholesaler.wholesaler_name,    'wholesaler_name',    'text'],
+              ['Accounts',          wholesaler.account_count,      'account_count',      'text'],
+              ['Orders',            wholesaler.order_count,        'order_count',        'text'],
+              ['Contracted sales',  wholesaler.total_amount,       'total_amount',       'money'],
+              ['Trend vs prior',    wholesaler.total_amount_trend, 'total_amount_trend', 'trend'],
+            ];
+
+            let allPass = true;
+            for (const [uiLabel, apiValue, apiField, kind] of checks) {
+              let ok: boolean;
+              if (kind === 'money') {
+                ok = norm8d(rowText).includes(money8d(apiValue));
+              } else if (kind === 'trend') {
+                ok = matchTrend8d(rowText, apiValue);
+              } else {
+                ok = norm8d(rowText).includes(norm8d(String(apiValue ?? '')));
+              }
+              if (!ok) allPass = false;
+              await logStep(
+                page,
+                `8d5: ${uiLabel} match API ${apiField}: "${apiValue}" ${ok ? '✓' : 'FAIL'}`,
+                ok ? 'pass' : 'fail'
+              );
+            }
+
+            await logStep(
+              page,
+              `8d5: Distributor row fully matches API ${allPass ? '✓' : 'FAIL'} [${rowLabel}]`,
+              allPass ? 'pass' : 'fail'
+            );
+          }
+
+          if (wholesalers8d.length) {
+            await verifyDistributorRow8d(wholesalers8d[0], 'page 1 first distributor');
+          } else {
+            await logStep(page, '8d5: API returned 0 wholesaler rows — skipping row validation', 'info');
+          }
+
+          // ── 8d6: Pagination ────────────────────────────────────────────────
+          async function clickDistributorsPagination8d(label: 'Next' | 'Previous') {
+            const btn = page.getByRole('button', { name: new RegExp(`^${label}`, 'i') }).first();
+            const visible = await btn.isVisible({ timeout: 3000 }).catch(() => false);
+            const enabled = visible && (await btn.isEnabled().catch(() => false));
+
+            await logStep(
+              page,
+              `8d6: pagination "${label}" visible/enabled ${enabled ? '✓' : 'not available'}`,
+              enabled ? 'pass' : 'info'
+            );
+            if (!enabled) return null;
+
+            const apiPromise = page.waitForResponse(
+              res => res.url().includes('/tenant/sales_summary_wholesalers') && res.status() === 200,
+              { timeout: 15000 }
+            ).catch(() => null);
+
+            await btn.click({ force: true });
+            await page.waitForTimeout(1000);
+
+            const response = await apiPromise;
+            const json = response ? await response.json().catch(() => null) : null;
+
+            if (json?.metadata) {
+              await logStep(
+                page,
+                `8d6: pagination "${label}" API page=${json.metadata.page} totalPages=${json.metadata.totalPages}`,
+                'info'
+              );
+            }
+
+            return json;
+          }
+
+          const pagesToTest8d = Math.min(totalPages8d, 3);
+
+          for (let expectedPage = 2; expectedPage <= pagesToTest8d; expectedPage++) {
+            const nextJson = await clickDistributorsPagination8d('Next');
+            if (!nextJson) {
+              await logStep(page, `8d6: could not advance to Distributors page ${expectedPage}`, 'info');
+              break;
+            }
+
+            const apiPageNum8d = Number(nextJson?.metadata?.page ?? 0);
+            await logStep(
+              page,
+              `8d6: Distributors API page after Next = "${apiPageNum8d}" expected "${expectedPage}" ${apiPageNum8d === expectedPage ? '✓' : 'FAIL'}`,
+              apiPageNum8d === expectedPage ? 'pass' : 'fail'
+            );
+
+            const nextWholesalers = Array.isArray(nextJson?.wholesalers) ? nextJson.wholesalers : [];
+            if (nextWholesalers.length) {
+              await verifyDistributorRow8d(nextWholesalers[0], `page ${expectedPage} first distributor`);
+            }
+          }
+
+          if (pagesToTest8d > 1) {
+            const prevJson = await clickDistributorsPagination8d('Previous');
+            await logStep(
+              page,
+              `8d6: Previous pagination works ${prevJson ? '✓' : 'FAIL'}`,
+              prevJson ? 'pass' : 'fail'
+            );
+          }
+
+          await logStep(page, '8d: Distributors tab API + UI validation completed ✓', 'pass');
+        });
+
+
 
         // Role-specific extra checks
         if (role === 'director') {
