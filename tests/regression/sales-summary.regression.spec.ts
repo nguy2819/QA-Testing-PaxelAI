@@ -5417,6 +5417,318 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
           await logStep(page, '8d: Distributors tab API + UI validation completed ✓', 'pass');
         });
 
+        // This code confirm if it stucks at Step 8 pagination before arrive Step 9
+          await logStep(page, 'DEBUG: reached code line before Step 9', 'running');
+
+        // ════════════════════════════════════════════════════════════════════
+        // STEP 9 — My comp plan right-side panel
+        // Validates the "My comp plan" panel API response vs UI display.
+        // Soft step: skips gracefully if the panel is not available for the
+        // current user / company.
+        // API: GET /tenant/comp-plan/YYYY-MM-DD  (yesterday's date)
+        // ════════════════════════════════════════════════════════════════════
+        await runSoftStep(page, '9-comp-plan', 'Step 9 — My comp plan right-side panel', async () => {
+          await logStep(page, '9-comp-plan: STEP STARTED', 'running');
+          await ensureSingleVisiblePage(page, '9-comp-plan');
+
+          // ── Currency formatting helpers ──────────────────────────────────
+          function formatCurrencyFull(value: number): string {
+            if (value < 0) return `-$${Math.abs(Math.round(value)).toLocaleString('en-US')}`;
+            return `$${Math.round(value).toLocaleString('en-US')}`;
+          }
+
+          function possibleCompactCurrencyStrings(value: number): string[] {
+            const abs = Math.abs(value);
+            const prefix = value < 0 ? '-$' : '$';
+            const out = new Set<string>();
+
+            out.add(formatCurrencyFull(value));
+
+            if (abs >= 1_000) {
+              const k = abs / 1_000;
+              out.add(`${prefix}${Math.round(k)}K`);
+              for (const dp of [1, 2]) {
+                const s = k.toFixed(dp);
+                out.add(`${prefix}${s}K`);
+                out.add(`${prefix}${s.replace(/\.?0+$/, '')}K`);
+              }
+            }
+
+            if (abs >= 1_000_000) {
+              const m = abs / 1_000_000;
+              out.add(`${prefix}${Math.round(m)}M`);
+              for (const dp of [1, 2]) {
+                const s = m.toFixed(dp);
+                out.add(`${prefix}${s}M`);
+                out.add(`${prefix}${s.replace(/\.?0+$/, '')}M`);
+              }
+            }
+
+            return [...out];
+          }
+
+          function uiTextContainsCurrencyApprox(uiText: string, apiValue: number): boolean {
+            if (isNaN(apiValue)) return false;
+            const norm = uiText.replace(/\s+/g, ' ');
+            return possibleCompactCurrencyStrings(apiValue).some(
+              s => norm.toLowerCase().includes(s.toLowerCase())
+            );
+          }
+
+          // ── Build yesterday's date string for API URL ────────────────────
+          const y9      = yesterday();
+          const compDate9 = [
+            y9.getFullYear(),
+            String(y9.getMonth() + 1).padStart(2, '0'),
+            String(y9.getDate()).padStart(2, '0'),
+          ].join('-');
+          await logStep(page, `9-comp-plan: expected comp-plan date = ${compDate9}`, 'info');
+
+          // Set up the API interceptor BEFORE navigation so we never miss
+          // the response that fires during page load.
+          const compApiPromise = page.waitForResponse(
+            res =>
+              res.url().includes('/tenant/comp-plan/') &&
+              (res.status() === 200 || res.status() === 304),
+            { timeout: 15_000 }
+          ).catch(() => null);
+
+          // Fresh navigation so comp-plan API fires on page load
+          await page.goto('/tenant/dashboard', { waitUntil: 'domcontentloaded' });
+          await ss.waitForPageLoad();
+          await page.waitForTimeout(600);
+
+          const compApiResponse = await compApiPromise;
+
+          if (!compApiResponse) {
+            await logStep(
+              page,
+              '9-comp-plan: comp-plan API not captured on page load — user may not have comp plan access (skipping)',
+              'info'
+            );
+            return;
+          }
+
+          const apiUrl9     = compApiResponse.request().url();
+          const dateInUrl9  = apiUrl9.includes(compDate9);
+          await logStep(
+            page,
+            `9-comp-plan: API URL "${apiUrl9}" — date ${compDate9} present: ${dateInUrl9 ? '✓' : 'WARN (date may differ)'}`,
+            dateInUrl9 ? 'pass' : 'info'
+          );
+          await logStep(page, '9-comp-plan: Comp plan API loaded ✓', 'pass');
+
+          // 304 responses have no body — json() will throw; treat as no-data
+          const compJson = await compApiResponse.json().catch(() => null);
+          if (!compJson?.data) {
+            await logStep(
+              page,
+              `9-comp-plan: API returned no data (status=${compApiResponse.status()}) — FAIL`,
+              'fail'
+            );
+            return;
+          }
+
+          const overall9: Record<string, unknown> = compJson.data.overall_performance ?? {};
+          const productGroups9: any[] = Array.isArray(compJson.data.product_groups)
+            ? compJson.data.product_groups
+            : [];
+
+          // ── Locate My comp plan panel ──────────────────────────────────
+          // Strategy 1: right-side sidebar / aside / named panel already expanded
+          let compPanel9 = page.locator(
+            'aside, section, div[class*="panel"], div[class*="sidebar"], div[class*="right"], div[class*="drawer"]'
+          ).filter({ hasText: /my comp plan/i }).first();
+
+          let cpPanelVisible = await compPanel9.isVisible({ timeout: 3_000 }).catch(() => false);
+
+          // Strategy 2: broadest container with the text
+          if (!cpPanelVisible) {
+            compPanel9    = page.locator('div').filter({ hasText: /my comp plan/i }).last();
+            cpPanelVisible = await compPanel9.isVisible({ timeout: 2_000 }).catch(() => false);
+          }
+
+          // Strategy 3: toggle button / tab that needs to be clicked to expand
+          if (!cpPanelVisible) {
+            const toggleBtn9 = page
+              .locator('button, [role="tab"], div[role="button"]')
+              .filter({ hasText: /my comp plan/i })
+              .first();
+            const toggleVisible9 = await toggleBtn9.isVisible({ timeout: 2_000 }).catch(() => false);
+
+            if (toggleVisible9) {
+              await logStep(page, '9-comp-plan: clicking My comp plan toggle to expand panel', 'running');
+              await toggleBtn9.click();
+              await page.waitForTimeout(800);
+
+              compPanel9 = page
+                .locator(
+                  'aside, section, div[class*="panel"], div[class*="sidebar"], div[class*="right"], div[class*="drawer"], div'
+                )
+                .filter({ hasText: /my comp plan/i })
+                .last();
+              cpPanelVisible = await compPanel9.isVisible({ timeout: 4_000 }).catch(() => false);
+            }
+          }
+
+          if (!cpPanelVisible) {
+            await logStep(
+              page,
+              '9-comp-plan: My comp plan panel not visible — user/company may not have comp plan access (skipping)',
+              'info'
+            );
+            return;
+          }
+
+          await logStep(page, '9-comp-plan: My comp plan panel located ✓', 'pass');
+
+          const panelText9 = ((await compPanel9.textContent().catch(() => '')) ?? '')
+            .replace(/\s+/g, ' ')
+            .trim();
+          await logStep(
+            page,
+            `9-comp-plan: panel text (first 400 chars) = "${panelText9.slice(0, 400)}"`,
+            'info'
+          );
+
+          // ── Validate overall_performance fields ──────────────────────────
+          const overallChecks9: Array<{
+            apiField: string;
+            label: string;
+            value: number;
+            isCurrency: boolean;
+          }> = [
+            {
+              apiField: 'actual_compensation',
+              label: 'Actual compensation',
+              value: Number(overall9.actual_compensation ?? NaN),
+              isCurrency: true,
+            },
+            {
+              apiField: 'projected_compensation',
+              label: 'Projected compensation',
+              value: Number(overall9.projected_compensation ?? NaN),
+              isCurrency: true,
+            },
+            {
+              apiField: 'actual_total_sales',
+              label: 'Actual total sales',
+              value: Number(overall9.actual_total_sales ?? NaN),
+              isCurrency: true,
+            },
+            {
+              apiField: 'total_sales_target',
+              label: 'Total sales target',
+              value: Number(overall9.total_sales_target ?? NaN),
+              isCurrency: true,
+            },
+            {
+              apiField: 'projected_pace_to_goal_percentage',
+              label: 'Pace to goal',
+              value: Number(overall9.projected_pace_to_goal_percentage ?? NaN),
+              isCurrency: false,
+            },
+            {
+              apiField: 'compensation_accelerator',
+              label: 'Accelerator bubble',
+              value: Number(overall9.compensation_accelerator ?? NaN),
+              isCurrency: false,
+            },
+          ];
+
+          for (const chk of overallChecks9) {
+            if (isNaN(chk.value)) {
+              await logStep(
+                page,
+                `9-comp-plan: ${chk.apiField} not present in API — skipping`,
+                'info'
+              );
+              continue;
+            }
+
+            let ok: boolean;
+            let displayValue: string;
+
+            if (chk.isCurrency) {
+              ok           = uiTextContainsCurrencyApprox(panelText9, chk.value);
+              displayValue = formatCurrencyFull(chk.value);
+            } else {
+              const pctStr = `${Math.round(chk.value)}%`;
+              ok           = panelText9.includes(pctStr) || panelText9.includes(`${Math.round(chk.value)} %`);
+              displayValue = pctStr;
+            }
+
+            await logStep(
+              page,
+              `9-comp-plan: ${chk.label} UI matches API ${chk.apiField}=${chk.value} (expected ~${displayValue}): ${ok ? '✓' : 'FAIL'}`,
+              ok ? 'pass' : 'fail'
+            );
+          }
+
+          // ── Validate product_groups ──────────────────────────────────────
+          if (!productGroups9.length) {
+            await logStep(
+              page,
+              '9-comp-plan: product_groups is empty — skipping group validation',
+              'info'
+            );
+          } else {
+            await logStep(
+              page,
+              `9-comp-plan: validating ${productGroups9.length} product group(s)`,
+              'info'
+            );
+
+            for (const group of productGroups9) {
+              const groupName = String(group.group_name ?? '').trim();
+              if (!groupName) continue;
+
+              const groupEl = compPanel9
+                .locator(
+                  'div, section, li, [class*="row"], [class*="card"], [class*="group"], [class*="item"]'
+                )
+                .filter({ hasText: new RegExp(escapeRe(groupName), 'i') })
+                .first();
+
+              const groupVisible = await groupEl.isVisible({ timeout: 3_000 }).catch(() => false);
+              await logStep(
+                page,
+                `9-comp-plan: product group "${groupName}" visible in panel: ${groupVisible ? '✓' : 'FAIL'}`,
+                groupVisible ? 'pass' : 'fail'
+              );
+              if (!groupVisible) continue;
+
+              const groupText = ((await groupEl.textContent().catch(() => '')) ?? '')
+                .replace(/\s+/g, ' ')
+                .trim();
+
+              const groupChecks9 = [
+                { field: 'sales_to_date', val: Number(group.sales_to_date ?? NaN) },
+                { field: 'sales_targets', val: Number(group.sales_targets  ?? NaN) },
+              ];
+
+              for (const gc of groupChecks9) {
+                if (isNaN(gc.val)) {
+                  await logStep(
+                    page,
+                    `9-comp-plan: group "${groupName}" ${gc.field} not in API — skipping`,
+                    'info'
+                  );
+                  continue;
+                }
+                const ok = uiTextContainsCurrencyApprox(groupText, gc.val);
+                await logStep(
+                  page,
+                  `9-comp-plan: Product group "${groupName}" ${gc.field} UI matches API ${gc.val}: ${ok ? '✓' : 'FAIL'}`,
+                  ok ? 'pass' : 'fail'
+                );
+              }
+            }
+          }
+
+          await logStep(page, '9-comp-plan: My comp plan panel validation completed ✓', 'pass');
+        });
+
 
 
         // Role-specific extra checks
@@ -5433,6 +5745,7 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
         }
 
       } finally {
+
         // Exit impersonation after each user before moving to the next
         // DIAGNOSTIC: log page state before exit
         const _diagClosedBefore = page.isClosed();
