@@ -7,7 +7,6 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "outDir": "dist",
-    "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
       "@pages/*":   ["pages/*"],

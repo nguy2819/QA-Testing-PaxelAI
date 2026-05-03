@@ -1,21 +1,20 @@
 import { test } from '@playwright/test';
+import { loginAsAdmin } from '../helpers/auth.helper';
 
 test('inspect post-login + impersonation UI', async ({ page }) => {
   // ── Step 1: Login ──
-  await page.goto('https://devapp.paxel.ai/admin/signin', { waitUntil: 'networkidle' });
-  await page.getByPlaceholder('Enter your email').fill('tien@paxel.ai');
-  await page.getByPlaceholder('Enter your password').fill('Paxel123');
-  await page.getByRole('button', { name: 'Sign In' }).click();
-  await page.waitForURL(url => !url.pathname.includes('/admin/signin'), { timeout: 20_000 });
-  await page.waitForLoadState('networkidle');
+  await loginAsAdmin(page);
 
   console.log('\n=== POST-LOGIN URL ===', page.url());
 
   // ── Step 2: Impersonate David Farris ──
   await page.getByPlaceholder('Search for User').fill('David');
   await page.waitForTimeout(1000);
-  await page.locator('tr').filter({ hasText: 'Nexus Pharmaceuticals' }).filter({ hasText: 'Farris' })
-    .getByRole('button', { name: 'Impersonate' }).click();
+  await page.locator('tr')
+    .filter({ hasText: 'Nexus Pharmaceuticals' })
+    .filter({ hasText: 'Farris' })
+    .getByRole('button', { name: 'Impersonate' })
+    .click();
   await page.waitForSelector('text=Welcome back', { timeout: 20_000 });
   await page.waitForLoadState('networkidle');
 

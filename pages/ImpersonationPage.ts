@@ -1,5 +1,7 @@
 import { Page, Locator, expect } from '@playwright/test';
 import { PaxelUser } from '../data/users';
+import { loginAsAdmin } from '../helpers/auth.helper';
+
 
 /**
  * ImpersonationPage
@@ -110,15 +112,7 @@ export class ImpersonationPage {
    *       (e.g., in the DF avatar menu), replace this with that selector.
    */
   async exitImpersonation(): Promise<void> {
-    const adminEmail    = process.env.ADMIN_EMAIL    ?? 'tien@paxel.ai';
-    const adminPassword = process.env.ADMIN_PASSWORD ?? 'Paxel123';
-
-    await this.page.goto('/admin/signin');
-    await this.page.getByPlaceholder('Enter your email').fill(adminEmail);
-    await this.page.getByPlaceholder('Enter your password').fill(adminPassword);
-    await this.page.getByRole('button', { name: 'Sign In' }).click();
-    await this.page.waitForURL('**/admin/dashboard', { timeout: 20_000 });
-    await this.page.waitForTimeout(1_500); // networkidle never fires on polling dashboards
+      await loginAsAdmin(this.page);
 
     // Rule #12: The tenant "Welcome back" greeting must be gone
     await expect(this.welcomeGreeting).not.toBeVisible({ timeout: 8_000 });
