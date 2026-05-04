@@ -2857,7 +2857,7 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
           // 5d1: NDC toggle ON
           await ndcResult5d.toggle.click({ timeout: 2000, force: true }).catch(() => {});
           await page.waitForTimeout(600);
-          await logStep(page, '5d1: NDC toggle clicked ON ✓', 'pass');
+          await logStep(page, '5d1: Product filter — NDC toggle clicked ON ✓', 'pass');
 
           const afterOnCount5d     = await panel5d.locator('li, [role="option"]').count().catch(() => 0);
           const childRowsOnCount5d = await panel5d
@@ -2870,10 +2870,10 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
             childRowsOnCount5d > 0 ||
             afterOnText5d !== beforeText5d;
 
-          await logStep(page, `5d: row count after toggle ON = ${afterOnCount5d}  childRows = ${childRowsOnCount5d}  panelOpen = ${panelOpenOn5d}`, 'info');
+          await logStep(page, `5d1: row count after toggle ON = ${afterOnCount5d}  childRows = ${childRowsOnCount5d}  panelOpen = ${panelOpenOn5d}`, 'info');
           await logStep(
             page,
-            `5d1: NDC toggle ON shows child products: ${toggleOnOk5d ? '✓' : 'no visible change (soft)'}`,
+            `5d1: Product filter — NDC toggle clicked ON ${toggleOnOk5d ? '✓' : 'no visible change (soft)'}`,
             toggleOnOk5d ? 'pass' : 'info'
           );
 
@@ -2903,7 +2903,7 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
             }
 
             if (!childRow5d) {
-              await logStep(page, '5d: no child/NDC products found — skipping child product selection', 'info');
+              await logStep(page, '5d2: no child/NDC products found — skipping child product selection', 'info');
             } else {
               await logStep(page, `5d2: selected child/NDC product = "${childRowLabel5d}"`, 'info');
 
@@ -2916,7 +2916,7 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
               if (jtVisibleChild5d) {
                 await jtBtnChild5d.click();
                 await page.waitForTimeout(400);
-                await logStep(page, '5d2: clicked Just this for child ✓', 'pass');
+                await logStep(page, '5d2: Product filter — one child/NDC product selected ✓', 'pass');
               } else {
                 const cbChild5d = childRow5d.locator('input[type="checkbox"], [role="checkbox"]').first();
                 if (await cbChild5d.isVisible({ timeout: 800 }).catch(() => false)) {
@@ -2935,7 +2935,7 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
               const applyBtnChild5d = page.getByRole('button', { name: /^apply$/i }).first();
               const applyEnabledChild5d = await applyBtnChild5d.isEnabled({ timeout: 3000 }).catch(() => false);
               await logStep(page, `5d2: Apply enabled ✓`, applyEnabledChild5d ? 'pass' : 'fail');
-              await logStep(page, '5d2: one child/NDC product selected ✓', 'pass');
+              await logStep(page, '5d2: Product filter — one child/NDC product selected ✓', 'pass');
             }
           }
           // Panel stays open — 5d3 will continue using it
@@ -4169,7 +4169,7 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
             }
           }
 
-        await logStep(page, '8a: Orders table test completed ✓', 'pass');
+        await logStep(page, '8A - Sales Summary Table Order Tab sorting PASSED', 'pass');
       });
 
 
@@ -4626,7 +4626,7 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
             await logStep(page, '8b8: skipped account search — no API account name or search box missing', 'info');
           }
 
-          await logStep(page, '8b: Accounts tab API + UI validation completed ✓', 'pass');
+          await logStep(page, '8B - Sales Summary Table Accounts Tab PASSED', 'pass');
         });
 
 
@@ -5050,7 +5050,7 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
             );
           }
 
-          await logStep(page, '8c: Contracts tab API + UI validation completed ✓', 'pass');
+          await logStep(page, '8C - Sales Summary Table Contracts Tab PASSED', 'pass');
         });
 
 
@@ -5414,7 +5414,7 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
             }
           }
 
-          await logStep(page, '8d: Distributors tab API + UI validation completed ✓', 'pass');
+          await logStep(page, '8D - Sales Summary Table Distributors Tab PASSED', 'pass');
         });
 
         // This code confirm if it stucks at Step 8 pagination before arrive Step 9

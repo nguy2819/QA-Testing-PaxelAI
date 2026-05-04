@@ -10,6 +10,7 @@ const express = require('express');
 const http    = require('http');
 const { spawn, exec } = require('child_process');
 const path  = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '.env.dev') });
 const fs    = require('fs');
 const cors = require('cors');
 const { createProxyMiddleware } = require('http-proxy-middleware');
@@ -140,10 +141,15 @@ function killProc(proc) {
 
 // ── POST /api/run ─────────────────────────────────────────────────────────────
 app.post('/api/run', (req, res) => {
-  const { email, password, page, role = 'salesrep', env: envName = 'dev' } = req.body;
+  const { page, role = 'salesrep', env: envName = 'dev' } = req.body;
+
+  const email = req.body.email || process.env.ADMIN_EMAIL;
+  const password = req.body.password || process.env.ADMIN_PASSWORD;
 
   if (!email || !password) {
-    return res.status(400).json({ error: 'Email and password are required.' });
+    return res.status(400).json({
+      error: 'Missing credentials. Either enter in UI or set in .env.dev'
+    });
   }
 
   const specFile = SPEC_MAP[page];

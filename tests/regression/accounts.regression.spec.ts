@@ -185,7 +185,6 @@ async function resetDropdownToAll(page: Page, labelRegex: RegExp, labelName: str
   const triggerVisible = await trigger.isVisible({ timeout: 8000 }).catch(() => false);
   await logStep(page, `  ${labelName} trigger visible: ${triggerVisible ? '✓' : 'FAIL'}`, triggerVisible ? 'pass' : 'fail');
   await logStep(page, `  Cannot find ${labelName} dropdown trigger — need inspect locator`, 'fail');
-  await logStep(page, `  ${labelName} dropdown panel opened: ${panelVisible ? '✓' : 'FAIL'}`, panelVisible ? 'pass' : 'fail');
 
   if (!triggerVisible) {
     await logStep(page, '  Cannot find Account type dropdown trigger — need inspect locator', 'fail');
@@ -291,6 +290,42 @@ async function testDropdown(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Helpers — Accounts table sorting
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function testSortColumn(page: Page, columnName: string, stepId: string): Promise<void> {
+  const header = page
+    .locator('th, [role="columnheader"]')
+    .filter({ hasText: new RegExp(`^${columnName}$`, 'i') })
+    .first();
+
+  const visible = await header.isVisible({ timeout: 6000 }).catch(() => false);
+  await logStep(page, `  [${stepId}] ${columnName} header visible: ${visible ? '✓' : 'FAIL'}`, visible ? 'pass' : 'fail');
+
+  if (!visible) return;
+
+  await header.click({ timeout: 8000, force: true });
+  await waitForAccountsTableSettled(page);
+  await logStep(page, `  [${stepId}] Clicked ${columnName} sort first time ✓`, 'pass');
+
+  await validateAccountsTableOrEmptyState(page, `${stepId}-${columnName}-first-sort`);
+
+  await header.click({ timeout: 8000, force: true });
+  await waitForAccountsTableSettled(page);
+  await logStep(page, `  [${stepId}] Clicked ${columnName} sort second time ✓`, 'pass');
+
+  await validateAccountsTableOrEmptyState(page, `${stepId}-${columnName}-second-sort`);
+}
+
+async function testAccountsTableSorting(page: Page): Promise<void> {
+  const columns = ['Name', 'Location', 'Account type', 'IDN', 'Owner'];
+
+  for (const column of columns) {
+    await testSortColumn(page, column, 'Sort');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Test
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -299,6 +334,10 @@ test(`Accounts — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page }) =
 
   const S = makeSection(page);
   const impersonation = new ImpersonationPage(page);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Step 1 — Login as admin
+// ─────────────────────────────────────────────────────────────────────────────
 
   await S('Step 1 — Login as admin', async () => {
     await logStep(page, `Navigating to admin sign-in… (baseURL: ${page.url() || 'none yet'})`, 'running');
@@ -315,6 +354,9 @@ test(`Accounts — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page }) =
 
       let isImpersonated = false;
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Step  2 — Impersonate
+// ─────────────────────────────────────────────────────────────────────────────
       try {
         await S(`Step 2 — Impersonate ${user.fullName} (${role} @ ${user.company})`, async () => {
           await logStep(page, `Impersonating ${user.fullName}…`, 'running');
@@ -323,6 +365,9 @@ test(`Accounts — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page }) =
           await logStep(page, 'Impersonation confirmed ✓', 'pass');
         });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Step 3 — Accounts page loads
+// ─────────────────────────────────────────────────────────────────────────────
         await S('Step 3 — Accounts page loads', async () => {
           await logStep(page, 'Navigating to Accounts page…', 'running');
 
@@ -343,6 +388,9 @@ test(`Accounts — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page }) =
           await logStep(page, `Accounts heading visible: ${headingVisible ? '✓' : 'FAIL'}`, headingVisible ? 'pass' : 'fail');
         });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Step 4 — Accounts filters visible
+// ─────────────────────────────────────────────────────────────────────────────
         await S('Step 4 — Accounts filters visible', async () => {
           const searchInput = getAccountsSearchInput(page);
           const searchVisible = await searchInput.isVisible({ timeout: 8000 }).catch(() => false);
@@ -370,6 +418,9 @@ test(`Accounts — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page }) =
           await verifyHeader(page, 'Owner', /^Owner$/i);
         });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Step 5 — Search box
+// ─────────────────────────────────────────────────────────────────────────────
         await S('Step 5 — Search box', async () => {
           const searchInput = getAccountsSearchInput(page);
 
@@ -405,10 +456,16 @@ test(`Accounts — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page }) =
           await validateAccountsTableOrEmptyState(page, 'Step5-clear');
         });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Step 6 — Account type dropdown
+// ─────────────────────────────────────────────────────────────────────────────
         await S('Step 6 — Account type dropdown', async () => {
           await testDropdown(page, /account\s*type/i, 'Account type', 'Step6');
         });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Step 7 — IDN / Health System dropdown
+// ─────────────────────────────────────────────────────────────────────────────
         await S('Step 7 — IDN / Health System dropdown', async () => {
           await testDropdown(
             page,
@@ -419,6 +476,9 @@ test(`Accounts — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page }) =
           );
         });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Step 8 — Owner dropdown
+// ─────────────────────────────────────────────────────────────────────────────
         await S('Step 8 — Owner dropdown', async () => {
           await testDropdown(page, /owner/i, 'Owner', 'Step8');
         });
@@ -431,6 +491,13 @@ test(`Accounts — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page }) =
           } catch {}
         }
       }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Step 9 — Sort Accounts table columns
+// ─────────────────────────────────────────────────────────────────────────────
+      await S('Step 9 — Sort Accounts table columns', async () => {
+        await testAccountsTableSorting(page);
+      });
     }
   }
 });

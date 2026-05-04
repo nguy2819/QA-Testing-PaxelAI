@@ -226,6 +226,7 @@
     .plan-item:hover { background: var(--purple-50); }
     .plan-item.status-running { background: var(--running-bg); }
     .plan-item.status-pass    { background: #F0FDF4; }
+    .plan-item.status-warn    { background: #FFF7ED; }
     .plan-item.status-fail    { background: #FFF5F5; }
 
     .plan-step-num {
@@ -236,6 +237,7 @@
     }
     .plan-item.status-running .plan-step-num { background: var(--running-bg); color: var(--running); }
     .plan-item.status-pass    .plan-step-num { background: var(--pass-bg);    color: var(--pass);    }
+    .plan-item.status-warn    .plan-step-num { background: #FED7AA; color: #C2410C; }
     .plan-item.status-fail    .plan-step-num { background: var(--fail-bg);    color: var(--fail);    }
 
     .plan-step-label {
@@ -243,6 +245,7 @@
     }
     .plan-item.status-running .plan-step-label { color: var(--running); font-weight: 600; }
     .plan-item.status-pass    .plan-step-label { color: var(--pass); }
+    .plan-item.status-warn    .plan-step-label { color: #C2410C; }
     .plan-item.status-fail    .plan-step-label { color: var(--fail); }
 
     .plan-step-icon {
@@ -564,38 +567,177 @@
 // Each step: id, num, label, markers (substrings matched against log messages).
 // ─────────────────────────────────────────────────────────────────────────────
 const SS_STEPS_COMMON = [
-  { id: 's3',   num: '3',   label: 'Notification — hover effect, open box, Overdue/Upcoming/Activity tabs, close & outside click', markers: ['step 3'] },
-  { id: 's4a',  num: '4a',  label: 'Date filter — default = yesterday, hover each preset option', markers: ['step 4a'] },
-  { id: 's4b',  num: '4b',  label: 'Date filter: Yesterday — zero KPI acceptable; chart may show no-data or plot (not a failure)',                                              markers: ['step 4b'] },
-  { id: 's4c',  num: '4c',  label: 'Date filter: Month-to-date — MTD start → yesterday; prev label = "Previous MTD"; all-three KPI zero = FAIL; chart plot required',        markers: ['step 4c'] },
-  { id: 's4d',  num: '4d',  label: 'Date filter: Previous month — full prev calendar month; prev label = "Previous last month"; all-three KPI zero = FAIL; chart required',   markers: ['step 4d'] },
-  { id: 's4e',  num: '4e',  label: 'Date filter: Quarter-to-date — QTD start → yesterday; prev label = "Previous QTD"; all-three KPI zero = FAIL; chart plot required',       markers: ['step 4e'] },
-  { id: 's4f',  num: '4f',  label: 'Date filter: Previous quarter — full prev quarter; prev label = "Previous last quarter"; all-three KPI zero = FAIL; chart required',       markers: ['step 4f'] },
-  { id: 's4g',  num: '4g',  label: 'Date filter: Year-to-date — fiscal-year aware (Nexus=Jan, Caplin=Apr); prev label = "Previous YTD"; all-three KPI zero = FAIL; chart required',      markers: ['step 4g'] },
-  { id: 's4h',  num: '4h',  label: 'Date filter: Previous year — fiscal-year aware (Nexus=Jan–Dec, Caplin=Apr–Mar); prev label = "Previous last year"; KPI zero = FAIL; chart required', markers: ['step 4h'] },
-  { id: 's4i',  num: '4i',  label: 'Date filter: Custom range — multi-day updates dashboard; single-day → donut chart; outside-click closes picker',                          markers: ['step 4i'] },
-  { id: 's4j',num: '4j', label: 'Show customer type info button — popup content (Current / Returning new / New) and close behaviors (outside click / X / GOT IT)',            markers: ['step 4j']},
-  { id: 's5a',  num: '5a',  label: 'Product filter — open/default/sections/scroll',     markers: ['step 5a'] },
-  { id: 's5b1',  num: '5b1',  label: 'Product filter — Other sold products only',                markers: ['step 5b1'] },
-  { id: 's5b2',  num: '5b2',  label: 'Product filter — Comp plan + Other sold products',                markers: ['step 5b2'] },
-  { id: 's5b3',  num: '5b3',  label: 'Product filter — Unsold products only',                markers: ['step 5b3'] },
-  { id: 's5b4',  num: '5b4',  label: 'Product filter — No products selected',                markers: ['step 5b4'] },
-  { id: 's5c',  num: '5c',  label: 'Product filter — single product - Just this',                   markers: ['step 5c'] },
-  { id: 's5d1',  num: '5d1',  label: 'Product filter — NDC toggle clicked ON',                   markers: ['step 5d1'] },
-  { id: 's5d2',  num: '5d2',  label: 'Product filter — one child/NDC product selected',                   markers: ['step 5d2'] },
-  { id: 's5d3',  num: '5d3',  label: 'Product filter — selected multiple child from different parents',                   markers: ['step 5d3'] },
-  { id: 's5e',  num: '5e',  label: 'Product filter — Search product',                   markers: ['step 5e'] },
-  { id: 's6',   num: '6',   label: 'Customers filter — All / Current / Returning / New',          markers: ['step 6'] },
-  { id: 's7',   num: '7',   label: 'GPOs & Contracts filter', markers: ['step 7']},
-  { id: 's8a1',   num: '8a1',   label: 'Sales Summary tables: Orders tab - Verify tabs exist', markers: ['step 8a1'] },
-  { id: 's8a2',   num: '8a2',   label: 'Sales Summary tables: Orders tab - Click Orders tab', markers: ['step 8a2'] },
-  { id: 's8a3',   num: '8a3',   label: 'Sales Summary tables: Orders tab - Verify Order type default = All', markers: ['step 8a3'] },
-  { id: 's8a4',   num: '8a4',   label: 'Sales Summary tables: Orders tab - Order type dropdown: All / Orders / Returns', markers: ['step 8a4'] },
-  { id: 's8a5',   num: '8a5',   label: 'Sales Summary tables: Orders tab - Verify table headers', markers: ['step 8a5'] },
-  { id: 's8a6',   num: '8a6',   label: 'Sales Summary tables: Orders tab - Test sorting each header', markers: ['step 8a6'] },
-  { id: 's8a7',   num: '8a7',   label: 'Sales Summary tables: Orders tab - Verify API integration', markers: ['step 8a7'] },
-  { id: 's8a8',   num: '8a8',   label: 'Sales Summary tables: Orders tab - Verify search box', markers: ['step 8a8'] },
-  { id: 's8a9',  num: '8a9',   label: 'Sales Summary tables: Orders tab - Search for customer from API response, click link, verify URL, go back', markers: ['step 8a9'] },
+  {
+    id: 's3',
+    num: '3',
+    label: 'Notification center',
+    markers: ['step 3'],
+    childrenMarkers: ['step 3', 'notification']
+  },
+
+  {
+    id: 's4',
+    num: '4',
+    label: 'Date filter — presets, custom range, chart/KPI validation',
+    markers: ['step 4', 'date filter'],
+    childrenMarkers: [
+      'step 4a', '4a:',
+      'step 4b', '4b:',
+      'step 4c', '4c:',
+      'step 4d', '4d:',
+      'step 4e', '4e:',
+      'step 4f', '4f:',
+      'step 4g', '4g:',
+      'step 4h', '4h:',
+      'step 4i', '4i1:', '4i2:', '4i3:',
+      'step 4j', '4j:',
+      '4-reset:'
+    ]
+  },
+
+  {
+    id: 's5a',
+    num: '5a',
+    label: 'Product filter — open/default/sections/scroll',
+    markers: ['step 5a', '5a:'],
+    childrenMarkers: ['step 5a', '5a:']
+  },
+
+  {
+    id: 's5b',
+    num: '5b',
+    label: 'Product filter — product group selection combinations',
+    markers: ['step 5b'],
+    childrenMarkers: [
+      'step 5b1', '5b1:',
+      'step 5b2', '5b2:',
+      'step 5b3', '5b3:',
+      'step 5b4', '5b4:'
+    ]
+  },
+
+  {
+    id: 's5c',
+    num: '5c',
+    label: 'Product filter — single product / Just this',
+    markers: ['step 5c', '5c:'],
+    childrenMarkers: ['step 5c', '5c:']
+  },
+
+  {
+    id: 's5d',
+    num: '5d',
+    label: 'Product filter — NDC toggle and child product selection',
+    markers: ['step 5d'],
+    childrenMarkers: [
+      'step 5d1', '5d1:',
+      'step 5d2', '5d2:',
+      'step 5d3', '5d3:'
+    ]
+  },
+
+  {
+    id: 's5e',
+    num: '5e',
+    label: 'Product filter — search product',
+    markers: ['step 5e', '5e:'],
+    childrenMarkers: ['step 5e', '5e:']
+  },
+
+  {
+    id: 's6',
+    num: '6',
+    label: 'Customers filter — All / Current / Returning / New',
+    markers: ['step 6', '6:'],
+    childrenMarkers: ['step 6', '6:']
+  },
+
+  {
+    id: 's7',
+    num: '7',
+    label: 'GPOs & Contracts filter',
+    markers: ['step 7', '7:'],
+    childrenMarkers: ['step 7', '7:']
+  },
+
+  {
+    id: 's8a',
+    num: '8a',
+    label: 'Sales Summary tables — Orders tab',
+    markers: ['step 8a', '8a - sales summary table order tab sorting passed'],
+    childrenMarkers: [
+      'step 8a1', '8a1:',
+      'step 8a2', '8a2:',
+      'step 8a3', '8a3:',
+      'step 8a4', '8a4:',
+      'step 8a5', '8a5:',
+      'step 8a6', '8a6:',
+      'step 8a7', '8a7:',
+      'step 8a8', '8a8:',
+      'step 8a9', '8a9:',
+      '8a - sales summary table order tab sorting passed'
+    ]
+  },
+
+  {
+    id: 's8b',
+    num: '8b',
+    label: 'Sales Summary tables — Accounts tab',
+    markers: ['step 8b', '8b - sales summary table accounts tab passed'],
+    childrenMarkers: [
+      'step 8b1', '8b1:',
+      'step 8b2', '8b2:',
+      'step 8b3', '8b3:',
+      'step 8b4', '8b4:',
+      'step 8b5', '8b5:',
+      'step 8b6', '8b6:',
+      'step 8b7', '8b7:',
+      'step 8b8', '8b8:',
+      '8b - sales summary table accounts tab passed'
+    ]
+  },
+
+  {
+    id: 's8c',
+    num: '8c',
+    label: 'Sales Summary tables — Contracts tab',
+    markers: ['step 8c', '8c - sales summary table contracts tab passed'],
+    childrenMarkers: [
+      'step 8c1', '8c1:',
+      'step 8c2', '8c2:',
+      'step 8c3', '8c3:',
+      'step 8c4', '8c4:',
+      'step 8c5', '8c5:',
+      'step 8c6', '8c6:',
+      'step 8c7', '8c7:',
+      'step 8c8', '8c8:',
+      '8c - sales summary table contracts tab passed'
+    ]
+  },
+
+  {
+    id: 's8d',
+    num: '8d',
+    label: 'Sales Summary tables — Distributors tab',
+    markers: ['step 8d', '8d - sales summary table distributors tab passed'],
+    childrenMarkers: [
+      'step 8d1', '8d1:',
+      'step 8d2', '8d2:',
+      'step 8d3', '8d3:',
+      'step 8d4', '8d4:',
+      'step 8d5', '8d5:',
+      'step 8d6', '8d6:',
+      '8d - sales summary table distributors tab passed'
+    ]
+  },
+
+  {
+    id: 's9',
+    num: '9',
+    label: 'My comp plan right-side panel',
+    markers: ['step 9', '9-comp-plan', 'my comp plan'],
+    childrenMarkers: ['step 9', '9-comp-plan', 'my comp plan']
+  },
 ];
 
 const PLACEHOLDER_STEPS = [
@@ -853,8 +995,8 @@ function renderPlan(planKey) {
 function setPlanStepStatus(stepId, status) {
   // Never go backwards: pass/fail are final
   const current = planState[stepId];
-  if ((current === 'pass' || current === 'fail') && status === 'running') return;
-  if (current === 'fail' && status === 'pass') return;
+  if ((current === 'pass' || current === 'fail' || current === 'warn') && status === 'running') return;
+  if (current === 'fail' && (status === 'pass' || status === 'warn')) return;
 
   planState[stepId] = status;
 
@@ -868,6 +1010,7 @@ function setPlanStepStatus(stepId, status) {
     pending: '○',
     running: '<span class="spin-sm"></span>',
     pass:    '✓',
+    warn:    '!',
     fail:    '✗',
   };
   icon.innerHTML = icons[status] || '○';
@@ -876,6 +1019,32 @@ function setPlanStepStatus(stepId, status) {
 function finalizePlanStep(stepId, result) {
   if (!stepId) return;
   setPlanStepStatus(stepId, result);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Check if all children of a parent step have passed
+// ─────────────────────────────────────────────────────────────────────────────
+function checkParentCompletion(childStepId) {
+  const plan = TEST_PLANS[currentPlanKey] || [];
+  
+  // Find the child step to get its parent
+  const childStep = plan.find(s => s.id === childStepId);
+  if (!childStep || !childStep.parent) return;
+  
+  // Find the parent step
+  const parentStep = plan.find(s => s.id === childStep.parent);
+  if (!parentStep || !parentStep.children) return;
+  
+  // Check if all children have passed
+  const allChildrenPassed = parentStep.children.every(childId => {
+    return planState[childId] === 'pass';
+  });
+  
+  // If all children passed, mark parent as passed
+  if (allChildrenPassed && planState[parentStep.id] !== 'pass') {
+    console.log(`✅ All children of ${parentStep.id} (${parentStep.label}) have passed. Auto-completing parent.`);
+    setPlanStepStatus(parentStep.id, 'pass');
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -998,30 +1167,30 @@ async function togglePause() {
 // Process a single SSE log entry
 // ─────────────────────────────────────────────────────────────────────────────
 function processStep(entry) {
-  const { message, status, ts, _done } = entry;
-  const msgLower = (message || '').toLowerCase();
+  const message = entry.message || '';
+  const status = entry.status || 'info';
+  const ts = entry.ts || Date.now();
+  const done = !!entry._done;
+  const msgLower = message.toLowerCase();
 
   // ── Detect "STARTING ROLE: <role>" emitted by every spec ────────────────────
-  // Updates the active purple button in the dashboard to match the running role.
-    const roleMatch = msgLower.match(/starting role:\s*(salesrep|director|executive)/);
+  const roleMatch = msgLower.match(/starting role:\s*(salesrep|director|executive)/);
   if (roleMatch) {
     const newRole = roleMatch[1];
-    selectedRole   = newRole;
+    selectedRole = newRole;
     currentPlanKey = `${selectedPage}-${newRole}`;
     currentRunRole = newRole;
     currentRunPage = selectedPage;
     currentRunUser = null;
 
     setRunningButton(selectedPage, newRole);
-
     renderPlan(currentPlanKey);
     document.getElementById('rightPanelTitle').textContent = 'Test Plan';
     updateRunStatusBar();
   }
 
   // ── Detect "Testing user: X (company)" emitted by every spec ──────────────
-  // Extracts the current user name and updates the run progression display.
-    const userMatch = (message || '').match(/testing user:\s*([^(]+)\s*\(/i);
+  const userMatch = message.match(/testing user:\s*([^(]+)\s*\(/i);
   if (userMatch) {
     currentRunUser = userMatch[1].trim();
 
@@ -1033,48 +1202,60 @@ function processStep(entry) {
     updateRunStatusBar();
   }
 
-  // ── Advance plan steps based on log markers ──────────────────────────────────
+  // ── Update plan item from high-level childrenMarkers ───────────────────────
   const plan = TEST_PLANS[currentPlanKey] || [];
-  for (const step of plan) {
-    const matched = step.markers.some(m => msgLower.includes(m.toLowerCase()));
-    if (matched) {
-      if (activePlanStepId && activePlanStepId !== step.id) {
-        finalizePlanStep(activePlanStepId, activePlanFailed ? 'fail' : 'pass');
+
+  const matchedStep = plan.find(step => {
+    const allMarkers = [
+      ...(step.markers || []),
+      ...(step.childrenMarkers || []),
+    ];
+
+    return allMarkers.some(marker =>
+      msgLower.includes(String(marker).toLowerCase())
+    );
+  });
+
+  if (matchedStep) {
+    activePlanStepId = matchedStep.id;
+
+    if (status === 'fail') {
+      setPlanStepStatus(matchedStep.id, 'warn');
+      activePlanFailed = true;
+    } else if (status === 'pass') {
+      if (planState[matchedStep.id] === 'warn') {
+        setPlanStepStatus(matchedStep.id, 'warn');
+      } else {
+        setPlanStepStatus(matchedStep.id, 'pass');
       }
-      if (planState[step.id] !== 'pass' && planState[step.id] !== 'fail') {
-        activePlanStepId = step.id;
-        activePlanFailed  = false;
-        setPlanStepStatus(step.id, 'running');
+    } else if (status === 'running' || status === 'info') {
+      if (
+        planState[matchedStep.id] !== 'pass' &&
+        planState[matchedStep.id] !== 'warn' &&
+        planState[matchedStep.id] !== 'fail'
+      ) {
+        setPlanStepStatus(matchedStep.id, 'running');
       }
-      break;
     }
   }
 
-  // ── Track failures within current step ──────────────────────────────────────
-  if (status === 'fail' && activePlanStepId) {
-    activePlanFailed = true;
-    setPlanStepStatus(activePlanStepId, 'fail');
+  // ── Update current step label in left panel ────────────────────────────────
+  if (message) {
+    document.getElementById('currentStepLabel').textContent =
+      message.replace(/━+/g, '').trim();
   }
 
-  // ── Update current step label in left panel ──────────────────────────────────
-  if (message) document.getElementById('currentStepLabel').textContent = message.replace(/━+/g, '').trim();
-
-  // ── Append to log ────────────────────────────────────────────────────────────
+  // ── Append to log ──────────────────────────────────────────────────────────
   appendLog(message, status, ts);
 
-  // ── Update counts ────────────────────────────────────────────────────────────
+  // ── Update counts ──────────────────────────────────────────────────────────
   if (status === 'pass')    { counts.pass++;    updateCounts(); }
   if (status === 'fail')    { counts.fail++;    updateCounts(); }
   if (status === 'running') { counts.running++; updateCounts(); }
   if (status === 'info')    { counts.info++;    updateCounts(); }
 
-  // ── Done sentinel ────────────────────────────────────────────────────────────
-    if (_done) {
-    if (activePlanStepId) {
-      finalizePlanStep(activePlanStepId, activePlanFailed ? 'fail' : 'pass');
-      activePlanStepId = null;
-    }
-
+  // ── Done sentinel ──────────────────────────────────────────────────────────
+  if (done) {
     stopLiveFeed();
     document.getElementById('liveBadge').classList.remove('show');
     endRun();
@@ -1087,7 +1268,7 @@ function processStep(entry) {
       pendingAutoAdvance = { page: nextPage, role: 'salesrep' };
 
       setTimeout(() => {
-        if (isRunning) return; // safety
+        if (isRunning) return;
         selectPage(pendingAutoAdvance.page, pendingAutoAdvance.role);
         pendingAutoAdvance = null;
         startRun();
