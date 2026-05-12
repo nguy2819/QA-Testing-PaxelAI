@@ -1687,18 +1687,16 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
         });
 
         // ════════════════════════════════════════════════════════════════════
-        // STEP 4i1 — Date filter: Custom range multi-day
+        // STEP 4i1 — Date filter: Custom range across two months (past dates)
         // Requirements:
-        // A. Open Custom range cleanly
-        // B. Random valid multi-day selection (start ≠ end, both clickable)
-        // C. Apply button state: disabled before full selection, enabled after
-        // D. Apply → picker closes, dashboard updates
-        // E. Date button shows exact multi-day range
-        // F. KPI prev label = "Previous period:" (data-lov-id MetricItem.tsx:60:12)
-        // G. KPI current values non-zero (data-lov-id MetricItem.tsx:44:8)
-        // H. KPI previous values non-zero (data-lov-id MetricItem.tsx:63:12)
-        // I. Orders section title contains "Orders" (data-lov-id Sections.tsx:4527:39)
-        // J. Orders chart bar count > 0
+        // A. Open Custom range
+        // B. Click back arrow 2× to show months safely in the past
+        // C. Random start from the left (oldest) panel
+        // D. Random end from the right panel — must be a past date, never future
+        // E. Apply → picker closes, dashboard updates
+        // F. URL: dateRange=custom, customStart=, customEnd=
+        // G. customStart ≠ customEnd; different months; customEnd ≤ yesterday
+        // H–N. KPI + Orders chart validation (only after URL assertions pass)
         // ════════════════════════════════════════════════════════════════════
 
         function isRealCalendarDayButton(text: string, aria: string) {
@@ -1730,7 +1728,7 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
           return days;
         }
 
-        async function runSoftStep(page: Page, stepId: string, title: string, fn: () => Promise<void>) {
+        async function runSoftStep(page: Page, _stepId: string, title: string, fn: () => Promise<void>) {
           await logStep(page, `━━ ${title} ━━`, 'info');
           try {
             await fn();
@@ -1742,86 +1740,303 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
           }
         }
 
-        await runSoftStep(page, '4i1', 'Step 4i1 — Date filter: Custom range multi-day', async () => {
+        await runSoftStep(page, '4i1', 'Step 4i1 — Date filter: Custom range across two months', async () => {
           await ensureSingleVisiblePage(page, '4i1');
           await ensureOnSalesSummary(page, ss, '4i1');
 
-          // A. Open Custom range
+          // Yesterday — the upper bound for all selected dates
+          const now4i1       = new Date();
+          const yesterday4i1 = new Date(now4i1.getFullYear(), now4i1.getMonth(), now4i1.getDate() - 1, 23, 59, 59, 999);
+          const pad2         = (n: number) => String(n).padStart(2, '0');
+          const yesterdayStr4i1 = `${yesterday4i1.getFullYear()}-${pad2(yesterday4i1.getMonth() + 1)}-${pad2(yesterday4i1.getDate())}`;
+          await logStep(page, `4i1: yesterday = ${yesterdayStr4i1}`, 'info');
+
+          // Parse "Month DD, YYYY" or "Weekday, Month DD, YYYY" from aria-label
+          function parseDateFromAria4i1(aria: string): Date | null {
+            if (!aria) return null;
+            const m = aria.match(/([A-Za-z]+)\s+(\d{1,2})[,\s]+(\d{4})/);
+            if (!m) return null;
+            const MONTHS = ['january','february','march','april','may','june','july','august','september','october','november','december'];
+            const idx = MONTHS.findIndex(mn => m[1].toLowerCase() === mn || mn.startsWith(m[1].toLowerCase().substring(0, 3)));
+            if (idx < 0) return null;
+            return new Date(Number(m[3]), idx, Number(m[2]));
+          }
+
+          // A. Open Custom range calendar
           const { calendarRoot } = await openCustomRangeCalendarStrict(page, ss, '4i1');
-            let dayButtons = await getRealCalendarDayButtons(calendarRoot);
 
-          const count = dayButtons.length;
-          await logStep(page, `4i1: available real calendar day buttons = ${count}`, 'info');
+          // B. Click back arrow 2 times — moves calendar to months safely in the past
+          const backArrowCandidates4i1: Locator[] = [
+            calendarRoot.locator('button[aria-label*="previous month" i]').first(),
+            calendarRoot.locator('button[aria-label*="previous" i]').first(),
+            calendarRoot.locator('button[aria-label*="prev" i]').first(),
+            calendarRoot.locator('.rdrPprevButton, .rdrPrevButton').first(),
+            page.getByRole('button').filter({ hasText: /^$/ }).nth(2),
+          ];
 
-          if (count < 4) {
-            await logStep(page, '4i1: not enough selectable calendar days for a multi-day range', 'fail');
-            return;
+          for (let backCount = 0; backCount < 2; backCount++) {
+            let clicked4i1 = false;
+            for (const arrow of backArrowCandidates4i1) {
+              const vis = await arrow.isVisible({ timeout: 800 }).catch(() => false);
+              if (!vis) continue;
+              await arrow.click({ force: true });
+              await page.waitForTimeout(500);
+              await logStep(page, `4i1: back arrow click ${backCount + 1}/2 ✓`, 'pass');
+              clicked4i1 = true;
+              break;
+            }
+            if (!clicked4i1) {
+              throw new Error(`4i1: back arrow not found on click ${backCount + 1}`);
+            }
           }
 
-          // B. Pick a start/end pair with at least 1 day gap
-          const maxStart = Math.max(0, Math.min(count - 4, 8));
-          const startPos = Math.floor(Math.random() * (maxStart + 1));
-          const minEndPos = startPos + 1;
-          const maxEndPos = Math.min(count - 1, startPos + 4);
-          const endPos = minEndPos + Math.floor(Math.random() * (maxEndPos - minEndPos + 1));
+          // C. Collect enabled in-month day buttons with bounding boxes + parsed dates
+          const allBtns4i1 = calendarRoot.locator('button:not([disabled]):not([aria-disabled="true"])');
+          const btnCnt4i1  = await allBtns4i1.count().catch(() => 0);
 
-          const startBtn = dayButtons[startPos];
-          const startDayText = ((await startBtn.textContent().catch(() => '')) ?? '').trim();
-          await logStep(page, `4i1: clicking start day "${startDayText}" (idx ${startPos})`, 'running');
-          await startBtn.click({ force: true });
-          await page.waitForTimeout(350);
-          await logStep(page, `4i1: start day "${startDayText}" clicked ✓`, 'pass');
+          type DayInfo4i1 = {
+            btn:  Locator;
+            text: string;
+            aria: string;
+            x:    number;
+            box:  { x: number; y: number; width: number; height: number };
+            date: Date | null;
+          };
+          const dayInfos4i1: DayInfo4i1[] = [];
 
-          dayButtons = await getRealCalendarDayButtons(calendarRoot);
-
-          const safeEndPos = Math.min(endPos, dayButtons.length - 1);
-          const endBtn = dayButtons[safeEndPos];
-          const endDayText = ((await endBtn.textContent().catch(() => '')) ?? '').trim();
-          await logStep(page, `4i1: clicking end day "${endDayText}" (idx ${safeEndPos})`, 'running');
-          await endBtn.click({ force: true });
-          await page.waitForTimeout(350);
-          await logStep(page, `4i1: end day "${endDayText}" clicked ✓`, 'pass');
-
-          // C. Apply must be enabled
-          const applyBtn = calendarRoot.getByRole('button', { name: /^apply$/i }).first();
-          const applyEnabled = await applyBtn.isEnabled({ timeout: 3000 }).catch(() => false);
-          await logStep(page, `4i1: Apply enabled after full range selection: ${applyEnabled ? '✓' : 'FAIL'}`, applyEnabled ? 'pass' : 'fail');
-          if (!applyEnabled) {
-            return;
+          for (let i = 0; i < btnCnt4i1; i++) {
+            const btn  = allBtns4i1.nth(i);
+            const text = ((await btn.textContent().catch(() => '')) ?? '').trim();
+            const aria = ((await btn.getAttribute('aria-label').catch(() => '')) ?? '').trim();
+            if (!isRealCalendarDayButton(text, aria)) continue;
+            const box = await btn.boundingBox().catch(() => null);
+            if (!box || box.width === 0) continue;
+            // Skip outside-month passive days rendered at calendar month boundaries
+            const cls = ((await btn.getAttribute('class').catch(() => '')) ?? '');
+            if (/rdrDayPassive|day-passive|outside|passive/i.test(cls)) continue;
+            dayInfos4i1.push({ btn, text, aria, x: box.x, box, date: parseDateFromAria4i1(aria) });
           }
 
-          // D. Apply and wait for dashboard to settle
-          const beforeDateText = await getDateButton(page, ss);
+          await logStep(page, `4i1: in-month day buttons after 2× back = ${dayInfos4i1.length}`, 'info');
+          if (dayInfos4i1.length < 20) {
+            throw new Error(`4i1: only ${dayInfos4i1.length} day buttons — calendar may not have rendered`);
+          }
+
+          // Split into left (oldest) and right (one month newer) panels by X midpoint
+          const xs4i1   = dayInfos4i1.map(d => d.x);
+          const midX4i1 = (Math.min(...xs4i1) + Math.max(...xs4i1)) / 2;
+          const leftPanel4i1  = dayInfos4i1.filter(d => d.x <= midX4i1);
+          const rightPanel4i1 = dayInfos4i1.filter(d => d.x >  midX4i1);
+
+          await logStep(
+            page,
+            `4i1: left=${leftPanel4i1.length} days, right=${rightPanel4i1.length} days (midX=${Math.round(midX4i1)})`,
+            'info'
+          );
+
+          // D. Random start from left panel (oldest month — all days are past after 2× back)
+          if (leftPanel4i1.length === 0) throw new Error('4i1: no enabled days in left (oldest) panel');
+          const startEntry4i1 = leftPanel4i1[Math.floor(Math.random() * leftPanel4i1.length)];
+
+          // E. Random end from right panel, filtered to past dates only.
+          //    If aria-label is parseable: keep day only if date ≤ yesterday.
+          //    If aria-label is not parseable: trust the disabled-state filter above.
+          const rightPast4i1 = rightPanel4i1.filter(d =>
+            !d.date || d.date.getTime() <= yesterday4i1.getTime()
+          );
+
+          await logStep(page, `4i1: right panel past-only days = ${rightPast4i1.length}`, 'info');
+          if (rightPast4i1.length === 0) throw new Error('4i1: no past-only days in right panel');
+
+          const endEntry4i1 = rightPast4i1[Math.floor(Math.random() * rightPast4i1.length)];
+
+          // Declare Apply button early (reused after both clicks)
+          const applyBtn4i1 = calendarRoot.getByRole('button', { name: /^apply$/i }).first();
+
+          // F. Click start day via bounding-box center
+          await logStep(
+            page,
+            `4i1: clicking start "${startEntry4i1.text}" from left panel via bounding-box (${startEntry4i1.aria || 'oldest month'})`,
+            'running'
+          );
+          const sb4i1 = startEntry4i1.box;
+          await page.mouse.click(sb4i1.x + sb4i1.width / 2, sb4i1.y + sb4i1.height / 2);
+          await page.waitForTimeout(400);
+          await logStep(page, `4i1: start day "${startEntry4i1.text}" clicked ✓`, 'pass');
+
+          // Verify Apply is still disabled — confirms only start date selected so far
+          const applyAfterStart4i1 = await applyBtn4i1.isEnabled({ timeout: 2000 }).catch(() => false);
+          await logStep(
+            page,
+            `4i1: Apply disabled after start-only click: ${!applyAfterStart4i1 ? '✓' : 'WARNING — already enabled'}`,
+            'info'
+          );
+
+          // G. Verify end day is enabled and is a past date before clicking
+          const endIsEnabled4i1  = await endEntry4i1.btn.isEnabled({ timeout: 1500 }).catch(() => false);
+          const endDateIsPast4i1 = !endEntry4i1.date || endEntry4i1.date.getTime() <= yesterday4i1.getTime();
+
+          await logStep(
+            page,
+            `4i1: end day "${endEntry4i1.text}" — enabled=${endIsEnabled4i1}, ≤yesterday=${endDateIsPast4i1} (${endEntry4i1.aria || '?'})`,
+            endIsEnabled4i1 && endDateIsPast4i1 ? 'pass' : 'fail'
+          );
+          if (!endIsEnabled4i1 || !endDateIsPast4i1) {
+            throw new Error(`4i1: end day "${endEntry4i1.text}" (${endEntry4i1.aria}) is disabled or in the future`);
+          }
+
+          // H. Click end day via bounding-box center
+          await logStep(
+            page,
+            `4i1: clicking end "${endEntry4i1.text}" from right panel via bounding-box (${endEntry4i1.aria || 'different month'})`,
+            'running'
+          );
+          const eb4i1 = endEntry4i1.box;
+          await page.mouse.click(eb4i1.x + eb4i1.width / 2, eb4i1.y + eb4i1.height / 2);
+          await page.waitForTimeout(500);
+          await logStep(page, `4i1: end day "${endEntry4i1.text}" clicked ✓`, 'pass');
+
+          // I. Verify range CSS state (startEdge + endEdge) before applying
+          const startEdgeCnt4i1 = await calendarRoot
+            .locator('.rdrStartEdge, [class*="startEdge"], [class*="start-edge"]')
+            .count().catch(() => 0);
+          const endEdgeCnt4i1   = await calendarRoot
+            .locator('.rdrEndEdge, [class*="endEdge"], [class*="end-edge"]')
+            .count().catch(() => 0);
+          const inRangeCnt4i1   = await calendarRoot
+            .locator('.rdrInRange, [class*="inRange"], [class*="in-range"]')
+            .count().catch(() => 0);
+
+          await logStep(
+            page,
+            `4i1: range state — startEdge=${startEdgeCnt4i1}, endEdge=${endEdgeCnt4i1}, inRange=${inRangeCnt4i1}`,
+            startEdgeCnt4i1 > 0 && endEdgeCnt4i1 > 0 ? 'pass' : 'info'
+          );
+
+          // Retry end click with fresh bounding-box scan if range indicators are missing
+          if (startEdgeCnt4i1 === 0 || endEdgeCnt4i1 === 0) {
+            await logStep(page, '4i1: range indicators missing — re-scanning and re-clicking end day', 'info');
+
+            const freshBtns4i1 = calendarRoot.locator('button:not([disabled]):not([aria-disabled="true"])');
+            const freshCnt4i1  = await freshBtns4i1.count().catch(() => 0);
+            let freshEndBox4i1: { x: number; y: number; width: number; height: number } | null = null;
+
+            for (let i = 0; i < freshCnt4i1; i++) {
+              const btn  = freshBtns4i1.nth(i);
+              const text = ((await btn.textContent().catch(() => '')) ?? '').trim();
+              if (text !== endEntry4i1.text) continue;
+              const cls  = ((await btn.getAttribute('class').catch(() => '')) ?? '');
+              if (/rdrDayPassive|day-passive|outside|passive/i.test(cls)) continue;
+              const box  = await btn.boundingBox().catch(() => null);
+              if (!box || box.width === 0 || box.x <= midX4i1) continue;
+              freshEndBox4i1 = box;
+              break;
+            }
+
+            if (freshEndBox4i1) {
+              await page.mouse.click(
+                freshEndBox4i1.x + freshEndBox4i1.width  / 2,
+                freshEndBox4i1.y + freshEndBox4i1.height / 2
+              );
+              await page.waitForTimeout(500);
+              const retryEdge4i1 = await calendarRoot
+                .locator('.rdrEndEdge, [class*="endEdge"]').count().catch(() => 0);
+              await logStep(page, `4i1: after retry — endEdge=${retryEdge4i1}`, retryEdge4i1 > 0 ? 'pass' : 'fail');
+            }
+          }
+
+          // J. Apply must be enabled now
+          const applyEnabled4i1 = await applyBtn4i1.isEnabled({ timeout: 3000 }).catch(() => false);
+          await logStep(
+            page,
+            `4i1: Apply enabled after cross-month selection: ${applyEnabled4i1 ? '✓' : 'FAIL'}`,
+            applyEnabled4i1 ? 'pass' : 'fail'
+          );
+          if (!applyEnabled4i1) {
+            throw new Error('4i1: Apply button not enabled after selecting cross-month range');
+          }
+
+          // K. Click Apply → wait for dashboard to settle
+          const beforeDateText4i1      = await getDateButton(page, ss);
           const salesComparisonsPromise = waitForSalesComparisonsResponse(page);
 
           await logStep(page, '4i1: clicking Apply', 'running');
-          await applyBtn.click({ force: true });
+          await applyBtn4i1.click({ force: true });
 
           const salesComparisonsResponse = await salesComparisonsPromise;
 
           await expect.poll(
             async () => await getDateButton(page, ss),
             { timeout: 12000, intervals: [250, 500, 1000] }
-          ).not.toBe(beforeDateText);
+          ).not.toBe(beforeDateText4i1);
 
           await ss.waitForDashboardRefresh();
-          await logStep(page, '4i1: Apply clicked ✓', 'pass');
+          await logStep(page, '4i1: Apply clicked → dashboard updated ✓', 'pass');
 
-          // E. Date button must show a range, not a single day
-          const dateBtn4i1 = page.locator('[data-lov-id="src/components/DatePickerButton.tsx:53:6"]').first();
-          const dateBtnVis4i1 = await dateBtn4i1.isVisible({ timeout: 1000 }).catch(() => false);
-          const dateBtnFinal4i1 = dateBtnVis4i1 ? dateBtn4i1 : ss.dateFilterButton.first();
-          const btnText4i1 = ((await dateBtnFinal4i1.textContent()) ?? '').trim().replace(/\s+/g, ' ');
-          await logStep(page, `4i1: date button text = "${btnText4i1}"`, 'info');
+          // L. URL assertions
+          const url4i1 = page.url();
+          await logStep(page, `4i1: URL = ${url4i1}`, 'info');
 
-          const looksLikeRange =
-            /[A-Z][a-z]{2}\s+\d{1,2}\s*[–-]\s*(?:[A-Z][a-z]{2}\s+)?\d{1,2},\s+\d{4}/.test(btnText4i1);
+          const hasDateRangeCustom4i1 = /dateRange=custom/i.test(url4i1);
+          const hasCustomStart4i1     = /customStart=/i.test(url4i1);
+          const hasCustomEnd4i1       = /customEnd=/i.test(url4i1);
 
-          await logStep(page, `4i1: date button shows multi-day range: ${looksLikeRange ? '✓' : 'FAIL — got: "' + btnText4i1 + '"'}`, looksLikeRange ? 'pass' : 'fail');
-          if (!looksLikeRange) {
-            return;
+          await logStep(page, `4i1: URL dateRange=custom: ${hasDateRangeCustom4i1 ? '✓' : 'FAIL'}`, hasDateRangeCustom4i1 ? 'pass' : 'fail');
+          await logStep(page, `4i1: URL customStart=:     ${hasCustomStart4i1 ? '✓' : 'FAIL'}`,     hasCustomStart4i1     ? 'pass' : 'fail');
+          await logStep(page, `4i1: URL customEnd=:       ${hasCustomEnd4i1 ? '✓' : 'FAIL'}`,       hasCustomEnd4i1       ? 'pass' : 'fail');
+
+          if (!hasDateRangeCustom4i1 || !hasCustomStart4i1 || !hasCustomEnd4i1) {
+            throw new Error(`4i1: URL missing custom range params — ${url4i1}`);
           }
 
+          // M. Parse and assert customStart ≠ customEnd, different months, customEnd ≤ yesterday
+          const startParam4i1 = (url4i1.match(/customStart=([^&\s]+)/i) ?? [])[1] ?? '';
+          const endParam4i1   = (url4i1.match(/customEnd=([^&\s]+)/i)   ?? [])[1] ?? '';
+
+          await logStep(page, `4i1: customStart="${startParam4i1}", customEnd="${endParam4i1}"`, 'info');
+
+          if (startParam4i1 === endParam4i1) {
+            throw new Error(
+              `4i1: customStart === customEnd ("${startParam4i1}") — range selection failed (only one date recorded)`
+            );
+          }
+
+          const startMonthKey4i1   = startParam4i1.substring(0, 7);
+          const endMonthKey4i1     = endParam4i1.substring(0, 7);
+          const isCrossMonthUrl4i1 = startMonthKey4i1 !== endMonthKey4i1;
+
+          await logStep(
+            page,
+            `4i1: months — start="${startMonthKey4i1}", end="${endMonthKey4i1}" — cross-month: ${isCrossMonthUrl4i1 ? '✓' : 'FAIL'}`,
+            isCrossMonthUrl4i1 ? 'pass' : 'fail'
+          );
+          if (!isCrossMonthUrl4i1) {
+            throw new Error(`4i1: customStart (${startParam4i1}) and customEnd (${endParam4i1}) are in the same month`);
+          }
+
+          const endParamDate4i1    = new Date(endParam4i1 + 'T00:00:00');
+          const endIsNotFuture4i1  = endParamDate4i1.getTime() <= yesterday4i1.getTime();
+          await logStep(
+            page,
+            `4i1: customEnd="${endParam4i1}" ≤ yesterday="${yesterdayStr4i1}": ${endIsNotFuture4i1 ? '✓' : 'FAIL'}`,
+            endIsNotFuture4i1 ? 'pass' : 'fail'
+          );
+          if (!endIsNotFuture4i1) {
+            throw new Error(`4i1: customEnd (${endParam4i1}) is today or in the future — expected past date`);
+          }
+
+          // N. Date button must show cross-month range
+          const btnText4i1 = ((await ss.dateFilterButton.first().textContent()) ?? '').trim().replace(/\s+/g, ' ');
+          await logStep(page, `4i1: date button text = "${btnText4i1}"`, 'info');
+
+          const isCrossMonthRange4i1 = /[A-Z][a-z]{2}\s+\d{1,2}.*?[–\-].*?[A-Z][a-z]{2}\s+\d{1,2}/i.test(btnText4i1);
+          await logStep(
+            page,
+            `4i1: date button shows cross-month range: ${isCrossMonthRange4i1 ? '✓' : 'FAIL — got: "' + btnText4i1 + '"'}`,
+            isCrossMonthRange4i1 ? 'pass' : 'fail'
+          );
+
+          // O–P. KPI validation (only reached after URL assertions pass)
           await assertKpisFromResponse(page, salesComparisonsResponse).catch(async (e: any) => {
             await logStep(page, `4i1 KPI validation soft-fail: ${String(e?.message ?? e).split('\n')[0]}`, 'fail');
           });
@@ -1829,8 +2044,8 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
             await logStep(page, `4i1 KPI card visibility soft-fail: ${String(e?.message ?? e).split('\n')[0]}`, 'fail');
           });
 
-          // I. Orders section / chart
-          const sectionTitleEl4i1 = page.locator('[data-lov-id="src/components/Sections.tsx:4527:39"]').first();
+          // Q–S. Orders section / chart
+          const sectionTitleEl4i1  = page.locator('[data-lov-id="src/components/Sections.tsx:4527:39"]').first();
           const sectionTitleVis4i1 = await sectionTitleEl4i1.isVisible({ timeout: 3000 }).catch(() => false);
 
           if (sectionTitleVis4i1) {
@@ -1844,12 +2059,12 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
             );
           } else {
             const fallbackHeading = page.getByText(/orders\s*[•·]/i).first();
-            const fallbackText = ((await fallbackHeading.textContent().catch(() => '')) ?? '').trim();
-            const fallbackOk = await fallbackHeading.isVisible({ timeout: 3000 }).catch(() => false);
+            const fallbackText4i1 = ((await fallbackHeading.textContent().catch(() => '')) ?? '').trim();
+            const fallbackOk4i1   = await fallbackHeading.isVisible({ timeout: 3000 }).catch(() => false);
             await logStep(
               page,
-              `4i1: Orders heading (fallback) = "${fallbackText}" — visible: ${fallbackOk ? '✓' : 'FAIL'}`,
-              fallbackOk ? 'pass' : 'fail'
+              `4i1: Orders heading (fallback) = "${fallbackText4i1}" — visible: ${fallbackOk4i1 ? '✓' : 'FAIL'}`,
+              fallbackOk4i1 ? 'pass' : 'fail'
             );
           }
 
@@ -1905,7 +2120,7 @@ test(`Sales Summary — ${ROLES_TO_RUN.join('+') || 'all roles'}`, async ({ page
             );
 
             if (visibleBars4i1 === 0) {
-              throw new Error('4i1: Orders chart has no visible colored bars for custom multi-day range');
+              throw new Error('4i1: Orders chart has no visible colored bars for custom cross-month range');
             }
           }
 

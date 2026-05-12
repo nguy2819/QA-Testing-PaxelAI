@@ -1,3 +1,290 @@
-{"message":"━━ Step 1 — Login as admin ━━","status":"info","ts":1776967168796}
-{"message":"Navigating to admin sign-in… (baseURL: about:blank)","status":"running","ts":1776967168801}
-{"message":"FAIL \"Step 1 — Login as admin\": page.goto: Target page, context or browser has been closed | URL: about:blank","status":"fail","ts":1776967185911}
+{"message":"━━ Step 1 — Login as admin ━━","status":"info","ts":1778602340470}
+{"message":"Navigating to admin sign-in… (baseURL: about:blank)","status":"running","ts":1778602340478}
+{"message":"Admin login ✓ — landed on: https://devapp.paxel.ai/admin/dashboard","status":"pass","ts":1778602392848}
+{"message":"════ STARTING ROLE: salesrep — 3 users ════","status":"info","ts":1778602392853}
+{"message":"DIAG: Starting user David Farris — page.isClosed()=false url=https://devapp.paxel.ai/admin/dashboard","status":"info","ts":1778602392860}
+{"message":"════ Testing user: David Farris (Nexus Pharmaceuticals) ════","status":"info","ts":1778602392866}
+{"message":"━━ Step 2 — Impersonate David Farris (salesrep @ Nexus Pharmaceuticals) ━━","status":"info","ts":1778602392871}
+{"message":"Impersonating David Farris…","status":"running","ts":1778602392876}
+{"message":"Impersonation confirmed ✓","status":"pass","ts":1778602394732}
+{"message":"Navigating to Sales Summary…","status":"running","ts":1778602394742}
+{"message":"Sales Summary loaded ✓","status":"pass","ts":1778602394842}
+{"message":"━━ Step 3 — Notification button ━━","status":"info","ts":1778602394850}
+{"message":"Visible header buttons: ","status":"info","ts":1778602394909}
+{"message":"Notification button located at x:1098 ✓","status":"info","ts":1778602395264}
+{"message":"Hover: rectangular highlight around notification button ✓","status":"pass","ts":1778602395914}
+{"message":"Notification box opened ✓","status":"pass","ts":1778602397009}
+{"message":"\"Overdue\" tab clicked — content loaded ✓","status":"pass","ts":1778602397881}
+{"message":"\"Upcoming\" tab clicked — content loaded ✓","status":"pass","ts":1778602398759}
+{"message":"\"Activity\" tab clicked — content loaded ✓","status":"pass","ts":1778602399602}
+{"message":"Notification box closes on button click: ✓","status":"pass","ts":1778602400176}
+{"message":"Notification box reopens on button click: ✓","status":"pass","ts":1778602401116}
+{"message":"Notification box closes on outside click: ✓","status":"pass","ts":1778602401789}
+{"message":"━━ Step 4a — Date filter: default shows yesterday + hover effects ━━","status":"info","ts":1778602401824}
+{"message":"Today: May 12, 2026   Yesterday: May 11, 2026","status":"info","ts":1778602401835}
+{"message":"Date filter shows: \"May 11, 2026\"","status":"info","ts":1778602401872}
+{"message":"Default = yesterday (May 11, 2026): ✓","status":"pass","ts":1778602401883}
+{"message":"Date filter dropdown opened ✓","status":"pass","ts":1778602402110}
+{"message":"Hover \"Yesterday\" — effect ✓","status":"pass","ts":1778602402459}
+{"message":"Hover \"Month-to-date\" — effect ✓","status":"pass","ts":1778602402764}
+{"message":"Hover \"Previous month\" — effect ✓","status":"pass","ts":1778602403418}
+{"message":"Hover \"Quarter-to-date\" — effect ✓","status":"pass","ts":1778602403706}
+{"message":"Hover \"Previous quarter\" — effect ✓","status":"pass","ts":1778602403973}
+{"message":"Hover \"Year-to-date\" — effect ✓","status":"pass","ts":1778602404289}
+{"message":"Hover \"Previous year\" — effect ✓","status":"pass","ts":1778602404583}
+{"message":"Hover \"Custom range\" — effect ✓","status":"pass","ts":1778602404926}
+{"message":"Date filter closes on Escape: check manually","status":"info","ts":1778602405502}
+{"message":"4b: browser contexts = 1","status":"info","ts":1778602405507}
+{"message":"4b: context[0] pages = 1","status":"info","ts":1778602405515}
+{"message":"4b: context[0] page url = https://devapp.paxel.ai/tenant/dashboard","status":"info","ts":1778602405522}
+{"message":"━━ Step 4b — Date filter: Yesterday ━━","status":"info","ts":1778602405528}
+{"message":"Selecting Yesterday (user: David Farris, company: Nexus Pharmaceuticals)","status":"info","ts":1778602405534}
+{"message":"4b: browser contexts = 1","status":"info","ts":1778602405540}
+{"message":"4b: controlled page brought to front ✓","status":"pass","ts":1778602405949}
+{"message":"4b: Sales Summary URL check → url=https://devapp.paxel.ai/tenant/dashboard isDashboardUrl=true","status":"pass","ts":1778602405954}
+{"message":"4b: Sales Summary visible ✓","status":"pass","ts":1778602406004}
+{"message":"4b: DEBUG current URL = https://devapp.paxel.ai/tenant/dashboard","status":"info","ts":1778602406019}
+{"message":"Current URL: https://devapp.paxel.ai/tenant/dashboard","status":"info","ts":1778602406025}
+{"message":"4b: browser contexts = 1","status":"info","ts":1778602406032}
+{"message":"4b: controlled page brought to front ✓","status":"pass","ts":1778602406402}
+{"message":"4b: Sales Summary URL check → url=https://devapp.paxel.ai/tenant/dashboard isDashboardUrl=true","status":"pass","ts":1778602406407}
+{"message":"4b: Sales Summary visible ✓","status":"pass","ts":1778602406453}
+{"message":"4b: move to date filter button","status":"running","ts":1778602407409}
+{"message":"4b: click date filter button","status":"running","ts":1778602407647}
+{"message":"4b: picker opened ✓","status":"pass","ts":1778602408505}
+{"message":"4b: wait for preset \"Yesterday\" inside picker","status":"running","ts":1778602408512}
+{"message":"4b: preset \"Yesterday\" visible ✓","status":"pass","ts":1778602408545}
+{"message":"4b: clicked preset \"Yesterday\" ✓","status":"pass","ts":1778602410184}
+{"message":"4b: URL after selection → https://devapp.paxel.ai/tenant/dashboard","status":"info","ts":1778602410700}
+{"message":"4b: date button text \"May 11, 2026\" matches expected","status":"pass","ts":1778602410728}
+{"message":"4b: URL check — dateRange=yesterday param absent (default page — acceptable) ✓","status":"pass","ts":1778602410734}
+{"message":"4b: API response top-level keys = [message]","status":"info","ts":1778602410809}
+{"message":"4b: API no-data message = \"No sales summary data found for current data range\" — KPI cards may show \"--\" (acceptable for early-morning Yesterday)","status":"info","ts":1778602410816}
+{"message":"4b: Yesterday chart state — noData:true heading:true plot:true → ✓ (acceptable)","status":"pass","ts":1778602410905}
+{"message":"━━ Step 4c — Date filter: Month-to-date ━━","status":"info","ts":1778602411233}
+{"message":"4c: browser contexts = 1","status":"info","ts":1778602411242}
+{"message":"4c: controlled page brought to front ✓","status":"pass","ts":1778602411599}
+{"message":"4c: Sales Summary URL check → url=https://devapp.paxel.ai/tenant/dashboard isDashboardUrl=true","status":"pass","ts":1778602411603}
+{"message":"4c: Sales Summary visible ✓","status":"pass","ts":1778602411646}
+{"message":"4c: expected MTD range = May 1–May 11, 2026 (start of month → yesterday, not today)","status":"info","ts":1778602411652}
+{"message":"4c: DEBUG current URL = https://devapp.paxel.ai/tenant/dashboard","status":"info","ts":1778602411663}
+{"message":"Current URL: https://devapp.paxel.ai/tenant/dashboard","status":"info","ts":1778602411668}
+{"message":"4c: browser contexts = 1","status":"info","ts":1778602411673}
+{"message":"4c: controlled page brought to front ✓","status":"pass","ts":1778602412025}
+{"message":"4c: Sales Summary URL check → url=https://devapp.paxel.ai/tenant/dashboard isDashboardUrl=true","status":"pass","ts":1778602412037}
+{"message":"4c: Sales Summary visible ✓","status":"pass","ts":1778602412104}
+{"message":"4c: move to date filter button","status":"running","ts":1778602412622}
+{"message":"4c: click date filter button","status":"running","ts":1778602412830}
+{"message":"4c: picker opened ✓","status":"pass","ts":1778602413639}
+{"message":"4c: wait for preset \"Month-to-date\" inside picker","status":"running","ts":1778602413646}
+{"message":"4c: preset \"Month-to-date\" visible ✓","status":"pass","ts":1778602413679}
+{"message":"4c: clicked preset \"Month-to-date\" ✓","status":"pass","ts":1778602415282}
+{"message":"4c: URL matches expected → https://devapp.paxel.ai/tenant/dashboard?dateRange=month-to-date","status":"pass","ts":1778602415807}
+{"message":"4c: date button text \"May 1–11, 2026\" matches expected","status":"pass","ts":1778602415833}
+{"message":"4c: API response top-level keys = [message]","status":"info","ts":1778602415889}
+{"message":"4c: API no-data message = \"No sales summary data found for current data range\" — FAIL: this date range should have Sales Summary data","status":"fail","ts":1778602415898}
+{"message":"FAIL \"Step 4c — Date filter: Month-to-date\": 4c: API returned no-data message for a range that should have data: \"No sales summary data found for current data range\" | URL: https://devapp.paxel.ai/tenant/dashboard?dateRange=month-to-date","status":"fail","ts":1778602415906}
+{"message":"━━ Step 4d — Date filter: Previous month ━━","status":"info","ts":1778602416355}
+{"message":"4d: browser contexts = 1","status":"info","ts":1778602416362}
+{"message":"4d: controlled page brought to front ✓","status":"pass","ts":1778602416695}
+{"message":"4d: Sales Summary URL check → url=https://devapp.paxel.ai/tenant/dashboard?dateRange=month-to-date isDashboardUrl=true","status":"pass","ts":1778602416701}
+{"message":"4d: Sales Summary visible ✓","status":"pass","ts":1778602416749}
+{"message":"4d: expected Previous month range = Apr 1–Apr 30, 2026","status":"info","ts":1778602416758}
+{"message":"4d: DEBUG current URL = https://devapp.paxel.ai/tenant/dashboard?dateRange=month-to-date","status":"info","ts":1778602416770}
+{"message":"Current URL: https://devapp.paxel.ai/tenant/dashboard?dateRange=month-to-date","status":"info","ts":1778602416777}
+{"message":"4d: browser contexts = 1","status":"info","ts":1778602416784}
+{"message":"4d: controlled page brought to front ✓","status":"pass","ts":1778602417154}
+{"message":"4d: Sales Summary URL check → url=https://devapp.paxel.ai/tenant/dashboard?dateRange=month-to-date isDashboardUrl=true","status":"pass","ts":1778602417163}
+{"message":"4d: Sales Summary visible ✓","status":"pass","ts":1778602417246}
+{"message":"4d: move to date filter button","status":"running","ts":1778602417795}
+{"message":"4d: click date filter button","status":"running","ts":1778602418004}
+{"message":"4d: picker opened ✓","status":"pass","ts":1778602418810}
+{"message":"4d: wait for preset \"Previous month\" inside picker","status":"running","ts":1778602418819}
+{"message":"4d: preset \"Previous month\" visible ✓","status":"pass","ts":1778602418856}
+{"message":"4d: clicked preset \"Previous month\" ✓","status":"pass","ts":1778602420446}
+{"message":"4d: URL matches expected → https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-month","status":"pass","ts":1778602420963}
+{"message":"4d: date button text \"Apr 1–30, 2026\" matches expected","status":"pass","ts":1778602420991}
+{"message":"4d: API response top-level keys = [netSales, netUnits, netOrders, productGroups]","status":"info","ts":1778602421580}
+{"message":"4d: KPI Contracted sales card visible: ✓","status":"pass","ts":1778602421642}
+{"message":"4d: KPI Contracted sales UI value = \"$768,415\", API value = 768415 → ✓","status":"pass","ts":1778602421702}
+{"message":"4d: KPI Contracted sales UI prev = \"$772,446\", API prev = 772446 → ✓","status":"pass","ts":1778602421707}
+{"message":"4d: KPI Contracted sales direction current < previous → isNegative=true ✓","status":"pass","ts":1778602421715}
+{"message":"4d: KPI Contracted sales percent calculated = 1%, API = 1% → ✓","status":"pass","ts":1778602421723}
+{"message":"4d: KPI Units card visible: ✓","status":"pass","ts":1778602421779}
+{"message":"4d: KPI Units UI value = \"43,255\", API value = 43255 → ✓","status":"pass","ts":1778602421829}
+{"message":"4d: KPI Units UI prev = \"43,205\", API prev = 43205 → ✓","status":"pass","ts":1778602421837}
+{"message":"4d: KPI Units direction current > previous → isNegative=false ✓","status":"pass","ts":1778602421845}
+{"message":"4d: KPI Units percent calculated = 0%, API = 0% → ✓","status":"pass","ts":1778602421852}
+{"message":"4d: KPI Orders card visible: ✓","status":"pass","ts":1778602421903}
+{"message":"4d: KPI Orders UI value = \"1,127\", API value = 1127 → ✓","status":"pass","ts":1778602421954}
+{"message":"4d: KPI Orders UI prev = \"1,057\", API prev = 1057 → ✓","status":"pass","ts":1778602421961}
+{"message":"4d: KPI Orders direction current > previous → isNegative=false ✓","status":"pass","ts":1778602421969}
+{"message":"4d: KPI Orders percent calculated = 7%, API = 7% → ✓","status":"pass","ts":1778602421975}
+{"message":"Orders chart heading \"Orders • Previous month\": ✓","status":"pass","ts":1778602422013}
+{"message":"Orders chart section visible: ✓","status":"pass","ts":1778602422066}
+{"message":"Orders chart: found 1 bar columns via class selector","status":"info","ts":1778602422445}
+{"message":"Orders chart plot area visible: ✓ (1 visible bars)","status":"pass","ts":1778602422453}
+{"message":"━━ Step 4e — Date filter: Quarter-to-date ━━","status":"info","ts":1778602422781}
+{"message":"4e: browser contexts = 1","status":"info","ts":1778602422787}
+{"message":"4e: controlled page brought to front ✓","status":"pass","ts":1778602423131}
+{"message":"4e: Sales Summary URL check → url=https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-month isDashboardUrl=true","status":"pass","ts":1778602423138}
+{"message":"4e: Sales Summary visible ✓","status":"pass","ts":1778602423187}
+{"message":"4e: expected QTD range = Apr 1–May 11, 2026 (quarter start → yesterday)","status":"info","ts":1778602423199}
+{"message":"4e: DEBUG current URL = https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-month","status":"info","ts":1778602423204}
+{"message":"Current URL: https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-month","status":"info","ts":1778602423206}
+{"message":"4e: browser contexts = 1","status":"info","ts":1778602423208}
+{"message":"4e: controlled page brought to front ✓","status":"pass","ts":1778602423566}
+{"message":"4e: Sales Summary URL check → url=https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-month isDashboardUrl=true","status":"pass","ts":1778602423567}
+{"message":"4e: Sales Summary visible ✓","status":"pass","ts":1778602423608}
+{"message":"4e: move to date filter button","status":"running","ts":1778602424071}
+{"message":"4e: click date filter button","status":"running","ts":1778602424266}
+{"message":"4e: picker opened ✓","status":"pass","ts":1778602425080}
+{"message":"4e: wait for preset \"Quarter-to-date\" inside picker","status":"running","ts":1778602425082}
+{"message":"4e: preset \"Quarter-to-date\" visible ✓","status":"pass","ts":1778602425112}
+{"message":"4e: clicked preset \"Quarter-to-date\" ✓","status":"pass","ts":1778602426588}
+{"message":"4e: URL matches expected → https://devapp.paxel.ai/tenant/dashboard?dateRange=quarter-to-date","status":"pass","ts":1778602427111}
+{"message":"4e: date button text \"Apr 1–May 11, 2026\" matches expected","status":"pass","ts":1778602427146}
+{"message":"4e: API response top-level keys = [netSales, netUnits, netOrders, productGroups]","status":"info","ts":1778602427619}
+{"message":"4e: KPI Contracted sales card visible: ✓","status":"pass","ts":1778602427695}
+{"message":"4e: KPI Contracted sales UI value = \"$768,415\", API value = 768415 → ✓","status":"pass","ts":1778602427769}
+{"message":"4e: KPI Contracted sales UI prev = \"$745,035\", API prev = 745035 → ✓","status":"pass","ts":1778602427770}
+{"message":"4e: KPI Contracted sales direction current > previous → isNegative=false ✓","status":"pass","ts":1778602427772}
+{"message":"4e: KPI Contracted sales percent calculated = 3%, API = 3% → ✓","status":"pass","ts":1778602427773}
+{"message":"4e: KPI Units card visible: ✓","status":"pass","ts":1778602427822}
+{"message":"4e: KPI Units UI value = \"43,255\", API value = 43255 → ✓","status":"pass","ts":1778602427882}
+{"message":"4e: KPI Units UI prev = \"42,065\", API prev = 42065 → ✓","status":"pass","ts":1778602427883}
+{"message":"4e: KPI Units direction current > previous → isNegative=false ✓","status":"pass","ts":1778602427885}
+{"message":"4e: KPI Units percent calculated = 3%, API = 3% → ✓","status":"pass","ts":1778602427886}
+{"message":"4e: KPI Orders card visible: ✓","status":"pass","ts":1778602427939}
+{"message":"4e: KPI Orders UI value = \"1,127\", API value = 1127 → ✓","status":"pass","ts":1778602427990}
+{"message":"4e: KPI Orders UI prev = \"1,156\", API prev = 1156 → ✓","status":"pass","ts":1778602427992}
+{"message":"4e: KPI Orders direction current < previous → isNegative=true ✓","status":"pass","ts":1778602427994}
+{"message":"4e: KPI Orders percent calculated = 3%, API = 3% → ✓","status":"pass","ts":1778602427995}
+{"message":"Orders chart heading \"Orders • Quarter-to-date\": ✓","status":"pass","ts":1778602428021}
+{"message":"Orders chart section visible: ✓","status":"pass","ts":1778602428065}
+{"message":"Orders chart: found 1 bar columns via class selector","status":"info","ts":1778602428364}
+{"message":"Orders chart plot area visible: ✓ (1 visible bars)","status":"pass","ts":1778602428366}
+{"message":"━━ Step 4f — Date filter: Previous quarter ━━","status":"info","ts":1778602428687}
+{"message":"4f: browser contexts = 1","status":"info","ts":1778602428689}
+{"message":"4f: controlled page brought to front ✓","status":"pass","ts":1778602429030}
+{"message":"4f: Sales Summary URL check → url=https://devapp.paxel.ai/tenant/dashboard?dateRange=quarter-to-date isDashboardUrl=true","status":"pass","ts":1778602429032}
+{"message":"4f: Sales Summary visible ✓","status":"pass","ts":1778602429074}
+{"message":"4f: expected Previous quarter range = Jan 1–Mar 31, 2026","status":"info","ts":1778602429077}
+{"message":"4f: DEBUG current URL = https://devapp.paxel.ai/tenant/dashboard?dateRange=quarter-to-date","status":"info","ts":1778602429081}
+{"message":"Current URL: https://devapp.paxel.ai/tenant/dashboard?dateRange=quarter-to-date","status":"info","ts":1778602429083}
+{"message":"4f: browser contexts = 1","status":"info","ts":1778602429084}
+{"message":"4f: controlled page brought to front ✓","status":"pass","ts":1778602429430}
+{"message":"4f: Sales Summary URL check → url=https://devapp.paxel.ai/tenant/dashboard?dateRange=quarter-to-date isDashboardUrl=true","status":"pass","ts":1778602429431}
+{"message":"4f: Sales Summary visible ✓","status":"pass","ts":1778602429480}
+{"message":"4f: move to date filter button","status":"running","ts":1778602429928}
+{"message":"4f: click date filter button","status":"running","ts":1778602430115}
+{"message":"4f: picker opened ✓","status":"pass","ts":1778602430931}
+{"message":"4f: wait for preset \"Previous quarter\" inside picker","status":"running","ts":1778602430932}
+{"message":"4f: preset \"Previous quarter\" visible ✓","status":"pass","ts":1778602430973}
+{"message":"4f: clicked preset \"Previous quarter\" ✓","status":"pass","ts":1778602432498}
+{"message":"4f: URL matches expected → https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-quarter","status":"pass","ts":1778602433010}
+{"message":"4f: date button text \"Jan 1–Mar 31, 2026\" matches expected","status":"pass","ts":1778602433032}
+{"message":"4f: API response top-level keys = [netSales, netUnits, netOrders, productGroups]","status":"info","ts":1778602433381}
+{"message":"4f: KPI Contracted sales card visible: ✓","status":"pass","ts":1778602433424}
+{"message":"4f: KPI Contracted sales UI value = \"$1,858,320\", API value = 1858320 → ✓","status":"pass","ts":1778602433467}
+{"message":"4f: KPI Contracted sales UI prev = \"$1,491,907\", API prev = 1491907 → ✓","status":"pass","ts":1778602433468}
+{"message":"4f: KPI Contracted sales direction current > previous → isNegative=false ✓","status":"pass","ts":1778602433469}
+{"message":"4f: KPI Contracted sales percent calculated = 25%, API = 25% → ✓","status":"pass","ts":1778602433471}
+{"message":"4f: KPI Units card visible: ✓","status":"pass","ts":1778602433512}
+{"message":"4f: KPI Units UI value = \"103,835\", API value = 103835 → ✓","status":"pass","ts":1778602433555}
+{"message":"4f: KPI Units UI prev = \"84,820\", API prev = 84820 → ✓","status":"pass","ts":1778602433556}
+{"message":"4f: KPI Units direction current > previous → isNegative=false ✓","status":"pass","ts":1778602433558}
+{"message":"4f: KPI Units percent calculated = 22%, API = 22% → ✓","status":"pass","ts":1778602433559}
+{"message":"4f: KPI Orders card visible: ✓","status":"pass","ts":1778602433607}
+{"message":"4f: KPI Orders UI value = \"2,740\", API value = 2740 → ✓","status":"pass","ts":1778602433651}
+{"message":"4f: KPI Orders UI prev = \"2,491\", API prev = 2491 → ✓","status":"pass","ts":1778602433653}
+{"message":"4f: KPI Orders direction current > previous → isNegative=false ✓","status":"pass","ts":1778602433654}
+{"message":"4f: KPI Orders percent calculated = 10%, API = 10% → ✓","status":"pass","ts":1778602433655}
+{"message":"Orders chart heading \"Orders • Previous quarter\": ✓","status":"pass","ts":1778602433706}
+{"message":"Orders chart section visible: ✓","status":"pass","ts":1778602433766}
+{"message":"Orders chart: found 1 bar columns via class selector","status":"info","ts":1778602434102}
+{"message":"Orders chart plot area visible: ✓ (1 visible bars)","status":"pass","ts":1778602434104}
+{"message":"━━ Step 4g — Date filter: Year-to-date ━━","status":"info","ts":1778602434424}
+{"message":"4g: browser contexts = 1","status":"info","ts":1778602434427}
+{"message":"4g: controlled page brought to front ✓","status":"pass","ts":1778602434750}
+{"message":"4g: Sales Summary URL check → url=https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-quarter isDashboardUrl=true","status":"pass","ts":1778602434752}
+{"message":"4g: Sales Summary visible ✓","status":"pass","ts":1778602434801}
+{"message":"4g: expected YTD range = Jan 1–May 11, 2026 (fiscal-year aware for Nexus Pharmaceuticals)","status":"info","ts":1778602434803}
+{"message":"4g: DEBUG current URL = https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-quarter","status":"info","ts":1778602434808}
+{"message":"Current URL: https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-quarter","status":"info","ts":1778602434810}
+{"message":"4g: browser contexts = 1","status":"info","ts":1778602434811}
+{"message":"4g: controlled page brought to front ✓","status":"pass","ts":1778602435155}
+{"message":"4g: Sales Summary URL check → url=https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-quarter isDashboardUrl=true","status":"pass","ts":1778602435157}
+{"message":"4g: Sales Summary visible ✓","status":"pass","ts":1778602435204}
+{"message":"4g: move to date filter button","status":"running","ts":1778602435664}
+{"message":"4g: click date filter button","status":"running","ts":1778602435846}
+{"message":"4g: picker opened ✓","status":"pass","ts":1778602436671}
+{"message":"4g: wait for preset \"Year-to-date\" inside picker","status":"running","ts":1778602436672}
+{"message":"4g: preset \"Year-to-date\" visible ✓","status":"pass","ts":1778602436710}
+{"message":"4g: clicked preset \"Year-to-date\" ✓","status":"pass","ts":1778602438264}
+{"message":"4g: URL matches expected → https://devapp.paxel.ai/tenant/dashboard?dateRange=year-to-date","status":"pass","ts":1778602438796}
+{"message":"4g: date button text \"Jan 1–May 11, 2026\" matches expected","status":"pass","ts":1778602438820}
+{"message":"4g: API response top-level keys = [netSales, netUnits, netOrders, productGroups]","status":"info","ts":1778602439198}
+{"message":"4g: KPI Contracted sales card visible: ✓","status":"pass","ts":1778602439251}
+{"message":"4g: KPI Contracted sales UI value = \"$2,626,735\", API value = 2626735 → ✓","status":"pass","ts":1778602439296}
+{"message":"4g: KPI Contracted sales UI prev = \"$1,354,256\", API prev = 1354256 → ✓","status":"pass","ts":1778602439297}
+{"message":"4g: KPI Contracted sales direction current > previous → isNegative=false ✓","status":"pass","ts":1778602439299}
+{"message":"4g: KPI Contracted sales percent calculated = 94%, API = 94% → ✓","status":"pass","ts":1778602439300}
+{"message":"4g: KPI Units card visible: ✓","status":"pass","ts":1778602439352}
+{"message":"4g: KPI Units UI value = \"147,090\", API value = 147090 → ✓","status":"pass","ts":1778602439415}
+{"message":"4g: KPI Units UI prev = \"61,880\", API prev = 61880 → ✓","status":"pass","ts":1778602439416}
+{"message":"4g: KPI Units direction current > previous → isNegative=false ✓","status":"pass","ts":1778602439417}
+{"message":"4g: KPI Units percent calculated = 138%, API = 138% → ✓","status":"pass","ts":1778602439419}
+{"message":"4g: KPI Orders card visible: ✓","status":"pass","ts":1778602439477}
+{"message":"4g: KPI Orders UI value = \"3,867\", API value = 3867 → ✓","status":"pass","ts":1778602439546}
+{"message":"4g: KPI Orders UI prev = \"1,555\", API prev = 1555 → ✓","status":"pass","ts":1778602439548}
+{"message":"4g: KPI Orders direction current > previous → isNegative=false ✓","status":"pass","ts":1778602439549}
+{"message":"4g: KPI Orders percent calculated = 149%, API = 149% → ✓","status":"pass","ts":1778602439551}
+{"message":"Orders chart heading \"Orders • Year-to-date\": ✓","status":"pass","ts":1778602439585}
+{"message":"Orders chart section visible: ✓","status":"pass","ts":1778602439646}
+{"message":"Orders chart: found 1 bar columns via class selector","status":"info","ts":1778602440223}
+{"message":"Orders chart plot area visible: ✓ (1 visible bars)","status":"pass","ts":1778602440232}
+{"message":"━━ Step 4h — Date filter: Previous year ━━","status":"info","ts":1778602440583}
+{"message":"4h: browser contexts = 1","status":"info","ts":1778602440585}
+{"message":"4h: controlled page brought to front ✓","status":"pass","ts":1778602440931}
+{"message":"4h: Sales Summary URL check → url=https://devapp.paxel.ai/tenant/dashboard?dateRange=year-to-date isDashboardUrl=true","status":"pass","ts":1778602440932}
+{"message":"4h: Sales Summary visible ✓","status":"pass","ts":1778602440992}
+{"message":"4h: expected Previous year range = Jan 1–Dec 31, 2025 (fiscal-year aware for Nexus Pharmaceuticals)","status":"info","ts":1778602440993}
+{"message":"4h: DEBUG current URL = https://devapp.paxel.ai/tenant/dashboard?dateRange=year-to-date","status":"info","ts":1778602440998}
+{"message":"Current URL: https://devapp.paxel.ai/tenant/dashboard?dateRange=year-to-date","status":"info","ts":1778602440999}
+{"message":"4h: browser contexts = 1","status":"info","ts":1778602441001}
+{"message":"4h: controlled page brought to front ✓","status":"pass","ts":1778602441379}
+{"message":"4h: Sales Summary URL check → url=https://devapp.paxel.ai/tenant/dashboard?dateRange=year-to-date isDashboardUrl=true","status":"pass","ts":1778602441380}
+{"message":"4h: Sales Summary visible ✓","status":"pass","ts":1778602441420}
+{"message":"4h: move to date filter button","status":"running","ts":1778602441924}
+{"message":"4h: click date filter button","status":"running","ts":1778602442123}
+{"message":"4h: picker opened ✓","status":"pass","ts":1778602442963}
+{"message":"4h: wait for preset \"Previous year\" inside picker","status":"running","ts":1778602442965}
+{"message":"4h: preset \"Previous year\" visible ✓","status":"pass","ts":1778602443011}
+{"message":"4h: clicked preset \"Previous year\" ✓","status":"pass","ts":1778602444615}
+{"message":"━━ Step 4i1 — Date filter: Custom range multi-day ━━","status":"info","ts":1778602444955}
+{"message":"SOFT-FAIL \"Step 4i1 — Date filter: Custom range multi-day\": 4i1: page is already closed | URL: https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-year","status":"fail","ts":1778602444960}
+{"message":"━━ Step 4i2 — Date filter: Custom range single-day ━━","status":"info","ts":1778602444977}
+{"message":"SOFT-FAIL \"Step 4i2 — Date filter: Custom range single-day\": 4i2: page is already closed | URL: https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-year","status":"fail","ts":1778602444982}
+{"message":"━━ Step 4-reset — Date filter restore to Previous year ━━","status":"info","ts":1778602444994}
+{"message":"━━ Step 4i3 — Date filter: Custom range outside-click close ━━","status":"info","ts":1778602444996}
+{"message":"SOFT-FAIL \"Step 4i3 — Date filter: Custom range outside-click close\": 4i3: page is already closed | URL: https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-year","status":"fail","ts":1778602445004}
+{"message":"━━ Step 4j — Show customer type info button ━━","status":"info","ts":1778602445017}
+{"message":"SOFT-FAIL \"Step 4j — Show customer type info button\": 4j: page is already closed | URL: https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-year","status":"fail","ts":1778602445020}
+{"message":"━━ Step 5a — Product filter: open/default/sections/scroll ━━","status":"info","ts":1778602445054}
+{"message":"SOFT-FAIL \"Step 5a — Product filter: open/default/sections/scroll\": 5a: page is already closed | URL: https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-year","status":"fail","ts":1778602445062}
+{"message":"━━ Step 5b1 — Product filter: Other sold products only ━━","status":"info","ts":1778602445075}
+{"message":"SOFT-FAIL \"Step 5b1 — Product filter: Other sold products only\": 5b1: page is already closed | URL: https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-year","status":"fail","ts":1778602445085}
+{"message":"━━ Step 5b2 — Product filter: Comp plan + Other sold products ━━","status":"info","ts":1778602445097}
+{"message":"SOFT-FAIL \"Step 5b2 — Product filter: Comp plan + Other sold products\": 5b2: page is already closed | URL: https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-year","status":"fail","ts":1778602445105}
+{"message":"━━ Step 5b3 — Product filter: Unsold products only ━━","status":"info","ts":1778602445115}
+{"message":"SOFT-FAIL \"Step 5b3 — Product filter: Unsold products only\": 5b3: page is already closed | URL: https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-year","status":"fail","ts":1778602445118}
+{"message":"━━ Step 5b4 — Product filter: No products selected ━━","status":"info","ts":1778602445130}
+{"message":"SOFT-FAIL \"Step 5b4 — Product filter: No products selected\": 5b4: page is already closed | URL: https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-year","status":"fail","ts":1778602445134}
+{"message":"━━ Step 5c — Product filter: single product Just this ━━","status":"info","ts":1778602445147}
+{"message":"SOFT-FAIL \"Step 5c — Product filter: single product Just this\": 5c: page is already closed | URL: https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-year","status":"fail","ts":1778602445154}
+{"message":"━━ Step 5d — Product filter: NDC toggle ━━","status":"info","ts":1778602445163}
+{"message":"SOFT-FAIL \"Step 5d — Product filter: NDC toggle\": 5d: page is already closed | URL: https://devapp.paxel.ai/tenant/dashboard?dateRange=previous-year","status":"fail","ts":1778602445166}
+{"message":"5b3: page already closed — skipping","status":"info","ts":1778602445173}
+{"message":"DIAG finally: before exitImpersonation — isImpersonated=true page.isClosed()=true url=(page closed)","status":"info","ts":1778602445175}
+{"message":"DIAG finally: END of finally block — page.isClosed()=true url=(page closed)","status":"info","ts":1778602445177}
